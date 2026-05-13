@@ -291,11 +291,37 @@ export default function App() {
         </nav>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''}`}>
         <motion.div key={currentPage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           {renderPage()}
         </motion.div>
       </main>
+
+      {/* Mobile bottom nav — patients only */}
+      {user?.role === 'patient' && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+          <div className="flex">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+              { id: 'vitals', icon: Activity, label: t('nav.vitals') },
+              { id: 'gfr', icon: Calculator, label: t('nav.gfr') },
+              { id: 'education', icon: BookOpen, label: t('nav.education') },
+              { id: 'profile', icon: User, label: 'Profile' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setCurrentPage(item.id)}
+                className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors ${
+                  currentPage === item.id ? 'text-[#1A6B8A]' : 'text-slate-400'
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="text-[10px] font-semibold leading-tight truncate w-full text-center px-1">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
 
       {!user && currentPage === 'landing' && (
         <footer className="bg-slate-900 text-slate-400 py-12 mt-20">

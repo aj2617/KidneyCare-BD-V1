@@ -476,32 +476,183 @@ async function startServer() {
     console.log('Database empty, seeding initial data...');
     const hashedPassword = await bcrypt.hash('password123', 10);
 
+    // ── Admins ──
     db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Admin Officer', 'admin@kidneycare.bd', hashedPassword, 'admin', 'Dhaka');
-    db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Ahmed Khan', 'doctor@kidneycare.bd', hashedPassword, 'doctor', 'Dhaka');
+    db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Rahim Chowdhury', 'admin2@kidneycare.bd', hashedPassword, 'admin', 'Chittagong');
 
-    const chwUser = db.prepare('INSERT INTO users (name, email, password, role, district, division) VALUES (?, ?, ?, ?, ?, ?)').run('CHW Fatema Begum', 'chw@kidneycare.bd', hashedPassword, 'chw', 'Rajshahi', 'Rajshahi');
-    db.prepare('INSERT INTO chw_workers (user_id, region) VALUES (?, ?)').run(chwUser.lastInsertRowid, 'Rajshahi');
+    // ── Doctors ──
+    const doc1 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Ahmed Khan', 'doctor@kidneycare.bd', hashedPassword, 'doctor', 'Dhaka');
+    const doc2 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Rashida Begum', 'doctor2@kidneycare.bd', hashedPassword, 'doctor', 'Chittagong');
+    const doc3 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Karim Molla', 'doctor3@kidneycare.bd', hashedPassword, 'doctor', 'Rajshahi');
+    const doctorIds = [doc1.lastInsertRowid, doc2.lastInsertRowid, doc3.lastInsertRowid];
 
-    const districts = ['Dhaka', 'Chittagong', 'Gazipur', 'Narayanganj', 'Rajshahi', 'Sylhet', 'Khulna', 'Barisal', 'Chapainawabganj', 'Noakhali'];
-    districts.forEach((dist, i) => {
-      const p = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run(`Patient ${dist}`, `patient_${dist.toLowerCase().replace(/[' ]/g, '_')}@kidneycare.bd`, hashedPassword, 'patient', dist);
-      const doctorId = i % 2 === 0 ? 2 : null;
-      const isArsenic = ARSENIC_DISTRICTS.has(dist) ? 1 : 0;
-      const patRec = db.prepare('INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, risk_score, ckd_stage, assigned_doctor_id, arsenic_prone_area) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(p.lastInsertRowid, 40 + i * 5, i % 2 === 0 ? 'male' : 'female', 60 + i * 2, i % 3 === 0 ? 1 : 0, 1, 20 + i * 10, (i % 4) + 1, doctorId, isArsenic);
-      // Seed some vitals
-      db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(patRec.lastInsertRowid, 130 + i * 3, 85 + i * 2, 5.5 + i * 0.3, 1.1 + i * 0.2, 'Negative', 60 + i * 2, 0, 4);
+    // ── CHWs ──
+    const chwSeed = [
+      { name: 'CHW Fatema Begum', email: 'chw@kidneycare.bd', district: 'Rajshahi', division: 'Rajshahi' },
+      { name: 'CHW Nasrin Akter', email: 'chw2@kidneycare.bd', district: 'Dhaka', division: 'Dhaka' },
+      { name: 'CHW Rokeya Khanam', email: 'chw3@kidneycare.bd', district: 'Khulna', division: 'Khulna' },
+      { name: 'CHW Momotaz Begum', email: 'chw4@kidneycare.bd', district: 'Sylhet', division: 'Sylhet' },
+      { name: 'CHW Shapla Rani', email: 'chw5@kidneycare.bd', district: 'Barisal', division: 'Barisal' },
+    ];
+    chwSeed.forEach(c => {
+      const u = db.prepare('INSERT INTO users (name, email, password, role, district, division) VALUES (?, ?, ?, ?, ?, ?)').run(c.name, c.email, hashedPassword, 'chw', c.district, c.division);
+      db.prepare('INSERT INTO chw_workers (user_id, region) VALUES (?, ?)').run(u.lastInsertRowid, c.district);
     });
 
+    // ── 50 Patients across Bangladesh districts ──
+    // [name, emailKey, district, age, sex, weight, diabetes, htn, stage, risk, arsenic, herbal, nsaid]
+    const patientsSeed: [string,string,string,number,string,number,number,number,number,number,number,number,number][] = [
+      ['Abdul Karim', 'dhaka1', 'Dhaka', 52, 'male', 72, 1, 1, 2, 55, 0, 0, 1],
+      ['Fatema Khatun', 'dhaka2', 'Dhaka', 45, 'female', 58, 0, 1, 1, 30, 0, 1, 0],
+      ['Mohammad Hossain', 'gazipur', 'Gazipur', 60, 'male', 80, 1, 1, 3, 70, 0, 0, 1],
+      ['Rahela Begum', 'narayanganj', 'Narayanganj', 38, 'female', 62, 1, 0, 1, 40, 0, 1, 0],
+      ['Nurul Islam', 'rajshahi1', 'Rajshahi', 55, 'male', 68, 0, 1, 2, 50, 0, 0, 0],
+      ['Sufia Khatun', 'rajshahi2', 'Rajshahi', 48, 'female', 55, 1, 1, 3, 65, 0, 1, 1],
+      ['Rahim Uddin', 'ctg1', 'Chittagong', 63, 'male', 75, 1, 1, 4, 80, 0, 0, 1],
+      ['Hasina Begum', 'ctg2', 'Chittagong', 42, 'female', 60, 0, 0, 1, 20, 0, 0, 0],
+      ['Karim Mia', 'sylhet1', 'Sylhet', 57, 'male', 70, 1, 0, 2, 45, 0, 1, 0],
+      ['Bilkis Akter', 'sylhet2', 'Sylhet', 50, 'female', 58, 1, 1, 3, 72, 0, 0, 1],
+      ['Jalal Uddin', 'chapai1', 'Chapainawabganj', 49, 'male', 65, 0, 1, 2, 58, 1, 1, 0],
+      ['Moriam Begum', 'chapai2', 'Chapainawabganj', 44, 'female', 52, 1, 1, 3, 75, 1, 0, 1],
+      ['Abul Kashem', 'noakhali1', 'Noakhali', 66, 'male', 70, 1, 1, 4, 85, 1, 1, 1],
+      ['Laila Arjuman', 'noakhali2', 'Noakhali', 39, 'female', 56, 0, 0, 1, 25, 1, 0, 0],
+      ['Siraj Mia', 'comilla1', 'Comilla', 53, 'male', 73, 1, 1, 3, 68, 0, 0, 0],
+      ['Amena Khatun', 'comilla2', 'Comilla', 41, 'female', 59, 1, 0, 2, 42, 0, 1, 0],
+      ['Harun Rashid', 'khulna1', 'Khulna', 58, 'male', 68, 0, 1, 2, 52, 0, 0, 1],
+      ['Sabina Yasmin', 'khulna2', 'Khulna', 35, 'female', 54, 0, 0, 1, 18, 0, 0, 0],
+      ['Babul Akter', 'barisal1', 'Barisal', 61, 'male', 76, 1, 1, 4, 82, 0, 1, 1],
+      ['Razia Sultana', 'barisal2', 'Barisal', 46, 'female', 57, 0, 1, 2, 48, 0, 0, 0],
+      ['Jamal Hossain', 'rangpur1', 'Rangpur', 54, 'male', 69, 1, 0, 2, 47, 0, 1, 0],
+      ['Minu Akhter', 'rangpur2', 'Rangpur', 37, 'female', 51, 0, 0, 1, 15, 0, 0, 0],
+      ['Selim Reza', 'dinajpur', 'Dinajpur', 62, 'male', 74, 1, 1, 4, 78, 0, 0, 1],
+      ['Halima Khatun', 'bogra', 'Bogra', 47, 'female', 60, 1, 1, 3, 66, 0, 1, 0],
+      ['Anisur Rahman', 'pabna', 'Pabna', 56, 'male', 71, 0, 1, 2, 53, 0, 0, 0],
+      ['Taslima Begum', 'sirajganj', 'Sirajganj', 43, 'female', 55, 1, 0, 2, 38, 0, 1, 1],
+      ['Mahbub Alam', 'tangail', 'Tangail', 59, 'male', 77, 1, 1, 3, 71, 0, 0, 1],
+      ['Nasreen Jahan', 'faridpur', 'Faridpur', 40, 'female', 58, 0, 0, 1, 22, 0, 0, 0],
+      ['Kamal Hossain', 'jessore', 'Jessore', 64, 'male', 72, 1, 1, 4, 88, 0, 1, 1],
+      ['Begum Rokeya', 'kushtia', 'Kushtia', 45, 'female', 56, 1, 0, 2, 40, 0, 0, 0],
+      ['Abdur Rahim', 'mymensingh1', 'Mymensingh', 68, 'male', 66, 1, 1, 5, 92, 0, 1, 1],
+      ['Salma Khatun', 'mymensingh2', 'Mymensingh', 52, 'female', 60, 1, 1, 4, 79, 0, 0, 1],
+      ['Nurul Amin', 'coxsbazar', "Cox's Bazar", 55, 'male', 70, 0, 1, 2, 49, 0, 1, 0],
+      ['Fatema Tuz', 'sunamganj', 'Sunamganj', 44, 'female', 54, 1, 0, 2, 43, 0, 0, 0],
+      ['Shahjahan Mia', 'habiganj', 'Habiganj', 57, 'male', 73, 1, 1, 3, 67, 0, 1, 1],
+      ['Monowara Begum', 'moulvibazar', 'Moulvibazar', 49, 'female', 58, 0, 1, 2, 44, 0, 0, 0],
+      ['Abul Bashar', 'netrokona', 'Netrokona', 61, 'male', 69, 1, 1, 3, 73, 0, 1, 0],
+      ['Kamrunnahar', 'sherpur', 'Sherpur', 38, 'female', 52, 0, 0, 1, 17, 0, 0, 0],
+      ['Ekramul Haq', 'naogaon', 'Naogaon', 53, 'male', 71, 1, 0, 2, 46, 0, 1, 0],
+      ['Sultana Razia', 'natore', 'Natore', 42, 'female', 57, 0, 1, 2, 41, 0, 0, 1],
+      ['Mannan Mia', 'narsingdi', 'Narsingdi', 60, 'male', 75, 1, 1, 4, 81, 0, 0, 1],
+      ['Shirin Akter', 'manikganj', 'Manikganj', 36, 'female', 53, 0, 0, 1, 19, 0, 0, 0],
+      ['Hatem Ali', 'chandpur', 'Chandpur', 65, 'male', 70, 1, 1, 4, 84, 1, 1, 1],
+      ['Tahmina Khatun', 'feni', 'Feni', 48, 'female', 59, 1, 0, 2, 39, 1, 0, 0],
+      ['Lutfur Rahman', 'lakshmipur', 'Lakshmipur', 56, 'male', 72, 0, 1, 3, 62, 1, 1, 0],
+      ['Rokshana Begum', 'magura', 'Magura', 44, 'female', 55, 0, 0, 1, 21, 0, 0, 0],
+      ['Delwar Hossain', 'jhenaidah', 'Jhenaidah', 59, 'male', 68, 1, 1, 3, 69, 0, 1, 1],
+      ['Feroza Khatun', 'narail', 'Narail', 47, 'female', 56, 1, 0, 2, 37, 0, 0, 0],
+      ['Mizanur Rahman', 'satkhira', 'Satkhira', 62, 'male', 74, 1, 1, 4, 83, 0, 0, 1],
+      ['Nurunnahar Begum', 'bagerhat', 'Bagerhat', 41, 'female', 58, 0, 1, 2, 45, 0, 1, 0],
+    ];
+
+    const patientRecordIds: number[] = [];
+    patientsSeed.forEach(([name, key, district, age, sex, weight, diabetes, htn, stage, risk, arsenic, herbal, nsaid], i) => {
+      const u = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run(name, `patient_${key}@kidneycare.bd`, hashedPassword, 'patient', district);
+      const doctorId = doctorIds[i % doctorIds.length];
+      const isArsenic = ARSENIC_DISTRICTS.has(district) ? 1 : arsenic;
+      const p = db.prepare('INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, risk_score, ckd_stage, assigned_doctor_id, arsenic_prone_area, herbal_remedy_use, nsaid_use) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(u.lastInsertRowid, age, sex, weight, diabetes, htn, risk, stage, doctorId, isArsenic, herbal, nsaid);
+      patientRecordIds.push(Number(p.lastInsertRowid));
+    });
+
+    // ── 6-month vitals history for first 10 patients ──
+    const vitalStmt = db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const proteinOpts = ['Negative', 'Trace', '1+', '2+', '3+'];
+    const rnd = (range: number) => (Math.random() - 0.5) * range;
+    for (let pi = 0; pi < Math.min(10, patientRecordIds.length); pi++) {
+      const patId = patientRecordIds[pi];
+      const baseCr = 0.9 + pi * 0.22;
+      const baseSys = 122 + pi * 5;
+      const baseWt = 55 + pi * 2;
+      for (let daysAgo = 180; daysAgo >= 0; daysAgo -= 4) {
+        const d = new Date(); d.setDate(d.getDate() - daysAgo);
+        const prog = (180 - daysAgo) / 180;
+        const cr = Math.max(0.5, +(baseCr + prog * pi * 0.12 + rnd(0.15)).toFixed(2));
+        const sys = Math.round(Math.max(100, baseSys + prog * 8 + rnd(8)));
+        const dia = Math.round(Math.max(60, 80 + pi * 1.5 + rnd(6)));
+        const sugar = Math.max(3, +(5.4 + (pi % 3 === 0 ? 2.5 : 0) + rnd(0.8)).toFixed(1));
+        const wt = +(baseWt + rnd(0.8)).toFixed(1);
+        const protein = proteinOpts[Math.min(Math.floor(pi / 2.5), 4)];
+        vitalStmt.run(patId, sys, dia, sugar, cr, protein, wt, pi > 7 ? 1 : 0, Math.round(4 + pi * 0.5 + rnd(1.5)), d.toISOString());
+      }
+    }
+    // Single vitals for remaining patients
+    for (let pi = 10; pi < patientRecordIds.length; pi++) {
+      const patId = patientRecordIds[pi];
+      vitalStmt.run(patId, 125 + pi, 82 + Math.floor(pi / 2), 5.5, +(1.0 + pi * 0.1).toFixed(1), 'Negative', 60 + pi % 20, 0, 4, new Date().toISOString());
+    }
+
+    // ── GFR history for first 10 patients (every 30 days, 6 months) ──
+    const gfrStmt = db.prepare('INSERT INTO gfr_records (patient_id, creatinine, age, sex, weight, mdrd, cg, ckd_epi, stage, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    for (let pi = 0; pi < Math.min(10, patientRecordIds.length); pi++) {
+      const patId = patientRecordIds[pi];
+      const [,, , age,sex, weight,,, stage] = patientsSeed[pi];
+      for (let daysAgo = 150; daysAgo >= 0; daysAgo -= 30) {
+        const d = new Date(); d.setDate(d.getDate() - daysAgo);
+        const cr = +(0.9 + pi * 0.22 + (daysAgo / 150) * 0.25).toFixed(2);
+        const gfr = Math.max(8, 115 - pi * 13 - (150 - daysAgo) / 15);
+        gfrStmt.run(patId, cr, age, sex, weight, +gfr.toFixed(1), +(gfr * 0.96).toFixed(1), +(gfr * 1.04).toFixed(1), stage, d.toISOString());
+      }
+    }
+
+    // ── 15 Bilingual Education Articles ──
     const articles = [
-      { en: 'Understanding CKD Stages', bn: 'সিকেডি পর্যায়গুলি বোঝা', cat: 'Basics', content_en: 'Chronic Kidney Disease (CKD) is divided into 5 stages based on your GFR score. Stage 1 is mild, while Stage 5 means kidney failure. Monitoring your GFR is crucial for early detection.', content_bn: 'ক্রনিক কিডনি ডিজিজ (সিকেডি) আপনার জিএফআর স্কোরের উপর ভিত্তি করে ৫টি পর্যায়ে বিভক্ত। পর্যায় ১ মৃদু, আর পর্যায় ৫ মানে কিডনি বিকল হওয়া।' },
-      { en: 'Diet Tips for Kidney Health', bn: 'কিডনি স্বাস্থ্যের জন্য ডায়েট টিপস', cat: 'Diet', content_en: 'A kidney-friendly diet involves low sodium, low potassium, and controlled protein intake. Focus on fresh vegetables like cauliflower and fruits like apples. Avoid processed foods.', content_bn: 'কিডনি-বান্ধব ডায়েটে কম সোডিয়াম, কম পটাশিয়াম এবং নিয়ন্ত্রিত প্রোটিন গ্রহণ অন্তর্ভুক্ত।' },
-      { en: 'Managing Hypertension', bn: 'উচ্চ রক্তচাপ ব্যবস্থাপনা', cat: 'Management', content_en: 'High blood pressure is a leading cause of CKD. Maintain a healthy weight, exercise regularly, and take prescribed medications to protect your kidneys.', content_bn: 'উচ্চ রক্তচাপ সিকেডির একটি প্রধান কারণ। আপনার কিডনি রক্ষা করার জন্য স্বাস্থ্যকর ওজন বজায় রাখুন।' },
-      { en: 'Diabetes and Kidney Disease', bn: 'ডায়াবেটিস এবং কিডনি রোগ', cat: 'Management', content_en: 'Uncontrolled diabetes can damage the small blood vessels in your kidneys. Keep your blood sugar levels within target range to prevent CKD progression.', content_bn: 'অনিয়ন্ত্রিত ডায়াবেটিস আপনার কিডনির ছোট রক্তনালীগুলিকে ক্ষতিগ্রস্ত করতে পারে।' },
-      { en: 'Dialysis and Transplantation', bn: 'ডায়ালাইসিস এবং প্রতিস্থাপন', cat: 'Treatment', content_en: 'When kidneys reach Stage 5 (failure), treatments like hemodialysis or a kidney transplant are necessary. Hemodialysis filters blood using a machine, while a transplant involves surgery.', content_bn: 'যখন কিডনি পর্যায় ৫-এ (বিকল) পৌঁছায়, তখন হেমোডায়ালাইসিস বা কিডনি প্রতিস্থাপনের মতো চিকিৎসার প্রয়োজন হয়।' },
-      { en: 'Arsenic and Kidney Health in Bangladesh', bn: 'বাংলাদেশে আর্সেনিক ও কিডনি স্বাস্থ্য', cat: 'Basics', content_en: 'Groundwater arsenic contamination in many Bangladesh districts is a known nephrotoxin. Patients in affected areas face higher CKD risk. Use safe water sources and get tested.', content_bn: 'বাংলাদেশের অনেক জেলায় ভূগর্ভস্থ জলে আর্সেনিক দূষণ কিডনির জন্য ক্ষতিকর। নিরাপদ পানি ব্যবহার করুন।' },
+      { en: 'Understanding CKD Stages', bn: 'সিকেডি পর্যায়গুলি বোঝা', cat: 'Basics',
+        ce: 'CKD is divided into 5 stages based on GFR. Stage 1 (GFR ≥90) is mild damage with normal function. Stage 2 (GFR 60-89) shows mild reduction. Stage 3 (GFR 30-59) is moderate — specialist referral needed. Stage 4 (GFR 15-29) is severe and requires preparation for kidney replacement therapy. Stage 5 (GFR <15) is kidney failure. Regular GFR testing every 3–6 months is essential for monitoring progression.',
+        cb: 'সিকেডি জিএফআরের উপর ভিত্তি করে ৫টি পর্যায়ে বিভক্ত। পর্যায় ১ (জিএফআর ≥৯০) স্বাভাবিক কার্যকারিতা সহ মৃদু ক্ষতি। পর্যায় ৩ মাঝারি — বিশেষজ্ঞ রেফারেল প্রয়োজন। পর্যায় ৫ কিডনি বিকল — ডায়ালাইসিস বা প্রতিস্থাপন প্রয়োজন। প্রতি ৩-৬ মাসে নিয়মিত জিএফআর পরীক্ষা অপরিহার্য।' },
+      { en: 'Kidney-Friendly Diet for Bangladeshis', bn: 'বাংলাদেশিদের জন্য কিডনি-বান্ধব ডায়েট', cat: 'Diet',
+        ce: 'Limit sodium to 2000mg/day — avoid shutki (dried fish), pickles, and processed snacks. Avoid high-potassium foods (bananas, coconut water, spinach, dal) in stage 3+. White rice is better than red rice. Good choices: bottle gourd (lau), cauliflower, cabbage, cucumber, apple, egg whites, skinless chicken. Boil vegetables and discard water to reduce potassium by 50%. Consult a dietitian for your specific CKD stage.',
+        cb: 'সোডিয়াম দৈনিক ২০০০ মিগ্রায় সীমিত করুন — শুঁটকি, আচার এবং প্রক্রিয়াজাত স্ন্যাকস এড়িয়ে চলুন। পর্যায় ৩+ এ উচ্চ পটাশিয়ামযুক্ত খাবার (কলা, ডাবের পানি, পালং শাক, ডাল) এড়িয়ে চলুন। সবজি সিদ্ধ করে পানি ফেলে দিলে পটাশিয়াম ৫০% কমে।' },
+      { en: 'Managing Hypertension with CKD', bn: 'সিকেডি সহ উচ্চ রক্তচাপ ব্যবস্থাপনা', cat: 'Management',
+        ce: 'Target BP for CKD patients is below 130/80 mmHg. ACE inhibitors or ARBs are recommended — they protect kidneys beyond just lowering BP. Take medications every day, even when you feel well. Reduce salt intake, walk 30 min/day 5 days/week, and maintain healthy weight. Monitor BP at home daily. If BP is consistently above 140/90, contact your doctor immediately.',
+        cb: 'সিকেডি রোগীদের লক্ষ্য রক্তচাপ ১৩০/৮০ মিমিএইচজি এর নিচে। এসিই ইনহিবিটর বা এআরবি সুপারিশ করা হয় — এগুলো শুধু রক্তচাপ কমায় না, কিডনিও রক্ষা করে। প্রতিদিন ওষুধ খান, এমনকি সুস্থ অনুভব করলেও।' },
+      { en: 'Diabetes and Kidney Disease', bn: 'ডায়াবেটিস এবং কিডনি রোগ', cat: 'Management',
+        ce: 'Diabetic nephropathy is the #1 cause of CKD in Bangladesh. Keep HbA1c below 7% to protect kidneys. Check blood sugar daily. Avoid NSAIDs (ibuprofen, naproxen) which harm kidneys. Ask your doctor about SGLT2 inhibitors (empagliflozin, dapagliflozin) which protect kidneys in diabetic CKD. Never skip insulin or diabetes medications.',
+        cb: 'ডায়াবেটিক নেফ্রোপ্যাথি বাংলাদেশে সিকেডির ১নং কারণ। কিডনি রক্ষা করতে HbA1c ৭% এর নিচে রাখুন। আইবুপ্রোফেন, ন্যাপ্রক্সেন এড়িয়ে চলুন যা কিডনির ক্ষতি করে।' },
+      { en: 'Dialysis Options in Bangladesh', bn: 'বাংলাদেশে ডায়ালাইসিস বিকল্প', cat: 'Treatment',
+        ce: 'When kidneys fail (Stage 5), options are hemodialysis (3 sessions/week, 4hrs each; government hospitals: 12,000–20,000 BDT/month) or peritoneal dialysis (home-based, daily). Kidney transplant costs 5–8 lakh BDT. Subsidized care available at BSMMU, DMCH, Chittagong Medical College, and Rajshahi Medical College. Apply for government kidney patient assistance scheme. Early referral gives better outcomes.',
+        cb: 'কিডনি বিকল হলে (পর্যায় ৫), হেমোডায়ালাইসিস (সপ্তাহে ৩ বার; সরকারি হাসপাতালে মাসে ১২,০০০–২০,০০০ টাকা) বা পেরিটোনিয়াল ডায়ালাইসিস (ঘরে, প্রতিদিন) বিকল্প। বিএসএমএমইউ, ডিএমসিএইচ-এ ভর্তুকিপ্রাপ্ত সেবা পাওয়া যায়।' },
+      { en: 'Arsenic Exposure and CKD in Bangladesh', bn: 'বাংলাদেশে আর্সেনিক এক্সপোজার ও সিকেডি', cat: 'Basics',
+        ce: 'Over 20 districts have arsenic-contaminated groundwater, including Chapainawabganj, Noakhali, Chandpur, Faridpur, and Satkhira. Chronic arsenic exposure damages kidney tubules and raises CKD risk by 30–40%. Use BRAC-certified safe water, boil water, or use arsenic-removal filters. Get annual urine arsenic testing if you live in a red-zone district. Report symptoms like keratosis, darkening skin, or fatigue.',
+        cb: 'চাঁপাইনবাবগঞ্জ, নোয়াখালী, চাঁদপুর, ফরিদপুর, সাতক্ষীরা সহ ২০+ জেলায় আর্সেনিক দূষিত ভূগর্ভস্থ পানি রয়েছে। দীর্ঘস্থায়ী এক্সপোজার সিকেডি ঝুঁকি ৩০-৪০% বাড়ায়। ব্র্যাক-প্রত্যয়িত নিরাপদ পানি ব্যবহার করুন।' },
+      { en: 'Understanding Your GFR Result', bn: 'আপনার জিএফআর ফলাফল বোঝা', cat: 'Basics',
+        ce: 'GFR measures kidney filtration efficiency. Normal is ≥90 mL/min/1.73m². Three formulas (MDRD, Cockcroft-Gault, CKD-EPI) use creatinine, age, sex, and weight. A drop of >5 mL/min/year suggests rapid progression. Track trends over time — a single result is less meaningful than a pattern. UACR (protein in urine) combined with GFR gives the most accurate CKD classification under KDIGO guidelines.',
+        cb: 'জিএফআর কিডনির ফিল্ট্রেশন দক্ষতা পরিমাপ করে। স্বাভাবিক ≥৯০। বছরে >৫ হ্রাস দ্রুত অগ্রগতির ইঙ্গিত। ইউএসিআর সহ জিএফআর সবচেয়ে সঠিক সিকেডি শ্রেণীবদ্ধকরণ দেয়।' },
+      { en: 'Herbal Remedies and Kidney Damage', bn: 'ভেষজ প্রতিকার এবং কিডনির ক্ষতি', cat: 'Basics',
+        ce: 'Many traditional herbal medicines (kabiraji medicine, certain roots, bark extracts) contain aristolochic acid or heavy metals that cause irreversible kidney damage. This is called herbal nephropathy. Always inform your doctor about ALL traditional remedies you take. Never mix herbal and prescribed medicines without medical guidance. Studies show herbal remedy use is associated with 2x higher CKD risk in Bangladesh.',
+        cb: 'অনেক ঐতিহ্যবাহী ভেষজ ওষুধে অ্যারিস্টোলোকিক অ্যাসিড বা ভারী ধাতু থাকে যা অপরিবর্তনীয় কিডনির ক্ষতি করে। সকল ঐতিহ্যবাহী ওষুধ সম্পর্কে আপনার ডাক্তারকে অবহিত করুন।' },
+      { en: 'UACR and Protein in Urine Explained', bn: 'ইউএসিআর এবং প্রস্রাবে প্রোটিন ব্যাখ্যা', cat: 'Basics',
+        ce: 'UACR (Urine Albumin-to-Creatinine Ratio) measures protein leaking into urine — a key sign of kidney damage. Normal: <30 mg/g (A1). Moderately increased: 30–300 mg/g (A2). Severely increased: ≥300 mg/g (A3). High UACR means kidney filters are damaged. Test UACR every 6–12 months. Reducing proteinuria with ACE inhibitors slows CKD progression significantly.',
+        cb: 'ইউএসিআর প্রস্রাবে প্রোটিন লিকেজ পরিমাপ করে। স্বাভাবিক: <৩০ মিগ্রা/গ্রা। মধ্যম: ৩০-৩০০ মিগ্রা/গ্রা। মারাত্মক: ≥৩০০ মিগ্রা/গ্রা। প্রতি ৬-১২ মাসে পরীক্ষা করুন।' },
+      { en: 'Exercise for CKD Patients', bn: 'সিকেডি রোগীদের জন্য ব্যায়াম', cat: 'Management',
+        ce: 'Regular moderate exercise controls BP, blood sugar, and weight — all critical for CKD. Aim for 30 min brisk walking, 5 days/week. Swimming and gentle yoga are excellent low-impact options. Avoid heavy lifting if eGFR <30. Exercise after dialysis sessions, not during. Start slowly if you have been inactive. Always consult your nephrologist before beginning a new program.',
+        cb: 'নিয়মিত মাঝারি ব্যায়াম রক্তচাপ, রক্তে শর্করা এবং ওজন নিয়ন্ত্রণ করে। সপ্তাহে ৫ দিন ৩০ মিনিট দ্রুত হাঁটুন। সাঁতার এবং মৃদু যোগব্যায়াম চমৎকার বিকল্প।' },
+      { en: 'Limiting Salt and Sodium in CKD', bn: 'সিকেডিতে লবণ ও সোডিয়াম সীমাবদ্ধতা', cat: 'Diet',
+        ce: 'Limit sodium to 2000mg/day (≈1 teaspoon of salt). High sodium raises BP and worsens CKD. Avoid: shutki (dried fish — 9800mg Na/100g!), soy sauce, pickles, packaged chips, instant noodles. Cook at home using turmeric, cumin, ginger, lemon for flavor. Read nutrition labels. Reducing sodium can lower BP by 5–10 mmHg in CKD patients.',
+        cb: 'সোডিয়াম দৈনিক ২০০০ মিগ্রায় সীমিত করুন (≈১ চা চামচ লবণ)। শুঁটকি (১০০ গ্রামে ৯৮০০ মিগ্রা সোডিয়াম!), সয় সস, আচার এড়িয়ে চলুন। রান্নায় হলুদ, জিরা, আদা, লেবু ব্যবহার করুন।' },
+      { en: 'Taking Medications Correctly in CKD', bn: 'সিকেডিতে সঠিকভাবে ওষুধ গ্রহণ', cat: 'Management',
+        ce: 'Never skip BP medications, diabetes medications, phosphate binders, or vitamin D supplements. Set daily phone alarms. Use a weekly pill organizer. Never stop medications without your doctor\'s approval — even if you feel well. Some medicines (NSAIDs, contrast dye for CT scans, certain antibiotics) are harmful to kidneys — always mention your CKD to every doctor you see.',
+        cb: 'রক্তচাপের ওষুধ, ডায়াবেটিসের ওষুধ, ফসফেট বাইন্ডার বাদ দেবেন না। দৈনিক ফোন অ্যালার্ম সেট করুন। কিছু ওষুধ (NSAIDs, CT স্ক্যান কনট্রাস্ট ডাই) কিডনির ক্ষতি করে — প্রতিটি ডাক্তারকে আপনার সিকেডির কথা জানান।' },
+      { en: 'CKD in Women: What You Need to Know', bn: 'মহিলাদের সিকেডি: জরুরি তথ্য', cat: 'Basics',
+        ce: 'CKD in women presents unique challenges: anemia is more common, hormonal changes can affect CKD progression, and pregnancy with stage 4-5 CKD carries high risk of premature birth and maternal complications. Women of childbearing age should discuss contraception with their nephrologist. Iron supplementation is often needed for CKD anemia. Symptoms like excessive fatigue, swollen ankles, and frequent urination at night warrant kidney testing.',
+        cb: 'মহিলাদের সিকেডি অনন্য চ্যালেঞ্জ উপস্থাপন করে: রক্তশূন্যতা বেশি সাধারণ। পর্যায় ৪-৫ সিকেডিতে গর্ভাবস্থা উচ্চ ঝুঁকি বহন করে। সন্তান জন্মদানের বয়সী মহিলারা নেফ্রোলজিস্টের সাথে গর্ভনিরোধ নিয়ে আলোচনা করুন।' },
+      { en: 'Managing Potassium Levels in CKD', bn: 'সিকেডিতে পটাশিয়াম ব্যবস্থাপনা', cat: 'Diet',
+        ce: 'Damaged kidneys cannot remove excess potassium, causing hyperkalemia which can trigger dangerous heart arrhythmias. Avoid: bananas, coconut water, spinach, lentils (dal), tomatoes, potatoes, and jackfruit in stage 3+. Tip: boiling vegetables and discarding the water reduces potassium by 50%. Check serum potassium every 3 months. Target: 3.5–5.0 mEq/L. Seek emergency care if you feel heart palpitations.',
+        cb: 'ক্ষতিগ্রস্ত কিডনি অতিরিক্ত পটাশিয়াম সরাতে পারে না। কলা, ডাবের পানি, পালং শাক, ডাল, টমেটো, আলু পর্যায় ৩+ এ এড়িয়ে চলুন। সবজি সিদ্ধ করে পানি ফেলুন — পটাশিয়াম ৫০% কমে।' },
+      { en: 'Staying Hydrated with CKD', bn: 'সিকেডিতে সঠিক পানি পান', cat: 'Management',
+        ce: 'Hydration needs vary by CKD stage. Early stages (1-3): drink 1.5–2L/day unless restricted. Later stages with fluid retention or reduced urine output: your doctor may limit fluids. Monitor swelling (edema) in feet, legs, or face — this indicates fluid buildup. Avoid sugary drinks and sodas. Track daily urine output — less than 500mL/day is concerning. Report changes to your doctor promptly.',
+        cb: 'প্রাথমিক পর্যায় (১-৩): দিনে ১.৫-২ লিটার পান করুন। পরবর্তী পর্যায়ে আপনার ডাক্তার তরল সীমিত করতে পারেন। পায়ে, পায়ের পাতায় বা মুখে ফুলে যাওয়া পর্যবেক্ষণ করুন — তরল জমার লক্ষণ।' },
     ];
     const insertArt = db.prepare('INSERT INTO articles (title_en, title_bn, content_en, content_bn, category) VALUES (?, ?, ?, ?, ?)');
-    articles.forEach(a => insertArt.run(a.en, a.bn, a.content_en, a.content_bn, a.cat));
+    articles.forEach(a => insertArt.run(a.en, a.bn, a.ce, a.cb, a.cat));
 
     console.log('Seeding complete.');
   }

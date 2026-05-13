@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Calculator, Info, CheckCircle2, AlertTriangle, Loader2, Upload, Zap } from 'lucide-react';
+import { Calculator, Info, CheckCircle2, AlertTriangle, Loader2, Upload, Zap, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function GfrCalculator() {
@@ -14,6 +14,9 @@ export default function GfrCalculator() {
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
   const [ocrHighlighted, setOcrHighlighted] = useState<string[]>([]);
   const [showOcr, setShowOcr] = useState(false);
+  const [ocrPreviewUrl, setOcrPreviewUrl] = useState('');
+  const [ocrStatus, setOcrStatus] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/patient/profile', { headers: { Authorization: `Bearer ${token}` } })
@@ -23,22 +26,56 @@ export default function GfrCalculator() {
       });
   }, [token]);
 
-  const handleOcrPrefill = async () => {
-    if (!ocrText.trim()) return;
-    setIsOcrProcessing(true);
+  const runExtraction = async (text: string) => {
     try {
       const res = await fetch('/api/patient/ocr-prefill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: ocrText }),
+        body: JSON.stringify({ text }),
       });
       const data = await res.json();
       const filled: string[] = [];
       if (data.extracted.creatinine) { setFormData(f => ({ ...f, creatinine: data.extracted.creatinine })); filled.push('creatinine'); }
       if (data.extracted.uacr) { setFormData(f => ({ ...f, uacr: data.extracted.uacr })); filled.push('uacr'); }
       setOcrHighlighted(filled);
-      setShowOcr(false);
-      if (data.confidence === 'none') alert(language === 'bn' ? 'কোনো মান খুঁজে পাওয়া যায়নি।' : 'No values could be extracted from the text.');
+      if (filled.length === 0) setOcrStatus(language === 'bn' ? 'কোনো মান খুঁজে পাওয়া যায়নি। টেক্সট ম্যানুয়ালি সম্পাদনা করুন।' : 'No values found. Edit the text below manually.');
+      else { setOcrStatus(''); setShowOcr(false); }
+    } catch { /* offline */ }
+  };
+
+  const handleImageOcr = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setOcrPreviewUrl(url);
+    setOcrStatus(language === 'bn' ? 'ছবি পড়া হচ্ছে...' : 'Reading image with OCR...');
+    setIsOcrProcessing(true);
+    try {
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng', 1, {
+        logger: (m: any) => {
+          if (m.status === 'recognizing text') {
+            setOcrStatus(`${language === 'bn' ? 'পাঠ্য চিনছে' : 'Recognizing text'}: ${Math.round(m.progress * 100)}%`);
+          }
+        },
+      });
+      const { data: { text } } = await worker.recognize(url);
+      await worker.terminate();
+      setOcrText(text);
+      setOcrStatus(language === 'bn' ? 'মান খোঁজা হচ্ছে...' : 'Extracting values...');
+      await runExtraction(text);
+    } catch (err) {
+      setOcrStatus(language === 'bn' ? 'ছবি পড়া সম্ভব হয়নি। নীচে টেক্সট পেস্ট করুন।' : 'Could not read image. Paste text below instead.');
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  };
+
+  const handleOcrPrefill = async () => {
+    if (!ocrText.trim()) return;
+    setIsOcrProcessing(true);
+    try {
+      await runExtraction(ocrText);
     } catch { /* offline */ }
     finally { setIsOcrProcessing(false); }
   };
@@ -80,8 +117,8 @@ export default function GfrCalculator() {
         </div>
         <button onClick={() => setShowOcr(!showOcr)}
           className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-sm font-bold hover:bg-purple-100 transition-all">
-          <Upload className="w-4 h-4" />
-          {language === 'bn' ? 'ল্যাব রিপোর্ট স্ক্যান' : 'Scan Lab Report'}
+          <Camera className="w-4 h-4" />
+          {language === 'bn' ? 'ল্যাব স্ক্যান' : 'Scan Lab Report'}
         </button>
       </div>
 
@@ -89,20 +126,61 @@ export default function GfrCalculator() {
         {showOcr && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
             className="bg-purple-50 p-6 rounded-3xl border border-purple-200 space-y-4">
-            <h3 className="font-bold text-purple-900 flex items-center gap-2">
-              <Zap className="w-5 h-5" />
-              {language === 'bn' ? 'ল্যাব রিপোর্ট থেকে মান স্বয়ংক্রিয়ভাবে পূরণ করুন' : 'Auto-fill values from your lab report text'}
-            </h3>
-            <p className="text-sm text-purple-700">
-              {language === 'bn'
-                ? 'আপনার ল্যাব রিপোর্টের টেক্সট নীচে পেস্ট করুন। সিস্টেম স্বয়ংক্রিয়ভাবে ক্রিয়েটিনিন ও ইউএসিআর মান খুঁজে বের করবে।'
-                : 'Paste or type text from your physical lab report below. The system will extract creatinine and UACR values automatically.'}
-            </p>
-            <textarea value={ocrText} onChange={e => setOcrText(e.target.value)} rows={4}
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-purple-900 flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                {language === 'bn' ? 'ল্যাব রিপোর্ট স্ক্যান করুন' : 'Scan or paste your lab report'}
+              </h3>
+              <button onClick={() => { setShowOcr(false); setOcrPreviewUrl(''); setOcrText(''); setOcrStatus(''); }}
+                className="p-1 text-purple-400 hover:text-purple-700"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Photo Upload */}
+            <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-2xl cursor-pointer transition-all
+              ${isOcrProcessing ? 'opacity-50 pointer-events-none' : 'hover:bg-purple-100/50'}
+              ${ocrPreviewUrl ? 'border-purple-400 p-2' : 'border-purple-300 p-6'}`}>
+              {ocrPreviewUrl ? (
+                <div className="w-full relative">
+                  <img src={ocrPreviewUrl} alt="Lab report" className="max-h-44 w-full object-contain rounded-xl" />
+                  <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full p-1">
+                    <Camera className="w-3 h-3" />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-purple-600">
+                  <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+                    <Camera className="w-7 h-7" />
+                  </div>
+                  <span className="text-sm font-semibold">{language === 'bn' ? 'ছবি তুলুন বা ফাইল বেছে নিন' : 'Take photo or choose file'}</span>
+                  <span className="text-xs text-purple-400">JPG, PNG — Creatinine & UACR will be auto-extracted</span>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageOcr} disabled={isOcrProcessing} />
+            </label>
+
+            {/* OCR Status */}
+            {(isOcrProcessing || ocrStatus) && (
+              <div className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl ${isOcrProcessing ? 'bg-purple-100 text-purple-700' : ocrHighlighted.length > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                {isOcrProcessing && <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />}
+                {!isOcrProcessing && ocrHighlighted.length > 0 && <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
+                <span>{ocrStatus || (ocrHighlighted.length > 0 ? `✓ Auto-filled: ${ocrHighlighted.join(', ')}` : '')}</span>
+              </div>
+            )}
+
+            {/* Divider */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-purple-200" />
+              <span className="text-xs text-purple-400 font-medium">{language === 'bn' ? 'অথবা সরাসরি টেক্সট পেস্ট করুন' : 'or paste text directly'}</span>
+              <div className="flex-1 h-px bg-purple-200" />
+            </div>
+
+            {/* Text fallback */}
+            <textarea value={ocrText} onChange={e => setOcrText(e.target.value)} rows={3}
               className="w-full px-4 py-3 bg-white border border-purple-200 rounded-xl resize-none text-sm focus:ring-2 focus:ring-purple-300"
-              placeholder={language === 'bn' ? 'ল্যাব রিপোর্টের টেক্সট এখানে পেস্ট করুন...\nযেমন: Creatinine: 1.4 mg/dL\nBlood Sugar: 6.2 mmol/L' : 'Paste lab report text here...\ne.g., Creatinine: 1.4 mg/dL\nBP: 140/90 mmHg'} />
+              placeholder={language === 'bn' ? 'ল্যাব রিপোর্টের টেক্সট এখানে পেস্ট করুন...\nযেমন: Creatinine: 1.4 mg/dL' : 'Paste lab report text here...\ne.g., Creatinine: 1.4 mg/dL\nUACR: 45 mg/g'} />
+
             <button onClick={handleOcrPrefill} disabled={isOcrProcessing || !ocrText.trim()}
-              className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-purple-700 disabled:opacity-50">
+              className="w-full px-6 py-3 bg-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-700 disabled:opacity-50">
               {isOcrProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {language === 'bn' ? 'মান খুঁজুন ও পূরণ করুন' : 'Extract & Pre-fill Values'}
             </button>
@@ -214,14 +292,6 @@ export default function GfrCalculator() {
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <p className="text-xs font-bold text-slate-400 uppercase mb-2">KDIGO Risk Classification</p>
-                <div className="grid grid-cols-3 gap-1 text-center">
-                  {['A1 (<30)', 'A2 (30-300)', 'A3 (≥300)'].map((a, ai) => (
-                    ['G1 (≥90)', 'G2 (60-89)', 'G3a (45-59)', 'G3b (30-44)', 'G4 (15-29)', 'G5 (<15)'].map((g, gi) => {
-                      const risk = ai + gi < 2 ? 'bg-emerald-100' : ai + gi < 4 ? 'bg-yellow-100' : ai + gi < 6 ? 'bg-orange-100' : 'bg-red-100';
-                      return gi === 0 ? <div key={`${ai}-${gi}`} className={`text-xs py-1 px-0.5 rounded ${risk} font-medium`}>{a}</div> : null;
-                    })
-                  ))}
-                </div>
                 <p className="text-xs text-slate-400 mt-2">{language === 'bn' ? 'স্টেজ এবং ইউএসিআর একসাথে ঝুঁকি নির্ধারণ করে।' : 'Stage and UACR together determine overall CKD risk.'}</p>
               </div>
             </motion.div>
@@ -236,7 +306,7 @@ export default function GfrCalculator() {
                   : 'Enter your clinical data to see GFR results and KDIGO staging.'}
               </p>
               <p className="text-xs text-slate-400 mt-2">
-                {language === 'bn' ? 'ঐচ্ছিকভাবে ইউএসিআর যোগ করুন আরও সঠিক সিকেডি পর্যায় নির্ধারণের জন্য।' : 'Optionally add UACR for more accurate KDIGO staging.'}
+                {language === 'bn' ? 'ঐচ্ছিকভাবে ইউএসিআর যোগ করুন আরও সঠিক সিকেডি পর্যায় নির্ধারণের জন্য।' : 'Optionally add UACR for more accurate KDIGO staging. Use the lab scan button to auto-fill from a photo.'}
               </p>
             </div>
           )}
