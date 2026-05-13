@@ -1,0 +1,173 @@
+Build the enhanced version of "KidneyCare BD" – a full-stack Digital Health Monitoring and Decision Support System for Chronic Kidney Disease patients in Bangladesh. The system must keep **ALL existing features** (GFR Calculator, Risk Scoring, Vitals Timeline, Heatmap, Decision Alerts, Cost Planner, Bilingual Education, Admin Reports) and integrate the new enhancements detailed below to increase rural reach, clinical reliability, policy impact, and long-term sustainability.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. EXISTING FEATURES (MUST BE PRESERVED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Smart GFR Calculator (MDRD, Cockcroft-Gault, CKD-EPI)
+- CKD Risk Scoring & Early Detection Engine (0–100 score)
+- Patient Health Timeline & Vitals Logger
+- Geographic CKD Heatmap (Bangladesh districts)
+- AI Decision Support Alerts for Doctors
+- Cost & Treatment Planning Module (BDT)
+- Bilingual Patient Education Hub (English/Bengali)
+- Admin Policy Report Generator
+
+All existing user roles (Patient, Doctor, Admin), database schemas, and page structures must continue to work alongside the new enhancements.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. NEW ENHANCEMENTS TO IMPLEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### A. OFFLINE-FIRST & LOW-TECH ACCESS CHANNELS
+- Convert the React frontend into a fully offline-capable **Progressive Web App (PWA)**. All patient vitals logging, GFR calculation, and education content must work offline and auto-sync when internet is available.
+- Build an **SMS/USSD gateway**:
+  - Patients can send structured SMS (e.g., `BP 140 90`) to log vitals.
+  - A USSD menu (e.g., `*123#`) allows feature-phone users to check risk score, next appointment, or log simple data.
+- Add an **Interactive Voice Response (IVR) system**:
+  - Weekly automated Bengali voice call reminders for medication, log prompts.
+  - Patients can press keys to report fatigue level (1–5) or answer yes/no questions (swelling present).
+- Implement a **Missed-call trigger**: a toll-free number; when missed, the system sends an SMS with the patient’s latest GFR summary and next follow-up date.
+
+### B. COMMUNITY HEALTH WORKER (CHW) PORTAL
+- Create a new user role: **Community Health Worker (CHW)**.
+- A dedicated **CHW Dashboard** (mobile-first) where a CHW can:
+  - Register and manage a roster of patients (up to 30 per CHW).
+  - Log vitals on behalf of patients during home visits, including GPS coordinates of the household.
+  - View their patients' risk scores and overdue follow-ups.
+  - Receive performance rewards (points/streaks for completed monthly follow-ups).
+- **Geotagged household data** feeds into the admin heatmap layer to show “CHW-verified rural data points”.
+
+### C. NATIONAL HEALTH SYSTEM INTEGRATION
+- Build a **DHIS2 data export module**: Aggregated CKD indicators (prevalence per district, stage distribution) must be exportable in DHIS2-compatible format.
+- Implement a **FHIR R4 API** (at least Patient, Observation, and Condition resources) to allow hospital EMRs and labs to interoperate.
+- Align the risk scoring thresholds with the **Bangladesh NCD (diabetes/hypertension) screening guidelines** from the National NCDC programme.
+
+### D. CLINICALLY ENHANCED RISK ENGINE
+- Expand the risk scoring rules to include **Bangladesh-specific factors**:
+  - Arsenic exposure (district-level flag based on known arsenic-prone areas) → +10 points
+  - Use of nephrotoxic herbal/traditional remedies (yes/no) → +5 points
+  - Frequent NSAID use (yes/no) → +5 points
+- Add **optional UACR (Urine Albumin-Creatinine Ratio)** input to GFR calculator and risk engine. Combine GFR + UACR for more accurate staging (KDIGO heat map).
+- Implement a **clinician validation feedback loop**: Doctors can flag a risk score as “too high/too low” – aggregated feedback stored for future model recalibration.
+
+### E. TELEMEDICINE & E-PRESCRIPTION
+- Add a **built-in teleconsultation module**:
+  - Secure video/audio call (WebRTC) between doctor and patient, launched from the doctor’s patient detail page.
+  - During the call, doctor can view the patient’s latest GFR chart and vitals summary on the same screen.
+- Generate **digital prescriptions in Bengali**:
+  - Doctor fills structured fields (medicine name, dosage, frequency, duration).
+  - System generates a PDF/printable page with a QR code that pharmacies can scan to view medication instructions.
+- Add **medication adherence tracking**: If a patient misses a refill (logged by pharmacy or CHW) for >3 days, an alert is triggered.
+
+### F. PATIENT ADHERENCE & BEHAVIOURAL NUDGES
+- Introduce a **daily vitals logging streak counter** with encouraging Bengali messages.
+- Create a **personalized diet assistant**:
+  - Based on CKD stage and latest potassium/sodium/phosphorus levels, suggest or warn against common Bangladeshi foods (e.g., “আজ কলা খাবেন না”, “লাল চালের বদলে সাদা চাল খান”).
+  - Maintain a curated food database (Bengali/English) tied to nutrient values.
+- Add a **Family Caregiver View**: A patient can link one trusted family member (via phone number) who receives alerts if vitals not logged for 2 days.
+
+### G. DATA QUALITY & FRAUD PREVENTION
+- Integrate **OCR for lab reports**: Allow uploading a photo of a physical lab report; use Tesseract.js (or backend OCR service) to extract serum creatinine, blood sugar, etc. Pre-fill the vitals form with OCR results for manual verification.
+- Add **plausibility checks** on manual entries: reject creatinine <0.1 or >30 mg/dL, flag BP outside 70–250 mmHg, alert if weight changes >5 kg in a week.
+- For shared phones, implement a **simple PIN-based patient identity switch** within the same device (no heavy biometrics required yet).
+
+### H. POLICY & ECONOMIC IMPACT SIMULATOR
+- Extend the Admin Reports module to include a **Budget Impact Simulator**:
+  - Admin inputs a target screening population (e.g., 100,000 in Rangpur).
+  - System estimates projected dialysis demand, costs, and potential savings from early intervention over 5 years.
+- Add **Outcome Tracking**: Admin can configure a cohort of patients and generate anonymized reports on hospitalization rates, time to dialysis, and survival curves.
+
+### I. MICROSERVICES ARCHITECTURE FOR SCALE
+- Refactor the backend into microservices (retain Express/Node.js but split into independent services):
+  - `auth-service` (JWT, user management)
+  - `patient-service` (profiles, vitals)
+  - `risk-engine-service` (risk scoring, GFR calculation)
+  - `notification-service` (alerts, SMS, IVR, email)
+  - `report-service` (aggregation, PDF generation)
+  - `fhir-gateway` (FHIR API endpoints)
+- Use **Redis** as message broker for inter-service communication (e.g., when a new vitals entry is saved, `patient-service` emits an event that triggers `risk-engine-service` and `notification-service`).
+- All services must be containerized (Docker) with docker-compose for local dev and Kubernetes-ready configuration for production.
+
+### J. RESEARCH & CONTINUOUS LEARNING LOOP
+- Add a **Research Mode** toggle (admin-level) that, when enabled on a patient cohort, periodically exports fully anonymized data (CSV/JSON) for approved research partners.
+- Implement a lightweight **CKD progression prediction model**:
+  - Start with a rule-based version using GFR slope.
+  - Later pluggable ML model (Random Forest or XGBoost) trained on accumulated patient data (opt-in consent required).
+- Generate an **Annual Public CKD Report** automatically every year (PDF) summarizing prevalence, district hotspots, gender breakdown, and trend comparisons – publishable directly to stakeholders.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. UPDATED TECHNOLOGY STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Frontend: React.js (PWA with Workbox), Tailwind CSS, Recharts/Chart.js, Leaflet.js, WebRTC (for telemedicine)
+- Backend: Node.js + Express.js, split into microservices as above
+- Database: MongoDB (patient data, logs, alerts), Redis (caching, session, message broker)
+- Auth: JWT + bcrypt, role-based (Patient, Doctor, Admin, CHW)
+- SMS/USSD Gateway: Twilio / local provider API (like Infobip, Grameenphone SMS API)
+- IVR: Twilio Voice / local telephony API
+- OCR: Tesseract.js (frontend) or Google Vision API (backend) for lab report digitization
+- FHIR: Use `fhir.js` or `node-fhir` library to implement R4 resources
+- Containerization: Docker, docker-compose; optional Kubernetes configs
+- Hosting: AWS or Government Private Cloud with offline support served over HTTPS (required for PWA)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. UPDATED DATABASE SCHEMA (ADDITIONS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+(Keep all existing collections: Users, Patients, VitalsLog, GFRRecords, Alerts, Articles, Reports)
+
+New collections:
+- **CHWWorkers** { _id, userId, region, assignedPatients[] }
+- **CHWPatientLog** { _id, chwId, patientId, timestamp, location{lat,lng}, visitType, notes }
+- **TeleConsultations** { _id, doctorId, patientId, startTime, endTime, recordingUrl (opt) }
+- **Prescriptions** { _id, doctorId, patientId, date, medicines[{ name, dosage, frequency, duration }], qrCode, language }
+- **MedicationRefills** { _id, prescriptionId, refillDate, source (pharmacy/CHW) }
+- **DietSuggestions** { _id, foodName_en, foodName_bn, category, potassium, sodium, phosphorus, allowedStages[] }
+- **OutcomeCohorts** { _id, name, patientIds[], startDate, endDate, metrics[] }
+- **ResearchExports** { _id, requestedBy, cohortId, data (anonymized), createdAt }
+
+Enhance **Patients** schema:
+- Add fields: `arsenicProneArea` (bool), `herbalRemedyUse` (bool), `nsaidUse` (bool), `uacr` (float, optional), `caregiverPhone`, `pin` (for shared-device login)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. UPDATED PAGE STRUCTURE (ADDITIONS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- **/chw/dashboard** – CHW patient list, geo-tagged visit log, point rewards
+- **/chw/patient/:id** – Log vitals for a specific patient (offline-capable)
+- **/doctor/patient/:id/teleconsult** – Launch video call and view real-time chart
+- **/doctor/prescriptions** – Manage digital prescriptions
+- **/patient/diet** – Diet assistant with food search and warnings
+- **/patient/caregiver** – Invite/view caregiver
+- **/admin/simulator** – Budget impact simulator
+- **/admin/cohorts** – Manage outcome tracking cohorts
+- **/research/export** – (if research mode enabled) generate anonymized exports
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. UI/UX REQUIREMENTS (ADDITIONS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- All existing color, font, and bilingual requirements persist.
+- Add an **offline indicator** (small banner) when PWA is working offline; sync status icon.
+- The CHW app must work on low-end Android devices (optimize assets, minimal animations).
+- All SMS/IVR interactions must be in Bengali.
+- Telemedicine UI must show connection quality and allow screen sharing of patient data (doctor side).
+- All forms must support both manual entry and OCR pre-fill with clear highlighting of auto-filled fields.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. BUILD INSTRUCTIONS (UPDATED)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Set up the existing system (MongoDB, Redis, backend, frontend) as per previous README.
+2. Incrementally refactor backend into microservices, keeping backward compatibility.
+3. Implement the PWA service worker and offline caching strategies using Workbox.
+4. Integrate SMS/USSD/IVR gateway APIs with dedicated endpoints.
+5. Build the CHW role and dashboards.
+6. Add FHIR API endpoint for Patient/Observation resources.
+7. Implement OCR pipeline for lab reports.
+8. Add telemedicine with WebRTC (using a simple STUN/TURN server).
+9. Create the diet assistant and caregiver modules.
+10. Develop policy simulator and research mode features.
+11. Seed database with realistic data covering all new fields and scenarios.
+12. Write full documentation and updated README.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+NOTE:
+- Every previous feature must continue to function exactly as before.
+- Use clean, production-ready code. No placeholders.
+- The system must be deployable in a typical Bangladeshi hosting environment (low-latency to local users, supports both English and Bengali flawlessly).

@@ -1,0 +1,22 @@
+{
+  "name": "KidneyCare BD",
+  "short_name": "KidneyCare",
+  "description": "Digital Health Monitoring for CKD Patients in Bangladesh",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F7FB",
+  "theme_color": "#1A6B8A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "medical"],
+  "lang": "bn",
+  "dir": "ltr",
+  "prefer_related_applications": false
+}
