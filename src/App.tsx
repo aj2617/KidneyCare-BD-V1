@@ -4,7 +4,8 @@ import { useLanguage } from './contexts/LanguageContext';
 import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
-  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill
+  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill,
+  ClipboardList, Wrench, UserCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -32,6 +33,7 @@ import BudgetSimulator from './pages/BudgetSimulator';
 import OutcomeCohorts from './pages/OutcomeCohorts';
 import FHIRViewer from './pages/FHIRViewer';
 import MedicationAdherence from './pages/MedicationAdherence';
+import DoctorToday from './pages/DoctorToday';
 
 export default function App() {
   const { user, logout, token } = useAuth();
@@ -157,9 +159,44 @@ export default function App() {
     if (user?.role === 'doctor') {
       if (currentPage === 'doctor-dashboard') return <DoctorDashboard onSelectPatient={(id) => setCurrentPage(`patient-${id}`)} />;
       if (currentPage === 'doctor-alerts') return <DoctorAlerts />;
-      if (currentPage === 'prescriptions') return <Prescriptions />;
+      if (currentPage === 'doctor-today') return <DoctorToday onSelectPatient={(id) => setCurrentPage(`patient-${id}`)} />;
+      if (currentPage === 'doctor-tools' || currentPage === 'prescriptions') return <Prescriptions />;
       if (currentPage === 'teleconsult') return <Teleconsult patientId={teleconsultPatient?.id} patientName={teleconsultPatient?.name} onEnd={() => setCurrentPage('doctor-dashboard')} />;
       if (currentPage.startsWith('patient-')) return <PatientDetail id={currentPage.split('-')[1]} onBack={() => setCurrentPage('doctor-dashboard')} />;
+      if (currentPage === 'doctor-profile') return (
+        <div className="max-w-lg mx-auto space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-[#1A6B8A] text-white flex items-center justify-center text-3xl font-black mx-auto mb-4">
+              {user.name?.charAt(0)}
+            </div>
+            <h2 className="text-xl font-black text-slate-900">{user.name}</h2>
+            <p className="text-sm text-slate-500 mt-1 capitalize">{user.role}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
+            <div className="flex items-center justify-between px-5 py-4">
+              <span className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'ভাষা' : 'Language'}</span>
+              <button onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')} className="flex gap-1 text-xs font-black">
+                <span className={`px-2.5 py-1 rounded-lg ${language === 'en' ? 'bg-[#1A6B8A] text-white' : 'bg-slate-100 text-slate-500'}`}>EN</span>
+                <span className={`px-2.5 py-1 rounded-lg ${language === 'bn' ? 'bg-[#1A6B8A] text-white' : 'bg-slate-100 text-slate-500'}`}>বাংলা</span>
+              </button>
+            </div>
+            <div className="flex items-center justify-between px-5 py-4">
+              <span className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'সংযোগ' : 'Connection'}</span>
+              <span className={`flex items-center gap-1.5 text-xs font-bold ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+                {isOnline ? (language === 'bn' ? 'অনলাইন' : 'Online') : (language === 'bn' ? 'অফলাইন' : 'Offline')}
+              </span>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
+            <button onClick={logout} className="flex items-center gap-3 w-full px-5 py-4 text-red-600 font-bold text-sm hover:bg-red-50 rounded-2xl transition-colors">
+              <LogOut className="w-5 h-5" />
+              {language === 'bn' ? 'লগআউট' : 'Logout'}
+            </button>
+          </div>
+          <p className="text-center text-xs text-slate-300 pb-2">KidneyCare BD · Doctor Edition</p>
+        </div>
+      );
     }
 
     if (user?.role === 'admin') {
@@ -338,7 +375,7 @@ export default function App() {
         </nav>
       )}
 
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24' : ''}`}>
         <motion.div key={currentPage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           {renderPage()}
         </motion.div>
@@ -371,6 +408,46 @@ export default function App() {
                   {active && (
                     <motion.div
                       layoutId="bottomNavIndicator"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#1A6B8A]"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+
+      {/* Bottom nav — doctors (mobile + desktop) */}
+      {user?.role === 'doctor' && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-50 safe-area-inset-bottom">
+          <div className="flex items-stretch px-1 max-w-2xl mx-auto">
+            {[
+              { id: 'doctor-dashboard', icon: Users, label: language === 'bn' ? 'রোগী' : 'Patients' },
+              { id: 'doctor-alerts', icon: Bell, label: language === 'bn' ? 'অ্যালার্ট' : 'Alerts' },
+              { id: 'doctor-today', icon: ClipboardList, label: language === 'bn' ? 'আজকের' : 'Today' },
+              { id: 'doctor-tools', icon: Wrench, label: language === 'bn' ? 'টুলস' : 'Tools' },
+              { id: 'doctor-profile', icon: UserCircle, label: language === 'bn' ? 'প্রোফাইল' : 'Profile' },
+            ].map(item => {
+              const active = currentPage === item.id
+                || (item.id === 'doctor-dashboard' && currentPage.startsWith('patient-'))
+                || (item.id === 'doctor-tools' && currentPage === 'prescriptions')
+                || (item.id === 'doctor-profile' && currentPage === 'profile');
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentPage(item.id)}
+                  className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1 min-h-[60px] transition-all relative"
+                >
+                  <div className={`p-1.5 rounded-2xl transition-all ${active ? 'bg-[#1A6B8A]/10' : ''}`}>
+                    <item.icon className={`w-5 h-5 transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`} />
+                  </div>
+                  <span className={`text-[10px] font-bold leading-none transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`}>
+                    {item.label}
+                  </span>
+                  {active && (
+                    <motion.div
+                      layoutId="doctorNavIndicator"
                       className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#1A6B8A]"
                     />
                   )}

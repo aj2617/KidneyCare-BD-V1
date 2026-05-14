@@ -117,13 +117,38 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
   ].filter(Boolean) as { label: string; cls: string }[];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-36">
 
-      {/* Back */}
-      <button onClick={onBack} className="flex items-center gap-2 text-slate-400 hover:text-[#1A6B8A] text-sm font-bold transition-colors">
-        <ArrowLeft className="w-4 h-4" />
-        {bn ? 'রোগীর তালিকায় ফিরুন' : 'Back to Patient List'}
-      </button>
+      {/* ── STICKY PATIENT HEADER ── */}
+      <div className="sticky top-16 z-40 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 bg-[#F4F7FB]/95 backdrop-blur py-2 border-b border-slate-100 shadow-sm">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-xl text-slate-400 hover:text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-all"
+            title={bn ? 'ফিরুন' : 'Back'}
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="w-9 h-9 rounded-full bg-[#1A6B8A] text-white flex items-center justify-center font-black text-base shrink-0">
+            {patient.name?.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-slate-900 text-sm truncate">{patient.name}</p>
+            <p className="text-[11px] text-slate-400">{patient.district}{patient.age ? `, ${patient.age}y` : ''}{patient.sex ? ` · ${patient.sex}` : ''}</p>
+          </div>
+          {latestGfrVal && gfrStage && (
+            <div className={`text-center px-3 py-1.5 rounded-xl ${gfrStage.bg} shrink-0`}>
+              <p className={`text-base font-black leading-none ${gfrStage.color}`}>{latestGfrVal}</p>
+              <p className={`text-[9px] font-bold uppercase ${gfrStage.color}`}>eGFR</p>
+            </div>
+          )}
+          {patient.risk_score > 75 && (
+            <span className="shrink-0 px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-[10px] font-black uppercase">
+              {bn ? 'ক্রিটিক্যাল' : 'Critical'}
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* ── PATIENT HEADER CARD ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -382,6 +407,34 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
           </div>
         )}
       </motion.div>
+
+      {/* ── FIXED BOTTOM ACTION BAR ── */}
+      <div className="fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pointer-events-none">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/10 p-3 flex gap-2 pointer-events-auto">
+            <button
+              onClick={startTeleconsult}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-sm min-h-[48px]"
+            >
+              <Video className="w-4 h-4 shrink-0" />
+              <span className="truncate">{bn ? 'ভিডিও কল' : 'Teleconsult'}</span>
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-[#1A6B8A] text-white rounded-xl text-sm font-bold hover:bg-[#14556e] transition-all shadow-sm min-h-[48px]"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span className="truncate">{bn ? 'প্রেসক্রিপশন' : 'Issue Rx'}</span>
+            </button>
+            <button
+              onClick={onBack}
+              className="flex items-center justify-center gap-2 px-3 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all min-h-[48px]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
