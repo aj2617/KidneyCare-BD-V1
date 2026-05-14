@@ -34,6 +34,7 @@ import OutcomeCohorts from './pages/OutcomeCohorts';
 import FHIRViewer from './pages/FHIRViewer';
 import MedicationAdherence from './pages/MedicationAdherence';
 import DoctorToday from './pages/DoctorToday';
+import DoctorProfile from './pages/DoctorProfile';
 
 export default function App() {
   const { user, logout, token } = useAuth();
@@ -163,40 +164,7 @@ export default function App() {
       if (currentPage === 'doctor-tools' || currentPage === 'prescriptions') return <Prescriptions />;
       if (currentPage === 'teleconsult') return <Teleconsult patientId={teleconsultPatient?.id} patientName={teleconsultPatient?.name} onEnd={() => setCurrentPage('doctor-dashboard')} />;
       if (currentPage.startsWith('patient-')) return <PatientDetail id={currentPage.split('-')[1]} onBack={() => setCurrentPage('doctor-dashboard')} />;
-      if (currentPage === 'doctor-profile') return (
-        <div className="max-w-lg mx-auto space-y-4">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
-            <div className="w-20 h-20 rounded-full bg-[#1A6B8A] text-white flex items-center justify-center text-3xl font-black mx-auto mb-4">
-              {user.name?.charAt(0)}
-            </div>
-            <h2 className="text-xl font-black text-slate-900">{user.name}</h2>
-            <p className="text-sm text-slate-500 mt-1 capitalize">{user.role}</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm divide-y divide-slate-50">
-            <div className="flex items-center justify-between px-5 py-4">
-              <span className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'ভাষা' : 'Language'}</span>
-              <button onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')} className="flex gap-1 text-xs font-black">
-                <span className={`px-2.5 py-1 rounded-lg ${language === 'en' ? 'bg-[#1A6B8A] text-white' : 'bg-slate-100 text-slate-500'}`}>EN</span>
-                <span className={`px-2.5 py-1 rounded-lg ${language === 'bn' ? 'bg-[#1A6B8A] text-white' : 'bg-slate-100 text-slate-500'}`}>বাংলা</span>
-              </button>
-            </div>
-            <div className="flex items-center justify-between px-5 py-4">
-              <span className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'সংযোগ' : 'Connection'}</span>
-              <span className={`flex items-center gap-1.5 text-xs font-bold ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                {isOnline ? (language === 'bn' ? 'অনলাইন' : 'Online') : (language === 'bn' ? 'অফলাইন' : 'Offline')}
-              </span>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
-            <button onClick={logout} className="flex items-center gap-3 w-full px-5 py-4 text-red-600 font-bold text-sm hover:bg-red-50 rounded-2xl transition-colors">
-              <LogOut className="w-5 h-5" />
-              {language === 'bn' ? 'লগআউট' : 'Logout'}
-            </button>
-          </div>
-          <p className="text-center text-xs text-slate-300 pb-2">KidneyCare BD · Doctor Edition</p>
-        </div>
-      );
+      if (currentPage === 'doctor-profile') return <DoctorProfile />;
     }
 
     if (user?.role === 'admin') {
