@@ -1,25 +1,30 @@
-const CACHE_NAME = 'kidneycare-bd-v2';
+const CACHE_NAME = 'kidneycare-bd-v3';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/favicon.svg',
 ];
 
-const API_CACHE = 'kidneycare-api-v2';
+const API_CACHE = 'kidneycare-api-v3';
 const CACHEABLE_APIS = ['/api/articles', '/api/diet/foods', '/api/diet/recommendations'];
 
-// Install
+// Install — pre-cache only non-HTML assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
-// Activate
+// Activate — delete all old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== API_CACHE).map(k => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE_NAME && k !== API_CACHE)
+          .map(k => caches.delete(k))
+      )
     ).then(() => self.clients.claim())
   );
 });
@@ -29,7 +34,17 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API caching: cache-first for read-only APIs, network-first for others
+  // Always network-first for HTML navigation requests (never serve stale shell)
+  if (request.mode === 'navigate' || (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'))) {
+    event.respondWith(
+      fetch(request).catch(() =>
+        caches.match(request).then(cached => cached || new Response('Offline — please reconnect.', { headers: { 'Content-Type': 'text/plain' } }))
+      )
+    );
+    return;
+  }
+
+  // API: cacheable read-only endpoints use stale-while-revalidate
   if (url.pathname.startsWith('/api/')) {
     const isCacheable = CACHEABLE_APIS.some(api => url.pathname.startsWith(api));
     if (isCacheable && request.method === 'GET') {
@@ -45,24 +60,25 @@ self.addEventListener('fetch', (event) => {
       );
     } else {
       event.respondWith(
-        fetch(request).catch(() => new Response(JSON.stringify({ error: 'Offline', offline: true }), {
-          headers: { 'Content-Type': 'application/json' }
-        }))
+        fetch(request).catch(() =>
+          new Response(JSON.stringify({ error: 'Offline', offline: true }), {
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
       );
     }
     return;
   }
 
-  // Static assets: cache-first
+  // Static assets (JS, CSS, images): cache-first, update in background
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((res) => {
-        if (res.ok && request.method === 'GET') {
-          caches.open(CACHE_NAME).then(cache => cache.put(request, res.clone()));
-        }
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(request);
+      const networkPromise = fetch(request).then(res => {
+        if (res.ok && request.method === 'GET') cache.put(request, res.clone());
         return res;
-      }).catch(() => cached || new Response('Offline'));
+      }).catch(() => null);
+      return cached || networkPromise || new Response('Offline');
     })
   );
 });
@@ -75,6 +91,5 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncOfflineVitals() {
-  // In a production system, read from IndexedDB and POST pending vitals
   console.log('[SW] Syncing offline vitals...');
 }
