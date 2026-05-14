@@ -4,7 +4,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
-  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu
+  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -31,6 +31,7 @@ import CaregiverView from './pages/CaregiverView';
 import BudgetSimulator from './pages/BudgetSimulator';
 import OutcomeCohorts from './pages/OutcomeCohorts';
 import FHIRViewer from './pages/FHIRViewer';
+import MedicationAdherence from './pages/MedicationAdherence';
 
 export default function App() {
   const { user, logout, token } = useAuth();
@@ -109,6 +110,7 @@ export default function App() {
       { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
       { id: 'gfr', label: t('nav.gfr'), icon: Calculator },
       { id: 'vitals', label: t('nav.vitals'), icon: Activity },
+      { id: 'adherence', label: t('nav.adherence'), icon: Pill },
       { id: 'diet', label: t('nav.diet'), icon: Utensils },
       { id: 'education', label: t('nav.education'), icon: BookOpen },
       { id: 'cost', label: t('nav.cost'), icon: DollarSign },
@@ -146,6 +148,7 @@ export default function App() {
         case 'diet': return <DietAssistant />;
         case 'education': return <Education />;
         case 'cost': return <CostPlanner />;
+        case 'adherence': return <MedicationAdherence />;
         case 'caregiver': return <CaregiverView />;
         case 'profile': return <Profile />;
       }

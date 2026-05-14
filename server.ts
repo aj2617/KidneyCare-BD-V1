@@ -220,6 +220,19 @@ db.exec(`
     FOREIGN KEY(doctor_id) REFERENCES users(id),
     FOREIGN KEY(patient_id) REFERENCES patients(id)
   );
+
+  CREATE TABLE IF NOT EXISTS medication_adherence (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER,
+    prescription_id INTEGER,
+    medicine_name TEXT NOT NULL,
+    date TEXT NOT NULL,
+    taken INTEGER DEFAULT 1,
+    logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(patient_id) REFERENCES patients(id),
+    FOREIGN KEY(prescription_id) REFERENCES prescriptions(id),
+    UNIQUE(patient_id, prescription_id, medicine_name, date)
+  );
 `);
 
 // ─── Add new columns to existing tables (safe, idempotent) ──────────────────
@@ -1089,6 +1102,93 @@ async function startServer() {
     if (!rx) return res.status(404).json({ error: 'Not found' });
     db.prepare('INSERT INTO medication_refills (prescription_id, patient_id, source) VALUES (?, ?, ?)').run(rx.id, rx.patient_id, source || 'patient');
     res.json({ message: 'Refill logged' });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // MEDICATION ADHERENCE
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // GET today's adherence status + active prescriptions
+  app.get('/api/patient/adherence/today', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const prescriptions = db.prepare(
+      `SELECT p.*, u.name as doctor_name FROM prescriptions p
+       JOIN users u ON p.doctor_id = u.id
+       WHERE p.patient_id = ? ORDER BY p.date DESC`
+    ).all(patient.id) as any[];
+
+    const takenRows = db.prepare(
+      `SELECT prescription_id, medicine_name, taken FROM medication_adherence
+       WHERE patient_id = ? AND date = ?`
+    ).all(patient.id, today) as any[];
+
+    const takenMap: Record<string, Record<string, boolean>> = {};
+    for (const row of takenRows) {
+      if (!takenMap[row.prescription_id]) takenMap[row.prescription_id] = {};
+      takenMap[row.prescription_id][row.medicine_name] = row.taken === 1;
+    }
+
+    const result = prescriptions.map(rx => ({
+      ...rx,
+      medicines: JSON.parse(rx.medicines || '[]'),
+      taken_today: takenMap[rx.id] || {},
+    }));
+
+    res.json({ date: today, prescriptions: result });
+  });
+
+  // POST mark a medicine as taken or untaken
+  app.post('/api/patient/adherence', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    const { prescription_id, medicine_name, date, taken } = req.body;
+    if (!prescription_id || !medicine_name || !date) {
+      return res.status(400).json({ error: 'prescription_id, medicine_name, and date are required' });
+    }
+
+    db.prepare(
+      `INSERT INTO medication_adherence (patient_id, prescription_id, medicine_name, date, taken)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(patient_id, prescription_id, medicine_name, date)
+       DO UPDATE SET taken = excluded.taken, logged_at = CURRENT_TIMESTAMP`
+    ).run(patient.id, prescription_id, medicine_name, date, taken ? 1 : 0);
+
+    res.json({ message: 'Adherence recorded' });
+  });
+
+  // GET 84-day adherence history for heatmap (12 weeks)
+  app.get('/api/patient/adherence/history', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    // For each day in the last 84 days, calculate total medicines expected vs taken
+    const rows = db.prepare(
+      `SELECT date,
+              SUM(CASE WHEN taken = 1 THEN 1 ELSE 0 END) as taken_count,
+              COUNT(*) as total_count
+       FROM medication_adherence
+       WHERE patient_id = ? AND date >= date('now', '-84 days')
+       GROUP BY date
+       ORDER BY date ASC`
+    ).all(patient.id) as any[];
+
+    // Also get overall adherence rate
+    const overall = db.prepare(
+      `SELECT SUM(CASE WHEN taken = 1 THEN 1 ELSE 0 END) as taken_count,
+              COUNT(*) as total_count
+       FROM medication_adherence
+       WHERE patient_id = ? AND date >= date('now', '-30 days')`
+    ).get(patient.id) as any;
+
+    const rate30d = overall?.total_count > 0
+      ? Math.round((overall.taken_count / overall.total_count) * 100)
+      : null;
+
+    res.json({ history: rows, rate_30d: rate30d });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
