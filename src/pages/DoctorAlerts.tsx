@@ -1,17 +1,153 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Bell, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import {
+  AlertCircle, AlertTriangle, CheckCircle2, ChevronRight, Bell, Loader2
+} from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 
-type AlertType = 'ALL' | 'CRITICAL' | 'WARNING';
+type FilterType = 'ALL' | 'CRITICAL' | 'WARNING';
+
+function timeAgo(dateStr: string, bn: boolean): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  const hrs = Math.floor(mins / 60);
+  const days = Math.floor(hrs / 24);
+  if (days >= 1) return bn ? `${days} দিন আগে` : days === 1 ? 'Yesterday' : `${days}d ago`;
+  if (hrs >= 1) return bn ? `${hrs}ঘ আগে` : `${hrs}h ago`;
+  if (mins >= 1) return bn ? `${mins}মি আগে` : `${mins}m ago`;
+  return bn ? 'এইমাত্র' : 'Just now';
+}
+
+interface Alert {
+  id: number;
+  type: string;
+  patient_name: string;
+  patient_id?: number;
+  message: string;
+  triggered_at: string;
+  is_read: boolean;
+}
+
+function SwipeableAlertCard({
+  alert,
+  onMarkRead,
+  onViewPatient,
+  bn,
+}: {
+  alert: Alert;
+  onMarkRead: (id: number) => void;
+  onViewPatient: (id: number) => void;
+  bn: boolean;
+}) {
+  const isCritical = alert.type === 'CRITICAL';
+  const x = useMotionValue(0);
+  const opacity = useTransform(x, [-80, 0], [0, 1]);
+  const dismissOpacity = useTransform(x, [-80, -40, 0], [1, 0.6, 0]);
+
+  const borderColor = isCritical ? '#E74C3C' : '#F39C12';
+  const iconBg = isCritical ? '#fceeea' : '#fef5e7';
+  const IconComp = isCritical ? AlertCircle : AlertTriangle;
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      {/* Swipe-to-dismiss background */}
+      <motion.div
+        style={{ opacity: dismissOpacity }}
+        className="absolute inset-0 flex items-center justify-end pr-5 rounded-xl"
+        style={{ backgroundColor: '#fee2e2', opacity: dismissOpacity } as any}
+      >
+        <CheckCircle2 className="w-5 h-5 text-red-400" />
+      </motion.div>
+
+      <motion.div
+        style={{ x }}
+        drag="x"
+        dragConstraints={{ left: -90, right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -60) onMarkRead(alert.id);
+        }}
+        className="relative bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden cursor-grab active:cursor-grabbing"
+      >
+        {/* Left accent border */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-1"
+          style={{ backgroundColor: borderColor }}
+        />
+        <div className="p-4 pl-5">
+          <div className="flex justify-between items-start mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-md shrink-0" style={{ backgroundColor: iconBg }}>
+                <IconComp size={16} style={{ color: borderColor }} />
+              </div>
+              <span className="font-bold text-slate-800 text-sm leading-tight">
+                {alert.patient_name}
+              </span>
+              {!alert.is_read && (
+                <span className="w-2 h-2 rounded-full bg-[#1A6B8A] shrink-0" />
+              )}
+            </div>
+            <span className="text-[10px] font-medium text-slate-400 shrink-0 ml-2">
+              {timeAgo(alert.triggered_at, bn)}
+            </span>
+          </div>
+
+          <p className="text-slate-700 text-sm font-medium leading-snug mb-3 pl-0.5">
+            {alert.message}
+          </p>
+
+          <div className="flex items-center gap-4">
+            {alert.patient_id && (
+              <button
+                onClick={() => onViewPatient(alert.patient_id!)}
+                className="text-xs font-bold flex items-center gap-1 group hover:underline transition-all"
+                style={{ color: '#1A6B8A' }}
+              >
+                {bn ? 'রোগী দেখুন' : 'View Patient'}
+                <ChevronRight
+                  size={14}
+                  className="group-hover:translate-x-0.5 transition-transform"
+                />
+              </button>
+            )}
+            {!alert.is_read && (
+              <button
+                onClick={() => onMarkRead(alert.id)}
+                className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-[#1A6B8A] transition-colors"
+              >
+                {bn ? '✓ পড়েছি' : '✓ Mark read'}
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 p-4 pl-5 animate-pulse overflow-hidden relative">
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-200" />
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-7 h-7 rounded-md bg-slate-100" />
+        <div className="h-3.5 w-28 bg-slate-100 rounded" />
+      </div>
+      <div className="h-3 w-48 bg-slate-100 rounded mb-2" />
+      <div className="h-3 w-20 bg-slate-100 rounded" />
+    </div>
+  );
+}
 
 export default function DoctorAlerts() {
   const { token } = useAuth();
   const { language } = useLanguage();
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<AlertType>('ALL');
+  const [filter, setFilter] = useState<FilterType>('ALL');
+  const [markingAll, setMarkingAll] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
 
   const bn = language === 'bn';
 
@@ -23,175 +159,241 @@ export default function DoctorAlerts() {
       const res = await fetch('/api/doctor/alerts', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setAlerts(await res.json());
+      const data = await res.json();
+      setAlerts(Array.isArray(data) ? data : []);
     } finally {
       setLoading(false);
     }
   };
 
   const markRead = async (alertId?: number) => {
-    await fetch('/api/doctor/alerts/read', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ alertId }),
-    });
-    fetchAlerts();
+    if (!alertId) setMarkingAll(true);
+    try {
+      await fetch('/api/doctor/alerts/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ alertId }),
+      });
+      setAlerts(prev =>
+        alertId
+          ? prev.map(a => a.id === alertId ? { ...a, is_read: true } : a)
+          : prev.map(a => ({ ...a, is_read: true }))
+      );
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
-  const unread = alerts.filter(a => !a.is_read);
+  const viewPatient = (id: number) => {
+    window.dispatchEvent(new CustomEvent('navigate', { detail: `patient-${id}` }));
+  };
+
   const critical = alerts.filter(a => a.type === 'CRITICAL');
   const warnings = alerts.filter(a => a.type !== 'CRITICAL');
+  const unread = alerts.filter(a => !a.is_read);
 
-  const displayed = alerts.filter(a => {
-    if (filter === 'CRITICAL') return a.type === 'CRITICAL';
-    if (filter === 'WARNING') return a.type !== 'CRITICAL';
-    return true;
-  });
+  const displayedCritical = critical.filter(() => filter === 'ALL' || filter === 'CRITICAL');
+  const displayedWarnings = warnings.filter(() => filter === 'ALL' || filter === 'WARNING');
+
+  const filterTabs: { id: FilterType; label: string; labelBn: string }[] = [
+    { id: 'ALL', label: 'All', labelBn: 'সব' },
+    { id: 'CRITICAL', label: 'Critical', labelBn: 'সংকটাপন্ন' },
+    { id: 'WARNING', label: 'Warning', labelBn: 'সতর্কতা' },
+  ];
+
+  const isEmpty = !loading && displayedCritical.length === 0 && displayedWarnings.length === 0;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
+    <div className="max-w-2xl mx-auto -mx-0">
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            <Bell className="w-6 h-6 text-[#1A6B8A]" />
-            {bn ? 'ক্লিনিকাল সতর্কতা' : 'Clinical Alerts'}
+      {/* ── STICKY HEADER ── */}
+      <div
+        ref={headerRef}
+        className="sticky top-16 z-40 bg-white border-b border-slate-200 shadow-sm -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8"
+      >
+        <div className="max-w-2xl mx-auto pt-5 pb-0">
+
+          {/* Title row */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-black text-slate-800">
+              {bn ? 'ক্লিনিকাল সতর্কতা' : 'Clinical Alerts'}
+            </h1>
             {unread.length > 0 && (
-              <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-black rounded-full">
-                {unread.length}
-              </span>
+              <button
+                onClick={() => markRead()}
+                disabled={markingAll}
+                className="text-sm font-semibold flex items-center gap-1.5 transition-opacity hover:opacity-80 disabled:opacity-50"
+                style={{ color: '#1A6B8A' }}
+              >
+                {markingAll
+                  ? <Loader2 size={15} className="animate-spin" />
+                  : <CheckCircle2 size={15} />}
+                {bn ? 'সব পড়েছি' : 'Mark all read'}
+              </button>
             )}
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {bn ? 'সংকটাপন্ন রোগীর ঘটনা পর্যবেক্ষণ করুন' : 'Monitor critical patient events and system notifications'}
-          </p>
-        </div>
-        {unread.length > 0 && (
-          <button
-            onClick={() => markRead()}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-[#1A6B8A] bg-[#1A6B8A]/5 hover:bg-[#1A6B8A]/10 rounded-xl transition-all"
-          >
-            <CheckCircle2 className="w-4 h-4" />
-            {bn ? 'সব পড়েছি চিহ্নিত করুন' : 'Mark All as Read'}
-          </button>
-        )}
-      </div>
-
-      {/* Summary chips */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: bn ? 'মোট' : 'Total', value: alerts.length, color: 'text-slate-700 bg-slate-50 border-slate-200' },
-          { label: bn ? 'সংকটাপন্ন' : 'Critical', value: critical.length, color: 'text-red-700 bg-red-50 border-red-200' },
-          { label: bn ? 'সতর্কতা' : 'Warning', value: warnings.length, color: 'text-amber-700 bg-amber-50 border-amber-200' },
-        ].map(s => (
-          <div key={s.label} className={`flex flex-col items-center py-3 rounded-2xl border font-bold ${s.color}`}>
-            <span className="text-2xl">{s.value}</span>
-            <span className="text-xs">{s.label}</span>
           </div>
-        ))}
-      </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2">
-        {[
-          { id: 'ALL', label: bn ? 'সব' : 'All' },
-          { id: 'CRITICAL', label: bn ? 'সংকটাপন্ন' : 'Critical' },
-          { id: 'WARNING', label: bn ? 'সতর্কতা' : 'Warning' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setFilter(tab.id as AlertType)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
-              filter === tab.id
-                ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            <Filter className="w-3.5 h-3.5" />
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Alert list */}
-      <div className="space-y-3">
-        {loading ? (
-          Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
-          ))
-        ) : displayed.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-            <Bell className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-            <p className="text-slate-400 text-sm font-medium">
-              {bn ? 'কোনো সতর্কতা নেই' : 'No alerts found'}
-            </p>
+          {/* Summary chips */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+            <div className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold whitespace-nowrap shrink-0">
+              {bn ? `মোট ${alerts.length}` : `Total ${alerts.length}`}
+            </div>
+            <div
+              className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
+              style={{ backgroundColor: '#fceeea', color: '#E74C3C' }}
+            >
+              <AlertCircle size={12} />
+              {bn ? `সংকটাপন্ন ${critical.length}` : `Critical ${critical.length}`}
+            </div>
+            <div
+              className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1"
+              style={{ backgroundColor: '#fef5e7', color: '#F39C12' }}
+            >
+              <AlertTriangle size={12} />
+              {bn ? `সতর্কতা ${warnings.length}` : `Warning ${warnings.length}`}
+            </div>
+            {unread.length > 0 && (
+              <div className="px-3 py-1.5 rounded-full bg-[#1A6B8A]/10 text-[#1A6B8A] text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1">
+                <Bell size={12} />
+                {bn ? `অপঠিত ${unread.length}` : `Unread ${unread.length}`}
+              </div>
+            )}
           </div>
-        ) : (
-          <AnimatePresence initial={false}>
-            {displayed.map(alert => {
-              const isCritical = alert.type === 'CRITICAL';
+
+          {/* Filter tabs */}
+          <div className="flex border-b border-slate-200">
+            {filterTabs.map(tab => {
+              const active = filter === tab.id;
               return (
-                <motion.div
-                  key={alert.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: alert.is_read ? 0.55 : 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className={`rounded-2xl border p-4 transition-all ${
-                    alert.is_read
-                      ? 'bg-white border-slate-100'
-                      : isCritical
-                        ? 'bg-red-50 border-red-200 shadow-sm'
-                        : 'bg-amber-50 border-amber-200 shadow-sm'
+                <button
+                  key={tab.id}
+                  onClick={() => setFilter(tab.id)}
+                  className={`flex-1 pb-2.5 text-sm font-semibold transition-colors relative ${
+                    active ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-xl shrink-0 ${
-                        isCritical ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
-                      }`}>
-                        <AlertCircle className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md ${
-                            isCritical ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
-                          }`}>
-                            {alert.type}
-                          </span>
-                          {!alert.is_read && (
-                            <span className="w-2 h-2 rounded-full bg-[#1A6B8A] inline-block" />
-                          )}
-                          <span className="text-xs text-slate-400">
-                            {new Date(alert.triggered_at).toLocaleString()}
-                          </span>
-                        </div>
-                        <p className="font-bold text-slate-900 text-sm">{alert.patient_name}</p>
-                        <p className="text-sm text-slate-600 leading-relaxed mt-0.5">{alert.message}</p>
-                        {alert.patient_id && (
-                          <button
-                            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: `patient-${alert.patient_id}` }))}
-                            className="mt-2 text-xs font-bold text-[#1A6B8A] hover:underline"
-                          >
-                            {bn ? 'রোগীর প্রোফাইল দেখুন →' : 'View patient record →'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {!alert.is_read && (
-                      <button
-                        onClick={() => markRead(alert.id)}
-                        className="p-2 text-slate-400 hover:text-[#1A6B8A] transition-colors shrink-0"
-                        title={bn ? 'পড়েছি চিহ্নিত করুন' : 'Mark as read'}
-                      >
-                        <CheckCircle2 className="w-5 h-5" />
-                      </button>
-                    )}
-                  </div>
-                </motion.div>
+                  {bn ? tab.labelBn : tab.label}
+                  {active && (
+                    <motion.div
+                      layoutId="alertFilterUnderline"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
+                      style={{ backgroundColor: '#1A6B8A' }}
+                    />
+                  )}
+                </button>
               );
             })}
-          </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CONTENT ── */}
+      <div className="space-y-6 pt-5">
+
+        {loading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : isEmpty ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-20 text-slate-400"
+          >
+            <Bell className="w-12 h-12 mb-4 opacity-20" />
+            <p className="text-sm font-semibold">
+              {bn ? 'কোনো সতর্কতা নেই' : 'No alerts'}
+            </p>
+            <p className="text-xs mt-1 opacity-70">
+              {bn ? 'সব ক্লিয়ার — ভালো কাজ!' : "All clear — great work!"}
+            </p>
+          </motion.div>
+        ) : (
+          <>
+            {/* CRITICAL SECTION */}
+            <AnimatePresence>
+              {displayedCritical.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#E74C3C' }} />
+                    <h2
+                      className="text-xs font-black tracking-wider uppercase"
+                      style={{ color: '#E74C3C' }}
+                    >
+                      {bn ? 'জরুরি ব্যবস্থা প্রয়োজন' : 'Critical Actions Required'}
+                    </h2>
+                  </div>
+                  <div className="space-y-3">
+                    {displayedCritical.map((alert, i) => (
+                      <motion.div
+                        key={alert.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: alert.is_read ? 0.55 : 1, x: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                      >
+                        <SwipeableAlertCard
+                          alert={alert}
+                          onMarkRead={markRead}
+                          onViewPatient={viewPatient}
+                          bn={bn}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* WARNING SECTION */}
+            <AnimatePresence>
+              {displayedWarnings.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 }}
+                  className="space-y-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: '#F39C12' }} />
+                    <h2
+                      className="text-xs font-black tracking-wider uppercase"
+                      style={{ color: '#F39C12' }}
+                    >
+                      {bn ? 'সতর্কতা' : 'Warnings'}
+                    </h2>
+                  </div>
+                  <div className="space-y-3">
+                    {displayedWarnings.map((alert, i) => (
+                      <motion.div
+                        key={alert.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: alert.is_read ? 0.55 : 1, x: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                      >
+                        <SwipeableAlertCard
+                          alert={alert}
+                          onMarkRead={markRead}
+                          onViewPatient={viewPatient}
+                          bn={bn}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </>
+        )}
+
+        {/* Swipe hint */}
+        {!loading && !isEmpty && (
+          <p className="text-center text-xs text-slate-400 font-medium pb-4">
+            {bn ? '← সোয়াইপ করে পড়েছি চিহ্নিত করুন' : '← Swipe card left to dismiss'}
+          </p>
         )}
       </div>
     </div>
