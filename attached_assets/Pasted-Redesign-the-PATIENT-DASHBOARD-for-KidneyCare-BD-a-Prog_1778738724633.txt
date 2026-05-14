@@ -1,0 +1,43 @@
+Redesign the PATIENT DASHBOARD for "KidneyCare BD" — a Progressive Web App for CKD patients in Bangladesh. The existing dashboard already shows risk score, GFR trend, alerts, education links, and cost planning. Your task is to overhaul its UI/UX to be modern, mobile‑first, and friendly for low‑literacy users in Bangladesh.
+
+KEY REQUIREMENTS:
+1. **Mobile‑First & PWA Ready**  
+   - The dashboard must feel like a native app on a 4‑inch screen.  
+   - Use a bottom navigation bar with icons: Home, Vitals, Calculator, Learn, Profile.  
+   - All touch targets ≥44x44px, large text, and Bengali‑friendly Noto Sans Bengali font.
+
+2. **Modern, Clean Design Language**  
+   - Use the project palette: primary #1A6B8A, success #2ECC71, warning #F39C12, danger #E74C3C.  
+   - Flat design, generous white space, subtle shadows on cards, rounded corners (12–16px).  
+   - Each section should be a card: Risk Score card, Latest GFR card, Today’s Vitals card, Upcoming Reminders card.  
+   - Add micro‑interactions (hover/active states, smooth transitions, skeleton loaders).
+
+3. **At‑a‑Glance Summary (Home Tab)**  
+   - **Hero card**: CKD risk level (color‑coded) + brief Bengali encouragement.  
+   - **Mini GFR trend sparkline** — tap to go to full Calculator page.  
+   - **Streak counter** for vitals logging (flame icon + days count).  
+   - **Quick‑action FAB**: “Log Today’s Vitals” floating button.
+
+4. **Vitals Tab (Patient Timeline)**  
+   - Interactive multi‑line chart (BP, blood sugar, creatinine) with time range toggle (7d, 30d, 90d).  
+   - Swipeable list of daily log cards, each showing key numbers and abnormal flags.  
+   - On mobile, the log form appears as a bottom sheet (or full‑screen modal) with large input fields.
+
+5. **Education & Diet**  
+   - Tab/carousel for articles; cards with Bengali title + illustration.  
+   - Diet assistant search bar with autocomplete for Bangladeshi foods; result shows “safe / caution / avoid” badge.
+
+6. **Language Toggle**  
+   - Persistent EN / বাংলা switch in the header; the entire dashboard must instantly re‑render in the selected language (labels, alerts, food names).
+
+7. **Offline & PWA Behavior**  
+   - The dashboard must work offline: show cached latest data and queue vitals logs for background sync.  
+   - Display a small “offline” indicator when no connection; sync icon when re‑connected.  
+   - Include a custom “Add to Home Screen” prompt if the user hasn’t installed the PWA.
+
+8. **Technical Notes**  
+   - Built with React + Tailwind CSS; use `react-i18next` for bilingual support.  
+   - Charts with Recharts, responsive containers.  
+   - Service worker caching via Workbox ensures offline access.  
+
+Deliver a completely redesigned Patient Dashboard UI that is visually appealing, effortless to navigate, and works flawlessly on a $80 Android phone in rural Bangladesh.
