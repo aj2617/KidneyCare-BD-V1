@@ -7,6 +7,23 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+function timeAgo(dateStr: string | null, bn: boolean): string {
+  if (!dateStr) return bn ? 'কখনো নয়' : 'Never';
+  const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (mins < 60) return bn ? `${mins}মি আগে` : `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return bn ? `${hrs}ঘ আগে` : `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return bn ? `${days}দ আগে` : `${days}d ago`;
+}
+
+const RISK_BORDER: Record<string, string> = {
+  Critical: '#E74C3C',
+  High: '#F39C12',
+  Moderate: '#F39C12',
+  Low: '#2ECC71',
+};
+
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'critical', label: 'Critical' },
@@ -42,7 +59,7 @@ function daysSince(dateStr: string | null) {
 }
 
 export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: (id: number) => void }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { language } = useLanguage();
   const [patients, setPatients] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -107,48 +124,63 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
   const unread = alerts.filter(a => !a.is_read);
   const criticalPts = patients.filter(p => p.risk_score > 75).length;
 
-  return (
-    <div className="space-y-5">
+  const docInitials = (user?.name || 'DR')
+    .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
 
-      {/* ── HEADER ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">
-            {bn ? 'ক্লিনিকাল ওয়ার্কস্পেস' : 'Clinical Workspace'}
-          </h1>
-          <p className="text-sm text-slate-500">
-            {bn ? 'আপনার রোগীদের পর্যবেক্ষণ করুন' : 'Monitor and manage your patient panel'}
-          </p>
+  return (
+    <div className="space-y-0">
+
+      {/* ── TEAL HEADER ── */}
+      <div
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-5"
+        style={{ background: 'linear-gradient(135deg,#1A6B8A 0%,#0e4d66 100%)', borderRadius: '0 0 1.5rem 1.5rem' }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-black text-white tracking-tight">KidneyCare MD</h1>
+            <p className="text-xs text-white/60 mt-0.5">
+              {bn ? 'আপনার রোগী প্যানেল' : 'Your patient panel'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Bell */}
+            <button
+              onClick={() => setShowAlerts(v => !v)}
+              className="relative p-1.5"
+            >
+              <Bell className="w-5 h-5 text-white/90" />
+              {unread.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border border-[#1A6B8A]">
+                  {unread.length > 9 ? '9+' : unread.length}
+                </span>
+              )}
+            </button>
+            {/* Doctor avatar */}
+            <div className="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-xs font-black">
+              {docInitials}
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+
+        {/* Action buttons row */}
+        <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setAssignedOnly(v => !v)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
               assignedOnly
-                ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]'
-                : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6B8A]'
+                ? 'bg-white text-[#1A6B8A] border-white'
+                : 'bg-white/10 text-white border-white/20 hover:bg-white/20'
             }`}
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-3.5 h-3.5" />
             {assignedOnly ? (bn ? 'আমার রোগী' : 'My Patients') : (bn ? 'সব রোগী' : 'All Patients')}
           </button>
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-400/90 text-white border border-emerald-300/30 hover:bg-emerald-400 transition-all"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-3.5 h-3.5" />
             {bn ? 'রোগী যুক্ত করুন' : 'Find & Assign'}
-          </button>
-          <button
-            onClick={() => setShowAlerts(v => !v)}
-            className="relative p-2.5 bg-white border border-slate-200 rounded-xl text-slate-500 hover:border-[#1A6B8A] transition-all"
-          >
-            <Bell className="w-5 h-5" />
-            {unread.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center">
-                {unread.length > 9 ? '9+' : unread.length}
-              </span>
-            )}
           </button>
         </div>
       </div>
@@ -222,74 +254,77 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
               </p>
             </div>
           ) : (
-            filtered.map(patient => {
+            filtered.map((patient, i) => {
               const risk = getRiskConfig(patient.risk_score || 0);
-              const daysSinceVitals = daysSince(patient.last_vitals_date);
-              const isCritical = (patient.risk_score || 0) > 75;
+              const borderColor = RISK_BORDER[risk.label] || '#1A6B8A';
+              const initials = (patient.name || '?')
+                .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
+              const gfr = patient.latest_gfr ? Math.round(patient.latest_gfr) : null;
+              const score = patient.risk_score || 0;
+              const trend = score > 75 ? 'down' : score <= 25 ? 'up' : 'stable';
+              const loggedAgo = timeAgo(patient.last_vitals_date, bn);
+              const overdue = daysSince(patient.last_vitals_date) >= 7;
               return (
                 <motion.button
                   key={patient.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => onSelectPatient(patient.id)}
-                  className={`w-full text-left bg-white rounded-2xl border shadow-sm p-4 flex items-center gap-3 group transition-all hover:shadow-md hover:border-[#1A6B8A]/30 ${
-                    isCritical ? 'border-red-100' : 'border-slate-100'
-                  }`}
+                  className="w-full text-left bg-white rounded-xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 group transition-all hover:shadow-md active:scale-[0.98]"
                 >
-                  {/* Avatar */}
-                  <div className={`relative w-11 h-11 rounded-full flex items-center justify-center text-white font-black text-base shrink-0 ${
-                    isCritical ? 'bg-red-500' : 'bg-[#1A6B8A]'
-                  }`}>
-                    {patient.name?.charAt(0)}
-                    {isCritical && (
-                      <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full" />
-                    )}
+                  {/* Avatar with colored risk-border ring */}
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-slate-700 bg-slate-50 text-sm shrink-0 border-2"
+                    style={{ borderColor }}
+                  >
+                    {initials}
                   </div>
 
+                  {/* Main content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-slate-900 text-sm truncate group-hover:text-[#1A6B8A] transition-colors">
+                    {/* Row 1: Name + risk badge */}
+                    <div className="flex items-start justify-between mb-1 gap-2">
+                      <h3 className="font-semibold text-slate-900 text-sm truncate group-hover:text-[#1A6B8A] transition-colors">
                         {patient.name}
-                      </p>
-                    </div>
-                    <p className="text-xs text-slate-400 truncate">
-                      {patient.district}{patient.age ? ` · ${patient.age}y` : ''}{patient.sex ? ` · ${patient.sex}` : ''}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {/* GFR */}
-                    <div className="hidden sm:flex flex-col items-center">
-                      <span className="text-xs font-black text-slate-700">
-                        {patient.latest_gfr ? Math.round(patient.latest_gfr) : '--'}
+                        {(patient.age || patient.sex) && (
+                          <span className="font-normal text-slate-500">
+                            {', '}{patient.age}{patient.sex}
+                          </span>
+                        )}
+                      </h3>
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide shrink-0"
+                        style={{
+                          backgroundColor: risk.label === 'Critical' ? '#FDECEA'
+                            : risk.label === 'High' ? '#FEF5E7'
+                            : risk.label === 'Low' ? '#EAFAF1'
+                            : '#FEF5E7',
+                          color: borderColor,
+                        }}
+                      >
+                        {risk.label}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">GFR</span>
                     </div>
 
-                    {/* Stage */}
-                    <div className="hidden sm:flex flex-col items-center px-2">
-                      <span className="text-xs font-black text-slate-700">
-                        {patient.ckd_stage ? `S${patient.ckd_stage}` : '--'}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">Stage</span>
-                    </div>
-
-                    {/* Vitals age */}
-                    {daysSinceVitals < 999 && (
-                      <div className={`hidden sm:flex items-center gap-1 text-[10px] font-bold ${
-                        daysSinceVitals > 7 ? 'text-red-500' : 'text-slate-400'
-                      }`}>
-                        <Clock className="w-3 h-3" />
-                        {daysSinceVitals}d
+                    {/* Row 2: eGFR + trend arrow + logged time */}
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-1.5 font-medium text-slate-700">
+                        <span className="text-slate-400 text-xs">eGFR</span>
+                        <span className="text-sm font-bold">{gfr ?? '--'}</span>
+                        {trend === 'down' && <span className="text-red-500 text-base leading-none">↓</span>}
+                        {trend === 'up'   && <span className="text-emerald-500 text-base leading-none">↑</span>}
+                        {trend === 'stable' && <span className="text-slate-400 text-base leading-none">–</span>}
                       </div>
-                    )}
-
-                    {/* Risk badge */}
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-black border ${risk.cls}`}>
-                      {risk.label}
-                    </span>
-
-                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-[#1A6B8A] transition-colors" />
+                      <span className={`text-xs flex items-center gap-1 ${overdue ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${overdue ? 'bg-red-400' : 'bg-slate-300'}`} />
+                        {bn ? 'লগড ' : 'Logged '}{loggedAgo}
+                      </span>
+                    </div>
                   </div>
+
+                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-[#1A6B8A] transition-colors shrink-0" />
                 </motion.button>
               );
             })
