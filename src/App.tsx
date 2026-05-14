@@ -299,26 +299,37 @@ export default function App() {
 
       {/* Mobile bottom nav — patients only */}
       {user?.role === 'patient' && (
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
-          <div className="flex">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-100 z-50 safe-area-inset-bottom">
+          <div className="flex items-stretch px-1">
             {[
-              { id: 'dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-              { id: 'vitals', icon: Activity, label: t('nav.vitals') },
-              { id: 'gfr', icon: Calculator, label: t('nav.gfr') },
-              { id: 'education', icon: BookOpen, label: t('nav.education') },
-              { id: 'profile', icon: User, label: 'Profile' },
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => setCurrentPage(item.id)}
-                className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 min-h-[56px] transition-colors ${
-                  currentPage === item.id ? 'text-[#1A6B8A]' : 'text-slate-400'
-                }`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="text-[10px] font-semibold leading-tight truncate w-full text-center px-1">{item.label}</span>
-              </button>
-            ))}
+              { id: 'dashboard', icon: LayoutDashboard, label: language === 'bn' ? 'হোম' : 'Home' },
+              { id: 'vitals', icon: Activity, label: language === 'bn' ? 'ভাইটালস' : 'Vitals' },
+              { id: 'gfr', icon: Calculator, label: language === 'bn' ? 'ক্যালক' : 'Calc' },
+              { id: 'education', icon: BookOpen, label: language === 'bn' ? 'শিক্ষা' : 'Learn' },
+              { id: 'profile', icon: User, label: language === 'bn' ? 'প্রোফাইল' : 'Profile' },
+            ].map(item => {
+              const active = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentPage(item.id)}
+                  className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1 min-h-[60px] transition-all relative"
+                >
+                  <div className={`p-1.5 rounded-2xl transition-all ${active ? 'bg-[#1A6B8A]/10' : ''}`}>
+                    <item.icon className={`w-5 h-5 transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`} />
+                  </div>
+                  <span className={`text-[10px] font-bold leading-none transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`}>
+                    {item.label}
+                  </span>
+                  {active && (
+                    <motion.div
+                      layoutId="bottomNavIndicator"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#1A6B8A]"
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </nav>
       )}
