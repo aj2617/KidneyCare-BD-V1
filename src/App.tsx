@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -333,6 +334,9 @@ export default function App() {
           </div>
         </nav>
       )}
+
+      {/* PWA install prompt — patients only */}
+      {user?.role === 'patient' && <PWAInstallPrompt language={language as 'en' | 'bn'} />}
 
       {!user && currentPage === 'landing' && (
         <footer className="bg-slate-900 text-slate-400 py-12 mt-20">
