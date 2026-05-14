@@ -810,6 +810,40 @@ async function startServer() {
     res.json(logs);
   });
 
+  // Batch endpoint — accepts array of offline-queued vitals entries
+  app.post('/api/patient/vitals/batch', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    const { entries } = req.body as { entries: any[] };
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: 'entries array required' });
+    }
+
+    const results: { ok: boolean; date?: string; error?: string }[] = [];
+    const stmt = db.prepare(`
+      INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue, medications, date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const entry of entries) {
+      const err = validateVitals(entry);
+      if (err) { results.push({ ok: false, error: err }); continue; }
+      const { systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue, medications, date } = entry;
+      const insertDate = date || new Date().toISOString();
+      try {
+        stmt.run(patient.id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema ? 1 : 0, fatigue, medications, insertDate);
+        results.push({ ok: true, date: insertDate });
+      } catch (e: any) {
+        results.push({ ok: false, error: e.message });
+      }
+    }
+
+    updateStreak(patient.id);
+    checkAlerts(patient.id);
+    res.json({ synced: results.filter(r => r.ok).length, failed: results.filter(r => !r.ok).length, results });
+  });
+
   app.post('/api/patient/gfr', authenticateToken, (req: any, res) => {
     const { creatinine, age, sex, weight, uacr } = req.body;
     const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;

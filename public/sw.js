@@ -132,6 +132,9 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-offline-actions') {
     event.waitUntil(flushOfflineActions());
   }
+  if (event.tag === 'sync-vitals') {
+    event.waitUntil(flushOfflineVitals());
+  }
 });
 
 async function flushOfflineActions() {
@@ -153,6 +156,46 @@ async function flushOfflineActions() {
         }
       } catch (_) {}
     }
+  } catch (_) {}
+}
+
+async function flushOfflineVitals() {
+  const VITALS_DB = 'kcbd-offline-vitals';
+  const VITALS_STORE = 'queue';
+  try {
+    const vdb = await new Promise((resolve, reject) => {
+      const req = indexedDB.open(VITALS_DB, 1);
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => reject(req.error);
+    });
+    const entries = await new Promise((resolve, reject) => {
+      const tx = vdb.transaction(VITALS_STORE, 'readonly');
+      const req = tx.objectStore(VITALS_STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    if (!entries || entries.length === 0) return;
+
+    for (const entry of entries) {
+      try {
+        const res = await fetch('/api/patient/vitals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: entry.token,
+          },
+          body: JSON.stringify({ ...entry.data, date: entry.localDate }),
+        });
+        if (res.ok) {
+          const delTx = vdb.transaction(VITALS_STORE, 'readwrite');
+          delTx.objectStore(VITALS_STORE).delete(entry.id);
+        }
+      } catch (_) {}
+    }
+
+    // Notify clients that sync is done
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    clients.forEach(c => c.postMessage({ type: 'VITALS_SYNCED' }));
   } catch (_) {}
 }
 
