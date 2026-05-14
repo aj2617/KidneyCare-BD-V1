@@ -9,6 +9,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import VitalsReminder from './components/VitalsReminder';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -208,6 +209,10 @@ export default function App() {
                   {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                   <span className="hidden md:inline">{isOnline ? 'Online' : 'Offline'}</span>
                 </div>
+                {/* Vitals reminder bell — patients only */}
+                {user?.role === 'patient' && (
+                  <VitalsReminder language={language as 'en' | 'bn'} token={token} />
+                )}
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
                   className="p-2 text-slate-500 hover:text-[#1A6B8A] transition-colors flex items-center gap-1 text-sm font-medium"

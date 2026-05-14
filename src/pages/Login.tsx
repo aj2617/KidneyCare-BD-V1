@@ -7,7 +7,7 @@ const DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@kidneycare.bd', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200' },
   { label: 'Doctor', email: 'doctor@kidneycare.bd', color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200' },
   { label: 'CHW', email: 'chw@kidneycare.bd', color: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200' },
-  { label: 'Patient', email: 'patient_dhaka@kidneycare.bd', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200' },
+  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200' },
 ];
 
 export default function Login({ onRegister }: { onRegister: () => void }) {
