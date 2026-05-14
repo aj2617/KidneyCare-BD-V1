@@ -18,5 +18,37 @@
   "categories": ["health", "medical"],
   "lang": "bn",
   "dir": "ltr",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Log Vitals",
+      "short_name": "Vitals",
+      "description": "Quickly log your latest vitals",
+      "url": "/?page=vitals",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "GFR Calculator",
+      "short_name": "GFR",
+      "description": "Calculate your eGFR",
+      "url": "/?page=gfr",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Patient List",
+      "short_name": "Patients",
+      "description": "View your patient panel",
+      "url": "/?page=doctor-dashboard",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "KidneyCare BD Patient Dashboard"
+    }
+  ]
 }

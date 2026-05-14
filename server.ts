@@ -987,11 +987,35 @@ async function startServer() {
     res.json({ message: 'Feedback recorded' });
   });
 
-  app.get('/api/doctor/assign-patient', authenticateToken, (req: any, res) => {
+  app.get('/api/doctor/unassigned-patients', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
-    const { patient_id } = req.query;
+    const { q } = req.query as { q?: string };
+    let query = `SELECT u.name, u.email, u.district, p.*
+      FROM users u JOIN patients p ON u.id = p.user_id
+      WHERE (p.assigned_doctor_id IS NULL OR p.assigned_doctor_id != ?)`;
+    const params: any[] = [req.user.id];
+    if (q) {
+      query += ' AND (LOWER(u.name) LIKE ? OR LOWER(u.district) LIKE ?)';
+      params.push(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`);
+    }
+    query += ' ORDER BY u.name LIMIT 30';
+    res.json(db.prepare(query).all(...params));
+  });
+
+  app.post('/api/doctor/assign-patient', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const { patient_id } = req.body;
+    if (!patient_id) return res.status(400).json({ error: 'patient_id required' });
     db.prepare('UPDATE patients SET assigned_doctor_id = ? WHERE id = ?').run(req.user.id, patient_id);
     res.json({ message: 'Patient assigned' });
+  });
+
+  app.post('/api/doctor/unassign-patient', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const { patient_id } = req.body;
+    if (!patient_id) return res.status(400).json({ error: 'patient_id required' });
+    db.prepare('UPDATE patients SET assigned_doctor_id = NULL WHERE id = ? AND assigned_doctor_id = ?').run(patient_id, req.user.id);
+    res.json({ message: 'Patient unassigned' });
   });
 
   // ════════════════════════════════════════════════════════════════════════════

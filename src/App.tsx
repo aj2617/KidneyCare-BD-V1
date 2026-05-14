@@ -76,12 +76,33 @@ export default function App() {
     };
   }, []);
 
-  // Register service worker
+  // Register service worker + handle updates
+  const [swUpdateReady, setSwUpdateReady] = useState(false);
+  const [swReg, setSwReg] = useState<ServiceWorkerRegistration | null>(null);
+
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
-    }
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      setSwReg(reg);
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            setSwUpdateReady(true);
+          }
+        });
+      });
+    }).catch(console.error);
   }, []);
+
+  const applySwUpdate = () => {
+    if (swReg?.waiting) {
+      swReg.waiting.postMessage('SKIP_WAITING');
+      setSwUpdateReady(false);
+      window.location.reload();
+    }
+  };
 
   const navItems: Record<string, Array<{ id: string; label: string; icon: any }>> = {
     patient: [
@@ -172,8 +193,25 @@ export default function App() {
             {t('offline.banner')}
           </motion.div>
         )}
-        {isOnline && typeof window !== 'undefined' && (
-          <></>
+      </AnimatePresence>
+
+      {/* SW Update Banner */}
+      <AnimatePresence>
+        {swUpdateReady && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-[#1A6B8A] text-white text-sm font-semibold text-center py-2 flex items-center justify-center gap-3 z-[100]"
+          >
+            <span>{language === 'bn' ? 'নতুন আপডেট পাওয়া গেছে।' : 'A new version is available.'}</span>
+            <button
+              onClick={applySwUpdate}
+              className="px-3 py-1 bg-white text-[#1A6B8A] rounded-lg text-xs font-black hover:bg-slate-100 transition-colors"
+            >
+              {language === 'bn' ? 'আপডেট করুন' : 'Refresh'}
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -340,8 +378,8 @@ export default function App() {
         </nav>
       )}
 
-      {/* PWA install prompt — patients only */}
-      {user?.role === 'patient' && <PWAInstallPrompt language={language as 'en' | 'bn'} />}
+      {/* PWA install prompt — all authenticated users */}
+      {user && <PWAInstallPrompt language={language as 'en' | 'bn'} />}
 
       {!user && currentPage === 'landing' && (
         <footer className="bg-slate-900 text-slate-400 py-12 mt-20">

@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Users, Search, Bell, ChevronRight, AlertCircle,
-  Activity, Clock, Filter, X
+  Activity, Clock, Filter, X, UserPlus, CheckCircle2, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -51,6 +51,7 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
   const [activeFilter, setActiveFilter] = useState('all');
   const [assignedOnly, setAssignedOnly] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
 
   const bn = language === 'bn';
 
@@ -119,7 +120,7 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
             {bn ? 'আপনার রোগীদের পর্যবেক্ষণ করুন' : 'Monitor and manage your patient panel'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setAssignedOnly(v => !v)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
@@ -130,6 +131,13 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
           >
             <Users className="w-4 h-4" />
             {assignedOnly ? (bn ? 'আমার রোগী' : 'My Patients') : (bn ? 'সব রোগী' : 'All Patients')}
+          </button>
+          <button
+            onClick={() => setShowAssign(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-all"
+          >
+            <UserPlus className="w-4 h-4" />
+            {bn ? 'রোগী যুক্ত করুন' : 'Find & Assign'}
           </button>
           <button
             onClick={() => setShowAlerts(v => !v)}
@@ -301,6 +309,18 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
         </div>
       </div>
 
+      {/* ── ASSIGN PATIENT MODAL ── */}
+      <AnimatePresence>
+        {showAssign && (
+          <AssignPatientModal
+            token={token!}
+            language={language}
+            onClose={() => setShowAssign(false)}
+            onAssigned={() => { setShowAssign(false); fetchData(); }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── ALERTS DRAWER (mobile) ── */}
       <AnimatePresence>
         {showAlerts && (
@@ -434,6 +454,188 @@ function AlertsPanel({ alerts, loading, onMarkRead, onMarkAllRead, onSelectPatie
         )}
       </div>
     </div>
+  );
+}
+
+// ── ASSIGN PATIENT MODAL ─────────────────────────────────────────────────────
+function AssignPatientModal({ token, language, onClose, onAssigned }: {
+  token: string;
+  language: string;
+  onClose: () => void;
+  onAssigned: () => void;
+}) {
+  const bn = language === 'bn';
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [assigning, setAssigning] = useState<number | null>(null);
+  const [assigned, setAssigned] = useState<Set<number>>(new Set());
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => search(query), 300);
+    return () => { if (debounce.current) clearTimeout(debounce.current); };
+  }, [query]);
+
+  const search = async (q: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/doctor/unassigned-patients?q=${encodeURIComponent(q)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setResults(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const assign = async (patientId: number) => {
+    setAssigning(patientId);
+    try {
+      const res = await fetch('/api/doctor/assign-patient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ patient_id: patientId }),
+      });
+      if (res.ok) {
+        setAssigned(prev => new Set([...prev, patientId]));
+        setResults(prev => prev.filter(p => p.id !== patientId));
+        onAssigned();
+      }
+    } finally {
+      setAssigning(null);
+    }
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        key="assign-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/40 z-[80]"
+        onClick={onClose}
+      />
+      {/* Modal */}
+      <motion.div
+        key="assign-modal"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+        className="fixed inset-x-4 top-[10%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg z-[90] bg-white rounded-3xl shadow-2xl overflow-hidden"
+        style={{ maxHeight: '80vh' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-emerald-600" />
+            <h2 className="font-black text-slate-900">
+              {bn ? 'রোগী খুঁজুন ও যুক্ত করুন' : 'Find & Assign Patient'}
+            </h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-all">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 pb-3">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              autoFocus
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder={bn ? 'নাম বা জেলা দিয়ে খুঁজুন...' : 'Search by name or district...'}
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+            />
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1.5 px-1">
+            {bn ? 'শুধুমাত্র আপনার প্যানেলে নেই এমন রোগী দেখানো হচ্ছে' : 'Showing patients not yet in your panel'}
+          </p>
+        </div>
+
+        {/* Results */}
+        <div className="overflow-y-auto px-5 pb-5 space-y-2" style={{ maxHeight: '50vh' }}>
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-[#1A6B8A]" />
+            </div>
+          )}
+
+          {!loading && results.length === 0 && (
+            <div className="text-center py-10 text-slate-400">
+              <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">
+                {bn ? 'কোনো রোগী পাওয়া যায়নি' : 'No unassigned patients found'}
+              </p>
+            </div>
+          )}
+
+          {!loading && results.map(patient => {
+            const isAssigning = assigning === patient.id;
+            const wasAssigned = assigned.has(patient.id);
+            const risk = getRiskConfig(patient.risk_score || 0);
+            return (
+              <div
+                key={patient.id}
+                className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-slate-200 transition-all"
+              >
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full bg-[#1A6B8A] text-white flex items-center justify-center font-black text-sm shrink-0">
+                  {patient.name?.charAt(0)}
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-slate-900 truncate">{patient.name}</p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {patient.district}{patient.age ? ` · ${patient.age}y` : ''}{patient.sex ? ` · ${patient.sex}` : ''}
+                  </p>
+                </div>
+
+                {/* Risk badge */}
+                <span className={`hidden sm:inline px-2 py-1 rounded-full text-[10px] font-black border ${risk.cls} shrink-0`}>
+                  {risk.label}
+                </span>
+
+                {/* Stage */}
+                <span className="hidden sm:inline text-xs font-bold text-slate-500 shrink-0">
+                  {patient.ckd_stage ? `S${patient.ckd_stage}` : '--'}
+                </span>
+
+                {/* Assign button */}
+                <button
+                  onClick={() => assign(patient.id)}
+                  disabled={isAssigning || wasAssigned}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[36px] shrink-0 ${
+                    wasAssigned
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm'
+                  } disabled:opacity-70`}
+                >
+                  {isAssigning
+                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : wasAssigned
+                      ? <CheckCircle2 className="w-3.5 h-3.5" />
+                      : <UserPlus className="w-3.5 h-3.5" />
+                  }
+                  {wasAssigned
+                    ? (bn ? 'যুক্ত হয়েছে' : 'Assigned')
+                    : (bn ? 'যুক্ত করুন' : 'Assign')
+                  }
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    </>
   );
 }
 

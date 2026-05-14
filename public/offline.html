@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KidneyCare BD — Offline</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #F4F7FB;
+      color: #1E293B;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 32px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+    }
+    .icon {
+      width: 72px; height: 72px;
+      background: #1A6B8A;
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px;
+      font-size: 32px;
+      font-weight: 900;
+      color: white;
+    }
+    h1 { font-size: 22px; font-weight: 900; color: #0F172A; margin-bottom: 8px; }
+    p  { font-size: 14px; color: #64748B; line-height: 1.6; margin-bottom: 8px; }
+    .bn { font-size: 14px; color: #94A3B8; margin-top: 4px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 28px;
+      padding: 14px 28px;
+      background: #1A6B8A;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #14556e; }
+    .tip {
+      margin-top: 24px;
+      padding: 16px;
+      background: #F1F5F9;
+      border-radius: 14px;
+      font-size: 13px;
+      color: #64748B;
+      text-align: left;
+    }
+    .tip strong { color: #1E293B; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">K</div>
+    <h1>You're Offline</h1>
+    <p>No internet connection detected. Some features require connectivity.</p>
+    <p class="bn">ইন্টারনেট সংযোগ নেই। পুনরায় সংযোগ করুন।</p>
+
+    <div class="tip">
+      <strong>What you can still do:</strong><br/>
+      Your cached patient list, recent vitals, and GFR records are still available — reconnect to sync any changes.
+    </div>
+
+    <button class="btn" onclick="window.location.reload()">
+      ↻ Try Again
+    </button>
+  </div>
+</body>
+</html>
