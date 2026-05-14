@@ -33,7 +33,7 @@ import OutcomeCohorts from './pages/OutcomeCohorts';
 import FHIRViewer from './pages/FHIRViewer';
 
 export default function App() {
-  const { user, logout } = useAuth();
+  const { user, logout, token } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [currentPage, setCurrentPage] = useState('landing');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

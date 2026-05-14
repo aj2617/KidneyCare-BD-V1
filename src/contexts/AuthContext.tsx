@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 interface User {
   id: number;
   name: string;
-  role: 'patient' | 'doctor' | 'admin';
+  role: 'patient' | 'doctor' | 'admin' | 'chw';
 }
 
 interface AuthContextType {
