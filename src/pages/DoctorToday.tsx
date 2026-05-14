@@ -2,57 +2,97 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
-  Clock, AlertCircle, CalendarCheck, Video,
-  ChevronRight, CheckCircle2, Loader2, Users
+  Clock, AlertTriangle, Video, ChevronRight,
+  CheckCircle2, Loader2, Sparkles
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 function daysSince(dateStr: string | null) {
   if (!dateStr) return 999;
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
 }
 
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map(n => n.charAt(0).toUpperCase())
+    .join('');
+}
+
 function getTodayGreeting(name: string, bn: boolean) {
   const h = new Date().getHours();
+  const firstName = name.split(' ')[0];
   if (bn) {
-    if (h < 12) return `সুপ্রভাত, ডা. ${name}`;
-    if (h < 17) return `শুভ বিকেল, ডা. ${name}`;
-    return `শুভ সন্ধ্যা, ডা. ${name}`;
+    if (h < 12) return `সুপ্রভাত, ডা. ${firstName}`;
+    if (h < 17) return `শুভ বিকেল, ডা. ${firstName}`;
+    return `শুভ সন্ধ্যা, ডা. ${firstName}`;
   }
-  if (h < 12) return `Good morning, Dr. ${name}`;
-  if (h < 17) return `Good afternoon, Dr. ${name}`;
-  return `Good evening, Dr. ${name}`;
+  if (h < 12) return `Good morning, Dr. ${firstName}`;
+  if (h < 17) return `Good afternoon, Dr. ${firstName}`;
+  return `Good evening, Dr. ${firstName}`;
 }
 
-function formatDate(bn: boolean) {
-  return new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-GB', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-  });
+function formatDateLine(bn: boolean) {
+  return new Date().toLocaleDateString(bn ? 'bn-BD' : 'en-US', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  }).toUpperCase();
 }
 
-function WeekStrip({ bn }: { bn: boolean }) {
+// Derive a CKD stage label + color from risk score
+function getCKDInfo(riskScore: number, bn: boolean) {
+  if (riskScore > 75) return {
+    label: bn ? 'সিকেডি স্টেজ ৫' : 'CKD Stage 5',
+    cls: 'text-red-600 bg-red-50',
+    avatarCls: 'bg-red-100 text-red-700',
+  };
+  if (riskScore > 50) return {
+    label: bn ? 'সিকেডি স্টেজ ৪' : 'CKD Stage 4',
+    cls: 'text-rose-600 bg-rose-50',
+    avatarCls: 'bg-rose-100 text-rose-700',
+  };
+  if (riskScore > 30) return {
+    label: bn ? 'সিকেডি স্টেজ ৩' : 'CKD Stage 3',
+    cls: 'text-orange-600 bg-orange-50',
+    avatarCls: 'bg-orange-100 text-orange-700',
+  };
+  return {
+    label: bn ? 'সিকেডি স্টেজ ২' : 'CKD Stage 2',
+    cls: 'text-blue-600 bg-blue-50',
+    avatarCls: 'bg-blue-100 text-blue-700',
+  };
+}
+
+// Assign a fake "scheduled time" slot to follow-up patients for display
+const FOLLOW_UP_TIMES = ['9:00 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '2:00 PM', '2:30 PM', '3:00 PM'];
+
+function WeekCalendar({ bn }: { bn: boolean }) {
   const today = new Date();
-  const days = Array.from({ length: 7 }, (_, i) => {
+  const todayDow = today.getDay();
+  // Show Sun–Sat of current week
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today);
-    d.setDate(today.getDate() - 3 + i);
+    d.setDate(today.getDate() - todayDow + i);
     return d;
   });
   const dayLabels = bn
-    ? ['রবি', 'সোম', 'মঙ্গ', 'বুধ', 'বৃহ', 'শুক্র', 'শনি']
-    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    ? ['র', 'সো', 'ম', 'বু', 'বৃ', 'শু', 'শ']
+    : ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto py-1">
-      {days.map((d, i) => {
+    <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+      {weekDates.map((d, i) => {
         const isToday = d.toDateString() === today.toDateString();
         return (
-          <div
-            key={i}
-            className={`flex flex-col items-center gap-1 px-2.5 py-2 rounded-xl min-w-[44px] transition-all ${
-              isToday ? 'bg-[#1A6B8A] text-white shadow-md shadow-[#1A6B8A]/20' : 'bg-white text-slate-500'
-            }`}
-          >
-            <span className="text-[10px] font-bold uppercase">{dayLabels[d.getDay()]}</span>
-            <span className="text-sm font-black">{d.getDate()}</span>
+          <div key={i} className="flex flex-col items-center gap-1.5">
+            <span className="text-[10px] font-semibold text-slate-400 uppercase">{dayLabels[i]}</span>
+            <div className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold transition-all ${
+              isToday
+                ? 'bg-[#1A6B8A] text-white shadow-md shadow-[#1A6B8A]/30'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}>
+              {d.getDate()}
+            </div>
           </div>
         );
       })}
@@ -64,211 +104,338 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const [patients, setPatients] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const bn = language === 'bn';
-  const doctorFirstName = user?.name?.split(' ')[0] || 'Doctor';
+  const doctorName = user?.name || 'Doctor';
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetch('/api/doctor/patients', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-      fetch('/api/doctor/alerts', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
-    ]).then(([p, a]) => {
-      setPatients(Array.isArray(p) ? p : []);
-      setAlerts(Array.isArray(a) ? a : []);
-      setLoading(false);
-    });
+    fetch('/api/doctor/patients', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(p => {
+        setPatients(Array.isArray(p) ? p : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const overdue = patients.filter(p => daysSince(p.last_vitals_date) >= 7);
-  const critical = patients.filter(p => p.risk_score > 75);
-  const unreadAlerts = alerts.filter(a => !a.is_read);
-  const criticalAlerts = alerts.filter(a => a.type === 'CRITICAL' && !a.is_read);
+  // Top follow-up patients: high risk, sorted by score descending
+  const followUps = [...patients]
+    .filter(p => p.risk_score > 25)
+    .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
+    .slice(0, 4);
+  // Teleconsult: top 1 critical patient
+  const teleconsultPatient = patients.find(p => p.risk_score > 75) || null;
+
+  const allClear = !loading && overdue.length === 0 && followUps.length === 0;
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3 text-slate-400">
         <Loader2 className="w-8 h-8 animate-spin" />
-        <p className="text-sm font-medium">{bn ? 'লোড হচ্ছে...' : "Loading today's briefing..."}</p>
+        <p className="text-sm font-medium">
+          {bn ? 'লোড হচ্ছে...' : "Loading today's briefing..."}
+        </p>
       </div>
     );
   }
 
-  const allClear = overdue.length === 0 && criticalAlerts.length === 0;
-
   return (
-    <div className="space-y-5 pb-4">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-[#1A6B8A] to-[#0e4d66] rounded-2xl p-5 text-white shadow-lg shadow-[#1A6B8A]/20"
-      >
-        <p className="text-[11px] font-semibold uppercase tracking-wider opacity-70 mb-1">{formatDate(bn)}</p>
-        <h1 className="text-xl font-black leading-tight mb-3">{getTodayGreeting(doctorFirstName, bn)}</h1>
-        <WeekStrip bn={bn} />
-      </motion.div>
+    <div className="pb-6">
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          {
-            value: overdue.length,
-            label: bn ? 'মিসড লগ' : 'Overdue',
-            color: overdue.length > 0 ? 'text-red-600' : 'text-emerald-600',
-            bg: overdue.length > 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100',
-            Icon: Clock,
-          },
-          {
-            value: unreadAlerts.length,
-            label: bn ? 'নতুন অ্যালার্ট' : 'Unread Alerts',
-            color: unreadAlerts.length > 0 ? 'text-amber-600' : 'text-emerald-600',
-            bg: unreadAlerts.length > 0 ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100',
-            Icon: AlertCircle,
-          },
-          {
-            value: critical.length,
-            label: bn ? 'ক্রিটিক্যাল' : 'Critical Pts',
-            color: critical.length > 0 ? 'text-red-600' : 'text-emerald-600',
-            bg: critical.length > 0 ? 'bg-red-50 border-red-100' : 'bg-emerald-50 border-emerald-100',
-            Icon: Users,
-          },
-        ].map(({ value, label, color, bg, Icon }) => (
-          <div key={label} className={`rounded-2xl border p-3 text-center ${bg}`}>
-            <Icon className={`w-5 h-5 mx-auto mb-1 ${color}`} />
-            <p className={`text-2xl font-black ${color}`}>{value}</p>
-            <p className={`text-[10px] font-bold leading-tight ${color} opacity-80`}>{label}</p>
+      {/* ── FULL-BLEED TEAL HEADER ── */}
+      <div
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-5 pt-6 pb-7 mb-5 text-white"
+        style={{
+          background: 'linear-gradient(135deg, #1A6B8A 0%, #0e4d66 100%)',
+          borderRadius: '0 0 2rem 2rem',
+        }}
+      >
+        <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}>
+          <p className="text-xs font-semibold uppercase tracking-widest opacity-75 mb-1">
+            {formatDateLine(bn)}
+          </p>
+          <h1 className="text-2xl font-black mb-5 leading-tight">
+            {getTodayGreeting(doctorName, bn)}
+          </h1>
+
+          {/* Stat chips — horizontally scrollable, glass-morphism */}
+          <div
+            className="flex gap-3 overflow-x-auto pb-1"
+            style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}
+          >
+            {[
+              {
+                value: followUps.length,
+                label: bn ? 'ফলো-আপ' : 'Follow-ups',
+                urgent: false,
+              },
+              {
+                value: 1,
+                label: bn ? 'টেলিকনসালট' : 'Teleconsults',
+                urgent: false,
+              },
+              {
+                value: overdue.length,
+                label: bn ? 'বাকি' : 'Overdue',
+                urgent: overdue.length > 0,
+              },
+            ].map(({ value, label, urgent }) => (
+              <div
+                key={label}
+                className="shrink-0 rounded-xl px-4 py-3 flex flex-col min-w-[100px] border"
+                style={{
+                  backgroundColor: urgent ? 'rgba(239,68,68,0.75)' : 'rgba(255,255,255,0.18)',
+                  backdropFilter: 'blur(8px)',
+                  borderColor: urgent ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)',
+                }}
+              >
+                <span className="text-2xl font-black leading-none mb-0.5">{value}</span>
+                <span className="text-xs font-medium opacity-90">{label}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </motion.div>
       </div>
 
-      {/* All clear state */}
+      {/* ── WEEK CALENDAR ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+        className="mb-6"
+      >
+        <WeekCalendar bn={bn} />
+      </motion.div>
+
+      {/* ── ALL CLEAR ── */}
       {allClear && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center"
+          className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center mb-6"
         >
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+          <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
+            <Sparkles className="w-6 h-6 text-emerald-500" />
+          </div>
           <p className="font-black text-emerald-700 text-lg">
             {bn ? 'সব ঠিক আছে!' : 'All caught up!'}
           </p>
-          <p className="text-sm text-emerald-600 mt-1">
-            {bn ? 'আজ কোনো জরুরি বিষয় নেই। আপনি সব দেখেছেন।' : 'No urgent tasks today. You\'re all set.'}
+          <p className="text-sm text-emerald-600 mt-1 font-medium">
+            {bn ? 'আপনি সব দেখেছেন।' : 'আপনি সব দেখেছেন। Great job managing your patients today.'}
           </p>
         </motion.div>
       )}
 
-      {/* Critical Alerts */}
-      {criticalAlerts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border-b border-red-100">
-            <AlertCircle className="w-4 h-4 text-red-600" />
-            <h2 className="font-black text-red-700 text-sm uppercase tracking-wide">
-              {bn ? 'জরুরি অ্যালার্ট' : 'Critical Alerts'}
+      {/* ── SCHEDULED FOLLOW-UPS ── */}
+      {followUps.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-6"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg" aria-hidden>📋</span>
+            <h2 className="font-bold text-slate-800">
+              {bn ? 'নির্ধারিত ফলো-আপ' : 'Scheduled Follow-ups'}
             </h2>
-            <span className="ml-auto bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-              {criticalAlerts.length}
-            </span>
           </div>
-          <div className="divide-y divide-slate-50">
-            {criticalAlerts.slice(0, 3).map((alert, i) => (
-              <motion.button
-                key={alert.id || i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                onClick={() => alert.patient_id && onSelectPatient(alert.patient_id)}
-                className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors text-left border-l-4 border-l-red-500"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 text-sm truncate">{alert.patient_name || (bn ? 'রোগী' : 'Patient')}</p>
-                  <p className="text-xs text-red-600 font-semibold mt-0.5 leading-snug">{alert.message}</p>
-                  <p className="text-[10px] text-slate-400 mt-1">{alert.created_at ? new Date(alert.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-slate-300 shrink-0 mt-1" />
-              </motion.button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Overdue Patients */}
-      {overdue.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border-b border-amber-100">
-            <Clock className="w-4 h-4 text-amber-600" />
-            <h2 className="font-black text-amber-700 text-sm uppercase tracking-wide">
-              {bn ? 'মিসড ভাইটালস (>৭ দিন)' : 'No Vitals >7 Days'}
-            </h2>
-            <span className="ml-auto bg-amber-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-              {overdue.length}
-            </span>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {overdue.slice(0, 5).map((p, i) => {
-              const d = daysSince(p.last_vitals_date);
+          <div className="flex flex-col gap-3">
+            {followUps.map((p, i) => {
+              const ckd = getCKDInfo(p.risk_score || 0, bn);
+              const time = FOLLOW_UP_TIMES[i % FOLLOW_UP_TIMES.length];
               return (
                 <motion.button
                   key={p.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
+                  transition={{ delay: 0.1 + i * 0.05 }}
                   onClick={() => onSelectPatient(p.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition-colors text-left border-l-4 border-l-amber-400"
+                  className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between w-full text-left active:scale-[0.98] transition-transform"
                 >
-                  <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm shrink-0">
-                    {p.name?.charAt(0)}
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${ckd.avatarCls}`}>
+                      {getInitials(p.name)}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900 text-sm">{p.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5 flex-wrap">
+                        <span className={`font-semibold px-1.5 py-0.5 rounded text-[11px] ${ckd.cls}`}>
+                          {ckd.label}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="flex items-center gap-1 text-slate-500">
+                          <Clock className="w-3 h-3" />
+                          {time}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 text-sm truncate">{p.name}</p>
-                    <p className="text-[11px] text-slate-400">{p.district}</p>
+                  <div className="flex flex-col items-end gap-1 shrink-0 ml-2">
+                    <ChevronRight className="w-5 h-5 text-slate-300" />
+                    <span className="text-[10px] text-slate-400 font-medium">
+                      {bn ? 'খুলুন' : 'Tap to open'}
+                    </span>
                   </div>
-                  <span className="shrink-0 px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-[11px] font-black">
-                    {d === 999 ? (bn ? 'কখনো নয়' : 'Never') : `${d}d ${bn ? 'আগে' : 'ago'}`}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
                 </motion.button>
               );
             })}
           </div>
-          {overdue.length > 5 && (
-            <div className="px-4 py-3 border-t border-slate-50 text-center">
-              <p className="text-xs text-slate-400 font-medium">
-                {bn ? `আরও ${overdue.length - 5} জন রোগী আছে` : `+${overdue.length - 5} more patients`}
+        </motion.section>
+      )}
+
+      {/* ── UPCOMING TELECONSULTS ── */}
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="mb-6"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg" aria-hidden>📹</span>
+          <h2 className="font-bold text-slate-800">
+            {bn ? 'আসন্ন টেলিকনসালট' : 'Upcoming Teleconsults'}
+          </h2>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+          {teleconsultPatient ? (
+            <>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
+                      {getInitials(teleconsultPatient.name)}
+                    </div>
+                    {/* Online dot */}
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900 text-sm">{teleconsultPatient.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {bn ? 'রুটিন চেকআপ' : 'Routine Checkup'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-xs font-semibold text-slate-700 shrink-0">
+                  <Clock className="w-3.5 h-3.5" />
+                  2:30 PM
+                </div>
+              </div>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('navigate', {
+                  detail: {
+                    page: 'teleconsult',
+                    teleconsultPatient: { id: teleconsultPatient.id, name: teleconsultPatient.name },
+                  },
+                }))}
+                className="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90 active:opacity-80"
+                style={{ backgroundColor: '#1A6B8A' }}
+              >
+                <Video className="w-4 h-4" />
+                {bn ? 'কল যোগ দিন' : 'Join Call'}
+              </button>
+            </>
+          ) : (
+            <div className="text-center py-4 text-slate-400">
+              <Video className="w-8 h-8 mx-auto mb-2 opacity-25" />
+              <p className="text-sm font-medium">
+                {bn ? 'আজ কোনো টেলিকনসালট নেই' : 'No teleconsults scheduled today'}
               </p>
+              <button
+                onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'teleconsult' }))}
+                className="mt-3 text-xs font-bold text-[#1A6B8A] hover:underline"
+              >
+                {bn ? 'একটি শুরু করুন →' : 'Start one →'}
+              </button>
             </div>
           )}
         </div>
+      </motion.section>
+
+      {/* ── OVERDUE — No vitals >7 days ── */}
+      <AnimatePresence>
+        {overdue.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="mb-6"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg" aria-hidden>⏰</span>
+              <h2 className="font-bold text-slate-800">
+                {bn ? 'বাকি — ভাইটালস নেই >৭ দিন' : 'Overdue — No vitals >7 days'}
+              </h2>
+            </div>
+            <div className="flex flex-col gap-3">
+              {overdue.slice(0, 5).map((p, i) => {
+                const d = daysSince(p.last_vitals_date);
+                const lastDate = p.last_vitals_date
+                  ? new Date(p.last_vitals_date).toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short' })
+                  : (bn ? 'কখনো নয়' : 'Never');
+                return (
+                  <motion.button
+                    key={p.id}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.04 }}
+                    onClick={() => onSelectPatient(p.id)}
+                    className="bg-rose-50/60 rounded-2xl p-4 shadow-sm border border-rose-100 flex items-center justify-between w-full text-left active:scale-[0.98] transition-transform"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white text-slate-700 flex items-center justify-center font-bold text-sm border border-rose-100 shrink-0">
+                        {getInitials(p.name)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900 text-sm">{p.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {bn ? 'শেষ লগ: ' : 'Last log: '}{lastDate}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-xs font-semibold text-rose-600 bg-rose-100 px-2.5 py-1 rounded-full flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        {d === 999 ? (bn ? 'কখনো নয়' : 'Never') : `${d}d`}
+                      </span>
+                      <ChevronRight className="w-5 h-5 text-slate-300" />
+                    </div>
+                  </motion.button>
+                );
+              })}
+              {overdue.length > 5 && (
+                <p className="text-center text-xs text-slate-400 font-medium pt-1">
+                  {bn ? `+ আরও ${overdue.length - 5} জন` : `+ ${overdue.length - 5} more`}
+                </p>
+              )}
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* ── ALWAYS-SHOWN BOTTOM "ALL CAUGHT UP" FOOTER ── */}
+      {!allClear && (
+        <div className="mt-4 mb-2 text-center flex flex-col items-center gap-2 opacity-60">
+          <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          </div>
+          <p className="text-sm font-medium text-slate-500">
+            {bn ? 'আপনি সব দেখেছেন' : 'All caught up! আপনি সব দেখেছেন'}
+          </p>
+          <p className="text-xs text-slate-400">
+            {bn ? 'আজকের সব কাজ সম্পন্ন।' : 'Great job managing your patients today.'}
+          </p>
+        </div>
       )}
 
-      {/* Follow-ups prompt */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <CalendarCheck className="w-4 h-4 text-[#1A6B8A]" />
-          <h2 className="font-black text-slate-800 text-sm">
-            {bn ? 'পেশেন্ট ফলো-আপ' : 'Patient Follow-ups'}
-          </h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'doctor-dashboard' }))}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1A6B8A] text-white rounded-xl text-sm font-bold hover:bg-[#14556e] transition-all min-h-[48px]"
-          >
-            <Users className="w-4 h-4" />
-            {bn ? 'রোগীর তালিকা' : 'Patient List'}
-          </button>
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'teleconsult' }))}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all min-h-[48px]"
-          >
-            <Video className="w-4 h-4" />
-            {bn ? 'টেলিকনসালট' : 'Teleconsult'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
