@@ -35,6 +35,7 @@ import FHIRViewer from './pages/FHIRViewer';
 import MedicationAdherence from './pages/MedicationAdherence';
 import DoctorToday from './pages/DoctorToday';
 import DoctorProfile from './pages/DoctorProfile';
+import DoctorTools from './pages/DoctorTools';
 
 export default function App() {
   const { user, logout, token } = useAuth();
@@ -161,7 +162,9 @@ export default function App() {
       if (currentPage === 'doctor-dashboard') return <DoctorDashboard onSelectPatient={(id) => setCurrentPage(`patient-${id}`)} />;
       if (currentPage === 'doctor-alerts') return <DoctorAlerts />;
       if (currentPage === 'doctor-today') return <DoctorToday onSelectPatient={(id) => setCurrentPage(`patient-${id}`)} />;
-      if (currentPage === 'doctor-tools' || currentPage === 'prescriptions') return <Prescriptions />;
+      if (currentPage === 'doctor-tools') return <DoctorTools />;
+      if (currentPage === 'prescriptions') return <Prescriptions />;
+      if (currentPage === 'gfr') return <GfrCalculator />;
       if (currentPage === 'teleconsult') return <Teleconsult patientId={teleconsultPatient?.id} patientName={teleconsultPatient?.name} onEnd={() => setCurrentPage('doctor-dashboard')} />;
       if (currentPage.startsWith('patient-')) return <PatientDetail id={currentPage.split('-')[1]} onBack={() => setCurrentPage('doctor-dashboard')} />;
       if (currentPage === 'doctor-profile') return <DoctorProfile />;
