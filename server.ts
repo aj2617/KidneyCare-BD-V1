@@ -13,7 +13,6 @@ const __dirname = path.dirname(__filename);
 const railwayVolumePath = process.env.RAILWAY_VOLUME_MOUNT_PATH;
 const databasePath =
   process.env.DATABASE_PATH ||
-  process.env.DATABASE_URL ||
   (railwayVolumePath ? path.join(railwayVolumePath, 'kidneycare.db') : 'kidneycare.db');
 const databaseDir = path.dirname(databasePath);
 
@@ -564,7 +563,7 @@ async function startServer() {
     });
 
     // ── 6-month vitals history for first 10 patients ──
-    const vitalStmt = db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const vitalStmt = db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema, fatigue, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     const proteinOpts = ['Negative', 'Trace', '1+', '2+', '3+'];
     const rnd = (range: number) => (Math.random() - 0.5) * range;
     for (let pi = 0; pi < Math.min(10, patientRecordIds.length); pi++) {
@@ -591,7 +590,7 @@ async function startServer() {
     }
 
     // ── GFR history for first 10 patients (every 30 days, 6 months) ──
-    const gfrStmt = db.prepare('INSERT INTO gfr_records (patient_id, creatinine, age, sex, weight, mdrd, cg, ckd_epi, stage, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    const gfrStmt = db.prepare('INSERT INTO gfr_records (patient_id, creatinine, age, sex, weight, mdrd, cg, ckd_epi, stage, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (let pi = 0; pi < Math.min(10, patientRecordIds.length); pi++) {
       const patId = patientRecordIds[pi];
       const [,, , age,sex, weight,,, stage] = patientsSeed[pi];
@@ -661,22 +660,68 @@ async function startServer() {
   const dietCount = db.prepare('SELECT COUNT(*) as count FROM diet_suggestions').get() as any;
   if (dietCount.count === 0) {
     const foods = [
+      // ── Fruits ──
+      { en: 'Apple', bn: 'আপেল', cat: 'Fruit', k: 195, na: 2, p: 20, stages: '1,2,3,4,5', ae: 'Safe for all CKD stages — low potassium and phosphorus.', ab: 'সব পর্যায়ে নিরাপদ — কম পটাশিয়াম এবং ফসফরাস।' },
       { en: 'Banana', bn: 'কলা', cat: 'Fruit', k: 422, na: 1, p: 22, stages: '1,2', ae: 'Limit in stages 3-5 due to high potassium.', ab: 'পর্যায় ৩-৫ এ পটাশিয়াম বেশি থাকায় পরিমিত খান।' },
-      { en: 'Apple', bn: 'আপেল', cat: 'Fruit', k: 195, na: 2, p: 20, stages: '1,2,3,4,5', ae: 'Safe for all CKD stages.', ab: 'সব পর্যায়ে নিরাপদ।' },
-      { en: 'White Rice', bn: 'সাদা চাল', cat: 'Grain', k: 55, na: 1, p: 68, stages: '1,2,3,4,5', ae: 'Preferred over red/brown rice due to lower phosphorus.', ab: 'লাল চালের চেয়ে কম ফসফরাস থাকায় সাদা চাল ভালো।' },
-      { en: 'Red Rice', bn: 'লাল চাল', cat: 'Grain', k: 154, na: 7, p: 162, stages: '1,2', ae: 'High phosphorus — use white rice instead for stage 3+.', ab: 'ফসফরাস বেশি — পর্যায় ৩+ এ সাদা চাল ব্যবহার করুন।' },
-      { en: 'Cauliflower', bn: 'ফুলকপি', cat: 'Vegetable', k: 320, na: 30, p: 44, stages: '1,2,3,4,5', ae: 'Excellent kidney-friendly vegetable.', ab: 'চমৎকার কিডনি-বান্ধব সবজি।' },
-      { en: 'Spinach', bn: 'পালং শাক', cat: 'Vegetable', k: 839, na: 65, p: 49, stages: '1,2', ae: 'Very high potassium — avoid in stage 3+.', ab: 'পটাশিয়াম অনেক বেশি — পর্যায় ৩+ এ এড়িয়ে চলুন।' },
-      { en: 'Egg White', bn: 'ডিমের সাদা অংশ', cat: 'Protein', k: 54, na: 55, p: 5, stages: '1,2,3,4,5', ae: 'High-quality low-phosphorus protein source.', ab: 'উচ্চমানের কম ফসফরাসযুক্ত প্রোটিন।' },
-      { en: 'Fish (small)', bn: 'ছোট মাছ', cat: 'Protein', k: 350, na: 70, p: 200, stages: '1,2,3', ae: 'Good protein source; limit portions in stage 4-5.', ab: 'ভালো প্রোটিন; পর্যায় ৪-৫ এ পরিমাণ সীমিত করুন।' },
-      { en: 'Lentils (Dal)', bn: 'ডাল', cat: 'Protein', k: 730, na: 4, p: 180, stages: '1,2', ae: 'High potassium and phosphorus — limit to 1-2 times/week in stage 3+.', ab: 'পটাশিয়াম ও ফসফরাস বেশি — পর্যায় ৩+ এ সপ্তাহে ১-২ বার সীমিত করুন।' },
-      { en: 'Bottle Gourd (Lau)', bn: 'লাউ', cat: 'Vegetable', k: 170, na: 2, p: 20, stages: '1,2,3,4,5', ae: 'Excellent low-potassium vegetable for CKD.', ab: 'সিকেডির জন্য চমৎকার কম পটাশিয়ামের সবজি।' },
-      { en: 'Bitter Gourd (Karela)', bn: 'করলা', cat: 'Vegetable', k: 296, na: 5, p: 31, stages: '1,2,3,4,5', ae: 'Good for diabetic CKD patients; moderate potassium.', ab: 'ডায়াবেটিক সিকেডি রোগীর জন্য ভালো।' },
-      { en: 'Coconut Water', bn: 'ডাবের পানি', cat: 'Beverage', k: 600, na: 252, p: 48, stages: '1', ae: 'Very high potassium — avoid in CKD stage 2+.', ab: 'পটাশিয়াম অনেক বেশি — সিকেডি পর্যায় ২+ এ এড়িয়ে চলুন।' },
-      { en: 'Guava', bn: 'পেয়ারা', cat: 'Fruit', k: 417, na: 2, p: 40, stages: '1,2', ae: 'High potassium — limit in stage 3+.', ab: 'পটাশিয়াম বেশি — পর্যায় ৩+ এ সীমিত করুন।' },
+      { en: 'Watermelon', bn: 'তরমুজ', cat: 'Fruit', k: 170, na: 2, p: 11, stages: '1,2,3,4,5', ae: 'Low potassium — excellent refreshing choice for CKD.', ab: 'কম পটাশিয়াম — সিকেডির জন্য চমৎকার তাজা পছন্দ।' },
       { en: 'Papaya', bn: 'পেঁপে', cat: 'Fruit', k: 264, na: 8, p: 10, stages: '1,2,3', ae: 'Moderate potassium — safe in early CKD.', ab: 'মধ্যম পটাশিয়াম — প্রাথমিক সিকেডিতে নিরাপদ।' },
-      { en: 'Chicken (skinless)', bn: 'মুরগির মাংস (চামড়া ছাড়া)', cat: 'Protein', k: 256, na: 74, p: 220, stages: '1,2,3,4,5', ae: 'Good protein, moderate phosphorus — limit to 3oz per meal.', ab: 'ভালো প্রোটিন, মধ্যম ফসফরাস।' },
-      { en: 'Salt (table)', bn: 'লবণ', cat: 'Condiment', k: 8, na: 38758, p: 3, stages: '', ae: 'Limit strictly — high sodium worsens hypertension and CKD.', ab: 'কঠোরভাবে সীমিত করুন — উচ্চ সোডিয়াম সিকেডি আরও খারাপ করে।' },
+      { en: 'Guava', bn: 'পেয়ারা', cat: 'Fruit', k: 417, na: 2, p: 40, stages: '1,2', ae: 'High potassium — limit in stage 3+.', ab: 'পটাশিয়াম বেশি — পর্যায় ৩+ এ সীমিত করুন।' },
+      { en: 'Pineapple', bn: 'আনারস', cat: 'Fruit', k: 109, na: 1, p: 8, stages: '1,2,3,4,5', ae: 'Low potassium — safe for most CKD stages.', ab: 'কম পটাশিয়াম — বেশিরভাগ সিকেডি পর্যায়ে নিরাপদ।' },
+      { en: 'Lemon', bn: 'লেবু', cat: 'Fruit', k: 138, na: 2, p: 16, stages: '1,2,3,4,5', ae: 'Low potassium; use for flavoring instead of salt.', ab: 'কম পটাশিয়াম; লবণের পরিবর্তে স্বাদের জন্য ব্যবহার করুন।' },
+      { en: 'Mango (small portion)', bn: 'আম (ছোট অংশ)', cat: 'Fruit', k: 168, na: 2, p: 14, stages: '1,2,3', ae: 'Moderate potassium; enjoy in small portions in stage 3.', ab: 'মধ্যম পটাশিয়াম; পর্যায় ৩ তে ছোট অংশে উপভোগ করুন।' },
+      { en: 'Jackfruit (ripe)', bn: 'পাকা কাঁঠাল', cat: 'Fruit', k: 448, na: 3, p: 36, stages: '1,2', ae: 'High potassium — limit to small amounts in stage 3+.', ab: 'পটাশিয়াম বেশি — পর্যায় ৩+ এ সীমিত পরিমাণে খান।' },
+      { en: 'Starfruit (Kamranga)', bn: 'কামরাঙা', cat: 'Fruit', k: 133, na: 2, p: 12, stages: '1,2', ae: 'CAUTION: Contains nephrotoxic oxalic acid — avoid in stage 3+.', ab: 'সতর্কতা: নেফ্রোটক্সিক অক্সালিক অ্যাসিড রয়েছে — পর্যায় ৩+ এ এড়িয়ে চলুন।' },
+      { en: 'Coconut Water', bn: 'ডাবের পানি', cat: 'Beverage', k: 600, na: 252, p: 48, stages: '1', ae: 'Very high potassium — avoid in CKD stage 2+.', ab: 'পটাশিয়াম অনেক বেশি — সিকেডি পর্যায় ২+ এ এড়িয়ে চলুন।' },
+      // ── Vegetables ──
+      { en: 'Bottle Gourd (Lau)', bn: 'লাউ', cat: 'Vegetable', k: 170, na: 2, p: 20, stages: '1,2,3,4,5', ae: 'Excellent low-potassium vegetable for CKD.', ab: 'সিকেডির জন্য চমৎকার কম পটাশিয়ামের সবজি।' },
+      { en: 'Cauliflower', bn: 'ফুলকপি', cat: 'Vegetable', k: 320, na: 30, p: 44, stages: '1,2,3,4,5', ae: 'Excellent kidney-friendly vegetable.', ab: 'চমৎকার কিডনি-বান্ধব সবজি।' },
+      { en: 'Cabbage', bn: 'বাঁধাকপি', cat: 'Vegetable', k: 170, na: 18, p: 26, stages: '1,2,3,4,5', ae: 'Very kidney-friendly; low in all minerals.', ab: 'খুব কিডনি-বান্ধব; সব খনিজে কম।' },
+      { en: 'Spinach', bn: 'পালং শাক', cat: 'Vegetable', k: 839, na: 65, p: 49, stages: '1,2', ae: 'Very high potassium — avoid in stage 3+.', ab: 'পটাশিয়াম অনেক বেশি — পর্যায় ৩+ এ এড়িয়ে চলুন।' },
+      { en: 'Bitter Gourd (Karela)', bn: 'করলা', cat: 'Vegetable', k: 296, na: 5, p: 31, stages: '1,2,3,4,5', ae: 'Good for diabetic CKD patients; moderate potassium.', ab: 'ডায়াবেটিক সিকেডি রোগীর জন্য ভালো।' },
+      { en: 'Ridge Gourd (Jhinga)', bn: 'ঝিঙে', cat: 'Vegetable', k: 139, na: 3, p: 30, stages: '1,2,3,4,5', ae: 'Very low potassium and sodium — ideal for CKD diet.', ab: 'খুব কম পটাশিয়াম ও সোডিয়াম — সিকেডি ডায়েটের জন্য আদর্শ।' },
+      { en: 'Pointed Gourd (Potol)', bn: 'পটল', cat: 'Vegetable', k: 160, na: 3, p: 29, stages: '1,2,3,4,5', ae: 'Good low-mineral vegetable for daily CKD diet.', ab: 'দৈনিক সিকেডি ডায়েটের জন্য ভালো কম-খনিজ সবজি।' },
+      { en: 'Ash Gourd (Chalkumra)', bn: 'চালকুমড়া', cat: 'Vegetable', k: 130, na: 18, p: 19, stages: '1,2,3,4,5', ae: 'Very kidney-friendly; traditional Bangladeshi vegetable.', ab: 'খুব কিডনি-বান্ধব; ঐতিহ্যবাহী বাংলাদেশী সবজি।' },
+      { en: 'Eggplant (Begun)', bn: 'বেগুন', cat: 'Vegetable', k: 229, na: 2, p: 24, stages: '1,2,3,4,5', ae: 'Moderate potassium; safe for most CKD stages.', ab: 'মধ্যম পটাশিয়াম; বেশিরভাগ সিকেডি পর্যায়ে নিরাপদ।' },
+      { en: 'Radish (Mula)', bn: 'মুলা', cat: 'Vegetable', k: 233, na: 39, p: 20, stages: '1,2,3,4,5', ae: 'Low potassium; great for CKD patients.', ab: 'কম পটাশিয়াম; সিকেডি রোগীদের জন্য দুর্দান্ত।' },
+      { en: 'Green Beans (Shim)', bn: 'শিম', cat: 'Vegetable', k: 209, na: 6, p: 38, stages: '1,2,3,4,5', ae: 'Low potassium; excellent fiber source for CKD.', ab: 'কম পটাশিয়াম; সিকেডির জন্য চমৎকার ফাইবার উৎস।' },
+      { en: 'Cucumber', bn: 'শসা', cat: 'Vegetable', k: 147, na: 2, p: 24, stages: '1,2,3,4,5', ae: 'Very low in all minerals; excellent daily food for CKD.', ab: 'সব খনিজে খুব কম; সিকেডির জন্য চমৎকার দৈনিক খাবার।' },
+      { en: 'Tomato (small)', bn: 'টমেটো', cat: 'Vegetable', k: 237, na: 5, p: 24, stages: '1,2,3', ae: 'Moderate potassium — limit to half a tomato in stage 4+.', ab: 'মধ্যম পটাশিয়াম — পর্যায় ৪+ এ অর্ধেক টমেটোতে সীমিত করুন।' },
+      { en: 'Sweet Pumpkin (Kumra)', bn: 'মিষ্টি কুমড়া', cat: 'Vegetable', k: 340, na: 1, p: 44, stages: '1,2,3', ae: 'Moderate potassium; limit in advanced CKD.', ab: 'মধ্যম পটাশিয়াম; উন্নত সিকেডিতে সীমিত করুন।' },
+      { en: 'Potato (boiled, drained)', bn: 'সিদ্ধ আলু (পানি ঝরানো)', cat: 'Vegetable', k: 328, na: 5, p: 57, stages: '1,2,3', ae: 'Boiling and discarding water reduces potassium by 50%.', ab: 'সিদ্ধ করে পানি ফেলে দিলে পটাশিয়াম ৫০% কমে।' },
+      { en: 'Sweet Potato', bn: 'মিষ্টি আলু', cat: 'Vegetable', k: 475, na: 55, p: 54, stages: '1,2', ae: 'High potassium — boil and discard water; limit stage 3+.', ab: 'পটাশিয়াম বেশি — সিদ্ধ করে পানি ফেলুন; পর্যায় ৩+ এ সীমিত করুন।' },
+      // ── Grains ──
+      { en: 'White Rice', bn: 'সাদা চাল', cat: 'Grain', k: 55, na: 1, p: 68, stages: '1,2,3,4,5', ae: 'Preferred over red/brown rice — lower phosphorus.', ab: 'লাল চালের চেয়ে কম ফসফরাস — সাদা চাল ভালো।' },
+      { en: 'Red Rice', bn: 'লাল চাল', cat: 'Grain', k: 154, na: 7, p: 162, stages: '1,2', ae: 'High phosphorus — use white rice instead for stage 3+.', ab: 'ফসফরাস বেশি — পর্যায় ৩+ এ সাদা চাল ব্যবহার করুন।' },
+      { en: 'Puffed Rice (Muri)', bn: 'মুড়ি', cat: 'Grain', k: 150, na: 3, p: 63, stages: '1,2,3,4,5', ae: 'Good low-sodium snack option for CKD.', ab: 'সিকেডির জন্য ভালো কম-সোডিয়াম স্ন্যাক।' },
+      { en: 'Flattened Rice (Chira)', bn: 'চিড়া', cat: 'Grain', k: 157, na: 8, p: 126, stages: '1,2,3,4', ae: 'Moderate phosphorus; better than bread for CKD.', ab: 'মধ্যম ফসফরাস; সিকেডিতে রুটির চেয়ে ভালো।' },
+      { en: 'Semolina (Suji)', bn: 'সুজি', cat: 'Grain', k: 152, na: 1, p: 136, stages: '1,2,3,4', ae: 'Low potassium; moderate phosphorus — good CKD breakfast.', ab: 'কম পটাশিয়াম; মধ্যম ফসফরাস — ভালো সিকেডি সকালের নাস্তা।' },
+      { en: 'Vermicelli (Semai)', bn: 'সেমাই', cat: 'Grain', k: 67, na: 5, p: 61, stages: '1,2,3,4,5', ae: 'Low potassium; kidney-friendly festive food in moderation.', ab: 'কম পটাশিয়াম; পরিমিতভাবে কিডনি-বান্ধব উৎসবের খাবার।' },
+      { en: 'White Bread', bn: 'পাউরুটি (সাদা)', cat: 'Grain', k: 74, na: 490, p: 57, stages: '1,2,3', ae: 'High sodium — limit to 1-2 slices; avoid in hypertensive CKD.', ab: 'সোডিয়াম বেশি — ১-২ স্লাইসে সীমিত করুন।' },
+      // ── Proteins ──
+      { en: 'Egg White', bn: 'ডিমের সাদা অংশ', cat: 'Protein', k: 54, na: 55, p: 5, stages: '1,2,3,4,5', ae: 'High-quality low-phosphorus protein source.', ab: 'উচ্চমানের কম ফসফরাসযুক্ত প্রোটিন।' },
+      { en: 'Whole Egg', bn: 'পুরো ডিম', cat: 'Protein', k: 126, na: 142, p: 172, stages: '1,2,3', ae: 'Good protein but high phosphorus — limit to 1/day in stage 4+.', ab: 'ভালো প্রোটিন কিন্তু ফসফরাস বেশি — পর্যায় ৪+ এ দিনে ১টিতে সীমিত করুন।' },
+      { en: 'Chicken (skinless)', bn: 'মুরগির মাংস (চামড়া ছাড়া)', cat: 'Protein', k: 256, na: 74, p: 220, stages: '1,2,3,4,5', ae: 'Good protein, moderate phosphorus — limit to 3oz per meal.', ab: 'ভালো প্রোটিন, মধ্যম ফসফরাস — প্রতি খাবারে ৩ আউন্সে সীমিত করুন।' },
+      { en: 'Small Freshwater Fish', bn: 'ছোট মিঠা পানির মাছ', cat: 'Protein', k: 350, na: 70, p: 200, stages: '1,2,3', ae: 'Good protein source; limit portions in stage 4-5.', ab: 'ভালো প্রোটিন; পর্যায় ৪-৫ এ পরিমাণ সীমিত করুন।' },
+      { en: 'Hilsa Fish (Ilish)', bn: 'ইলিশ মাছ', cat: 'Protein', k: 400, na: 110, p: 280, stages: '1,2,3', ae: 'Good protein but moderate-high phosphorus; limit portion.', ab: 'ভালো প্রোটিন কিন্তু মধ্যম-উচ্চ ফসফরাস; ছোট অংশে খান।' },
+      { en: 'Rohu Fish', bn: 'রুই মাছ', cat: 'Protein', k: 320, na: 65, p: 210, stages: '1,2,3', ae: 'Common Bangladeshi fish; moderate phosphorus — limit in stage 4+.', ab: 'সাধারণ বাংলাদেশী মাছ; মধ্যম ফসফরাস — পর্যায় ৪+ এ সীমিত করুন।' },
+      { en: 'Lentils (Masur Dal)', bn: 'মসুর ডাল', cat: 'Protein', k: 730, na: 4, p: 180, stages: '1,2', ae: 'High potassium and phosphorus — limit to 1-2 times/week in stage 3+.', ab: 'পটাশিয়াম ও ফসফরাস বেশি — পর্যায় ৩+ এ সপ্তাহে ১-২ বার সীমিত করুন।' },
+      { en: 'Mung Beans (Mung Dal)', bn: 'মুগ ডাল', cat: 'Protein', k: 369, na: 15, p: 99, stages: '1,2,3', ae: 'Lower phosphorus than other dals; better choice for CKD.', ab: 'অন্য ডালের তুলনায় কম ফসফরাস; সিকেডির জন্য ভালো পছন্দ।' },
+      { en: 'Dried Fish (Shutki)', bn: 'শুঁটকি মাছ', cat: 'Protein', k: 2100, na: 9800, p: 1100, stages: '', ae: 'AVOID: Extremely high sodium — strictly avoid in all CKD stages.', ab: 'এড়িয়ে চলুন: অত্যন্ত উচ্চ সোডিয়াম — সব সিকেডি পর্যায়ে কঠোরভাবে এড়িয়ে চলুন।' },
+      // ── Dairy ──
+      { en: 'Full-Fat Milk', bn: 'গরুর দুধ (ফুল ফ্যাট)', cat: 'Dairy', k: 322, na: 107, p: 247, stages: '1,2', ae: 'High phosphorus — limit to ½ cup/day in stage 3+.', ab: 'ফসফরাস বেশি — পর্যায় ৩+ এ দিনে আধা কাপে সীমিত করুন।' },
+      { en: 'Yogurt (Dahi)', bn: 'দই', cat: 'Dairy', k: 141, na: 36, p: 105, stages: '1,2,3', ae: 'Moderate phosphorus; limit to ¼ cup in stage 4+.', ab: 'মধ্যম ফসফরাস; পর্যায় ৪+ এ ¼ কাপে সীমিত করুন।' },
+      // ── Oils & Spices ──
+      { en: 'Mustard Oil', bn: 'সরিষার তেল', cat: 'Oil', k: 0, na: 0, p: 0, stages: '1,2,3,4,5', ae: 'Good for cooking; zero potassium/sodium. Use in moderation.', ab: 'রান্নার জন্য ভালো; শূন্য পটাশিয়াম/সোডিয়াম। পরিমিত ব্যবহার করুন।' },
+      { en: 'Turmeric (Halud)', bn: 'হলুদ', cat: 'Spice', k: 2525, na: 38, p: 299, stages: '1,2,3,4,5', ae: 'Used in tiny amounts — anti-inflammatory; minimal impact on minerals.', ab: 'সামান্য পরিমাণে ব্যবহৃত — প্রদাহবিরোধী; খনিজে ন্যূনতম প্রভাব।' },
+      { en: 'Cumin (Jeera)', bn: 'জিরা', cat: 'Spice', k: 1788, na: 168, p: 499, stages: '1,2,3,4,5', ae: 'Used in tiny amounts — safe salt-free flavor alternative.', ab: 'সামান্য পরিমাণে ব্যবহৃত — নিরাপদ লবণমুক্ত স্বাদ বিকল্প।' },
+      { en: 'Garlic', bn: 'রসুন', cat: 'Spice', k: 401, na: 17, p: 153, stages: '1,2,3,4,5', ae: 'Used in small amounts as flavor — heart-healthy; fine for CKD.', ab: 'স্বাদের জন্য অল্প পরিমাণে ব্যবহৃত — হৃদয়-স্বাস্থ্যকর।' },
+      { en: 'Ginger', bn: 'আদা', cat: 'Spice', k: 415, na: 13, p: 34, stages: '1,2,3,4,5', ae: 'Anti-inflammatory; safe as spice in normal cooking amounts.', ab: 'প্রদাহবিরোধী; স্বাভাবিক রান্নার পরিমাণে নিরাপদ।' },
+      { en: 'Green Chili', bn: 'কাঁচা মরিচ', cat: 'Spice', k: 340, na: 7, p: 43, stages: '1,2,3,4,5', ae: 'Low sodium; used in small amounts — fine for CKD.', ab: 'কম সোডিয়াম; অল্প পরিমাণে ব্যবহৃত — সিকেডির জন্য ঠিক।' },
+      { en: 'Salt (table)', bn: 'লবণ', cat: 'Condiment', k: 8, na: 38758, p: 3, stages: '', ae: 'LIMIT STRICTLY — high sodium worsens hypertension and CKD progression.', ab: 'কঠোরভাবে সীমিত করুন — উচ্চ সোডিয়াম সিকেডি আরও খারাপ করে।' },
+      // ── Beverages ──
+      { en: 'Plain Water', bn: 'সাধারণ পানি', cat: 'Beverage', k: 0, na: 0, p: 0, stages: '1,2,3,4,5', ae: 'Best beverage for CKD; aim for 1.5-2L/day unless fluid-restricted.', ab: 'সিকেডির জন্য সেরা পানীয়; তরল সীমাবদ্ধ না হলে দিনে ১.৫-২ লিটার।' },
+      { en: 'Tea (without milk/sugar)', bn: 'চা (দুধ ও চিনি ছাড়া)', cat: 'Beverage', k: 88, na: 3, p: 1, stages: '1,2,3,4,5', ae: 'Very low minerals; safe for CKD without additives.', ab: 'খুব কম খনিজ; সংযোজন ছাড়া সিকেডির জন্য নিরাপদ।' },
+      { en: 'Sugarcane Juice', bn: 'আখের রস', cat: 'Beverage', k: 160, na: 11, p: 22, stages: '1,2,3', ae: 'Moderate potassium; limit to small glass in early CKD only.', ab: 'মধ্যম পটাশিয়াম; শুধুমাত্র প্রাথমিক সিকেডিতে ছোট গ্লাসে সীমিত করুন।' },
     ];
     const ins = db.prepare('INSERT INTO diet_suggestions (food_name_en, food_name_bn, category, potassium, sodium, phosphorus, allowed_stages, advice_en, advice_bn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
     foods.forEach(f => ins.run(f.en, f.bn, f.cat, f.k, f.na, f.p, f.stages, f.ae, f.ab));
@@ -1404,6 +1449,88 @@ async function startServer() {
     `).all();
 
     res.json({ exported: data.length, data });
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // SMS / USSD / IVR ENDPOINTS (Mock — integration-ready)
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // Inbound SMS: "BP 140 90" | "BS 6.5" | "CR 1.4" | "STATUS"
+  app.post('/api/sms/inbound', (req, res) => {
+    const { from, text, patientId } = req.body;
+    if (!text) return res.status(400).json({ error: 'Missing text' });
+    const parts = text.trim().toUpperCase().split(/\s+/);
+    const cmd = parts[0];
+    let reply = '';
+    if (patientId) {
+      const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(patientId) as any;
+      if (patient) {
+        if (cmd === 'BP' && parts.length >= 3) {
+          const sys = parseInt(parts[1]), dia = parseInt(parts[2]);
+          if (!isNaN(sys) && !isNaN(dia)) {
+            db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic) VALUES (?, ?, ?)').run(patient.id, sys, dia);
+            reply = `BP recorded: ${sys}/${dia} mmHg. ${sys > 140 ? 'WARNING: High BP — consult your doctor.' : 'Looks good!'}`;
+          }
+        } else if (cmd === 'BS' && parts.length >= 2) {
+          const sugar = parseFloat(parts[1]);
+          if (!isNaN(sugar)) {
+            db.prepare('INSERT INTO vitals_log (patient_id, blood_sugar) VALUES (?, ?)').run(patient.id, sugar);
+            reply = `Blood sugar recorded: ${sugar} mmol/L. ${sugar > 10 ? 'WARNING: High sugar. Check your diet.' : 'Good.'}`;
+          }
+        } else if (cmd === 'CR' && parts.length >= 2) {
+          const cr = parseFloat(parts[1]);
+          if (!isNaN(cr) && cr > 0.1 && cr < 30) {
+            db.prepare('INSERT INTO vitals_log (patient_id, creatinine) VALUES (?, ?)').run(patient.id, cr);
+            reply = `Creatinine recorded: ${cr} mg/dL.`;
+          }
+        } else if (cmd === 'STATUS') {
+          const pat = db.prepare('SELECT ckd_stage, risk_score FROM patients WHERE user_id = ?').get(patientId) as any;
+          if (pat) reply = `KidneyCare BD: Stage ${pat.ckd_stage}, Risk ${pat.risk_score}/100. Reply BP, BS, or CR to log vitals.`;
+        }
+      }
+    }
+    if (!reply) reply = 'KidneyCare BD: Commands: BP 140 90, BS 6.5, CR 1.4, STATUS. SMS to update your health data.';
+    res.json({ success: true, reply, from, cmd });
+  });
+
+  // USSD session menu (simulated)
+  app.get('/api/ussd/session', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT p.*, u.name, u.district FROM patients p JOIN users u ON p.user_id = u.id WHERE p.user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+    const lastVital = db.prepare('SELECT systolic, diastolic FROM vitals_log WHERE patient_id = ? ORDER BY id DESC LIMIT 1').get(patient.id) as any;
+    res.json({
+      session: {
+        patientName: patient.name,
+        district: patient.district,
+        menu: [
+          { key: '1', action: 'CKD Stage & Risk Score', value: `Stage ${patient.ckd_stage} | Risk: ${patient.risk_score}/100` },
+          { key: '2', action: 'Latest Blood Pressure', value: lastVital ? `${lastVital.systolic}/${lastVital.diastolic} mmHg` : 'No record yet' },
+          { key: '3', action: 'Next Follow-up Reminder', value: 'Contact your CHW or assigned doctor' },
+          { key: '4', action: 'Nearest Dialysis Centre', value: patient.district === 'Dhaka' ? 'BSMMU: 02-9661064' : 'Contact district hospital' },
+          { key: '5', action: 'Log Vitals via SMS', value: 'Send: BP 140 90 / BS 6.5 / CR 1.4' },
+        ],
+      },
+    });
+  });
+
+  // IVR automated reminder (mock — integrate with Twilio/Robi for production)
+  app.post('/api/ivr/reminder', authenticateToken, (req: any, res) => {
+    const { patientId, message } = req.body;
+    const patient = db.prepare('SELECT u.name FROM users u WHERE u.id = ?').get(patientId) as any;
+    const defaultMsg = patient
+      ? `Hello ${patient.name}, this is KidneyCare BD. Please log your vitals today and take your medications as prescribed. For help, press 1.`
+      : 'Please log your vitals today.';
+    res.json({ success: true, mock: true, message: message || defaultMsg, note: 'Integrate with Twilio or Robi IVR for live calls.' });
+  });
+
+  // Missed-call webhook → replies with latest GFR summary via SMS
+  app.post('/api/ivr/missed-call', (req, res) => {
+    const { from } = req.body;
+    const gfr = db.prepare('SELECT * FROM gfr_records ORDER BY id DESC LIMIT 1').get() as any;
+    const smsReply = gfr
+      ? `KidneyCare BD: Your latest GFR is ${Math.round(gfr.ckd_epi)} mL/min, CKD Stage ${gfr.stage}. Visit app.kidneycare.bd for full report.`
+      : 'KidneyCare BD: No GFR record found. Register at app.kidneycare.bd or ask your CHW.';
+    res.json({ success: true, mock: true, smsReply, from });
   });
 
   // ─── Vite / Static ────────────────────────────────────────────────────────

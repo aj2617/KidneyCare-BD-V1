@@ -1,0 +1,226 @@
+Build the complete, production-ready **KidneyCare BD** platform – a full-stack Digital Health Monitoring & Decision Support System for Chronic Kidney Disease in Bangladesh. The entire application must be **mobile-first**, **fully responsive**, and installable as a **Progressive Web App (PWA)** with offline capabilities. Every feature described below must be fully functional, connected to a real backend, and tested. No placeholder code or mock data is allowed – use proper APIs, database, and authentication.
+
+---
+
+## 1. PROJECT OVERVIEW & GOAL
+- Serve patients, doctors, community health workers, and public health officials in Bangladesh.
+- Enable early CKD detection, continuous monitoring, clinical decision support, and policy-level heatmaps.
+- Primary users will access the system via **mobile phones** (low-end Android devices). The UI must be touch-friendly, fast, and work over slow networks (2G/3G).
+- The app must work **offline** (vitals logging, GFR calculator, risk scoring, education articles) and sync when online.
+
+---
+
+## 2. TECH STACK (DO NOT DEVIATE)
+- **Frontend**: React.js (Create React App or Vite) + Tailwind CSS
+- **Backend**: Node.js + Express.js, broken into modular services (or at least clear route separation)
+- **Database**: MongoDB for persistent storage, Redis for caching/sessions/real-time alerts
+- **Auth**: JWT (access + refresh tokens) + bcrypt
+- **Charts**: Recharts or Chart.js
+- **Maps**: Leaflet.js with Bangladesh district GeoJSON
+- **PWA**: Workbox (for service worker, caching strategies, background sync)
+- **SMS/USSD/IVR**: Integration-ready endpoints (use Twilio or similar, but provide mock implementations)
+- **FHIR**: Basic R4 Patient, Observation resources using `fhir.js` or custom endpoints
+- **OCR**: Tesseract.js (frontend) or backend OCR service for lab report digitization
+- **Containerization**: Docker + docker-compose for easy deployment
+
+---
+
+## 3. USER ROLES (5 roles)
+1. **Patient** – self-registers, logs vitals, views risk & GFR, gets alerts, education.
+2. **Doctor / Clinician** – manages assigned patients, views timelines, issues digital prescriptions, receives decision alerts.
+3. **Admin / Public Health Officer** – heatmap, reports, policy simulator, user management.
+4. **Community Health Worker (CHW)** – new role; manages rural patients, logs vitals on their behalf during home visits, collects GPS data.
+5. **Family Caregiver** – linked to a patient, receives notifications for missed logs.
+
+---
+
+## 4. CORE EXISTING FEATURES (MUST BE IMPLEMENTED FIRST)
+These features from the original design must be fully implemented and working:
+
+### 4.1 Smart GFR Calculator & Tracker
+- Input: serum creatinine, age, sex, weight, race.
+- Calculate eGFR using **all three** formulas simultaneously: MDRD, Cockcroft-Gault, CKD-EPI.
+- Color-coded CKD stage (1–5) and recommendation.
+- Save each result to patient history; show trend line chart over time.
+
+### 4.2 CKD Risk Scoring Engine
+- Questionnaire-based risk assessment (age >40, diabetes, hypertension, etc.) with weighted points.
+- Score 0–100, color-coded risk levels (green to red).
+- Stored with timestamp; show trend over time.
+- Automatically triggers alerts when score crosses thresholds.
+
+### 4.3 Patient Health Timeline & Vitals Logger
+- Daily log: BP, blood sugar, creatinine, urine protein, weight, edema, fatigue, medications.
+- Interactive multi-line chart timeline.
+- Milestone markers (stage changes, referrals).
+- Abnormal values highlighted in red.
+
+### 4.4 Geographic CKD Heatmap (Bangladesh)
+- Interactive map with division/district boundaries.
+- Choropleth layers: patient density, high-risk population, gender distribution, age groups.
+- Data aggregated live from registered patients.
+
+### 4.5 AI Decision Support Alerts for Doctors
+- Rule-based cron job generating alerts (eGFR drop, uncontrolled BP, missed vitals, stage progression).
+- Alert types: CRITICAL, WARNING, REMINDER, MILESTONE, GENDER.
+- Doctors see unread badges; each alert links to patient profile.
+
+### 4.6 Cost & Treatment Planning Module
+- Cost estimates in BDT for each CKD stage, dialysis, transplant.
+- List of government hospitals, NGOs offering subsidies.
+- Projected timeline to ESRD based on GFR decline rate.
+
+### 4.7 Bilingual Patient Education Hub
+- Articles in English and Bengali (বাংলা).
+- Categories: diet, diabetes management, GFR understanding, etc.
+- Recommended content based on patient's CKD stage.
+- Language toggle instantly switches UI and content.
+
+### 4.8 Admin Policy Report Generator
+- Downloadable PDF/Excel reports (national burden, gender, age, district-wise).
+- Aggregation pipeline with filters.
+
+---
+
+## 5. NEW ENHANCEMENTS (MUST BE FULLY INTEGRATED)
+These features must be built on top of the existing ones, not as separate apps.
+
+### 5.1 Offline-First PWA & Mobile Accessibility
+- The entire React app must be a **PWA** with a valid manifest and service worker.
+- **Install prompt**: custom "Add to Home Screen" button (or native prompt) appears when criteria met.
+- Offline support via Workbox:
+  - Pre-cache app shell, vital UI components.
+  - Cache API responses (patient data, articles) for offline access.
+  - **IndexedDB** for offline vitals logging: when offline, vitals are stored locally and synced when back online (background sync).
+  - GFR calculator must work offline (formulas implemented client-side as well).
+  - Education articles available offline.
+- All forms must be touch-optimized (large inputs, proper mobile keyboards).
+- Responsive breakpoints tested on 320px–428px widths.
+
+### 5.2 Low-Tech Access Channels (SMS/USSD/IVR)
+- Dedicated backend endpoints to receive structured SMS (e.g., `BP 140 90`) and update patient vitals.
+- Mock USSD service (simulated via API) that returns risk score or appointment.
+- IVR endpoints (Twilio or mock) for automated Bengali voice reminders; patients can press keys to log symptoms.
+- Missed-call trigger: backend receives missed call webhook → sends SMS with latest GFR summary.
+
+### 5.3 Community Health Worker (CHW) Portal
+- New role `CHW`. Registration/admin approval required.
+- CHW Dashboard:
+  - Manage patient list (max 30).
+  - Log vitals for any patient under their care (with GPS coordinates).
+  - View pending follow-ups and receive performance points.
+- Patient data entered by CHW should be marked with CHW ID and location.
+- Mobile-optimized interface for field use.
+
+### 5.4 National Health Integration & Clinical Enhancements
+- **DHIS2 export**: admin can download aggregated data in DHIS2-compatible format.
+- **FHIR R4 API**: expose `/fhir/Patient` and `/fhir/Observation` endpoints.
+- **Bangladesh-specific risk factors**: add arsenic-prone area flag, herbal remedy use, NSAID use to risk scoring (+ points).
+- **UACR input** in GFR calculator (optional) → combined KDIGO staging (GFR + albuminuria grid).
+- **Clinician feedback loop**: doctors can flag a risk score as over/underestimated; data stored for later calibration.
+
+### 5.5 Telemedicine & E-Prescription
+- **WebRTC video/audio call** between doctor and patient, launched from patient profile.
+- During call, doctor sees patient's latest GFR chart (shared state).
+- **Digital prescription**: doctor fills structured form (drug, dosage, frequency, duration) → generates Bengali PDF with QR code containing medication instructions.
+- **Medication refill tracking**: if patient misses refill >3 days, alert fires.
+
+### 5.6 Patient Adherence & Diet Assistant
+- **Streak counter** for daily vitals logging with motivational Bengali messages.
+- **Diet assistant**: searchable food database (Bengali/English) with potassium, sodium, phosphorus values. Based on latest labs, warn against specific foods (e.g., "Avoid banana today"). Curate a list of 50+ common Bangladeshi foods.
+- **Family caregiver**: patient can invite a caregiver (phone number) who receives alerts if no vitals for 2 days.
+
+### 5.7 Data Quality & OCR
+- **Lab report photo upload**: use Tesseract.js to extract creatinine, blood sugar values; pre-fill form fields.
+- **Plausibility checks**: reject impossible values (creatinine <0.1 or >30), flag sudden weight changes.
+
+### 5.8 Policy Simulator & Research Mode
+- **Budget impact simulator**: admin inputs target population → estimates future dialysis demand, cost, savings from early intervention.
+- **Outcome cohorts**: select patient group and track hospitalization, dialysis initiation, survival.
+- **Research export**: anonymized data export (CSV) for approved researchers.
+- **Annual public report** auto-generation with charts.
+
+---
+
+## 6. DATABASE SCHEMA
+Extend the original schema with these collections:
+
+- `Users`, `Patients`, `VitalsLog`, `GFRRecords`, `Alerts`, `Articles`, `Reports` (original)
+- `CHWWorkers` { userId, region, assignedPatients[] }
+- `CHWPatientLog` { chwId, patientId, timestamp, location:{lat,lng}, visitType, vitals }
+- `TeleConsultations` { doctorId, patientId, start, end, notes }
+- `Prescriptions` { doctorId, patientId, date, medicines[{name,dosage,frequency,duration}], qrCode, language }
+- `MedicationRefills` { prescriptionId, refillDate, source }
+- `DietFoods` { name_en, name_bn, category, potassium, sodium, phosphorus, allowedStages }
+- `OutcomeCohorts` { name, patientIds[], startDate, endDate, metrics }
+- `ResearchExports` { requestedBy, cohortId, data (anonymized), createdAt }
+
+Enhance `Patients` with: `arsenicProneArea`, `herbalRemedyUse`, `nsaidUse`, `uacr`, `caregiverPhone`, `pin` (for shared device), `chwId`.
+
+---
+
+## 7. PWA & OFFLINE IMPLEMENTATION DETAILS
+- Use **Workbox** with `injectManifest` or `generateSW` strategy.
+- Create a custom install button component that shows when the PWA is installable but not yet installed; trigger `beforeinstallprompt`.
+- Service worker caches:
+  - Static assets (HTML, JS, CSS, fonts – including Bengali Noto Sans).
+  - API GET responses for patient dashboard, articles, food list.
+  - Offline fallback page.
+- **Background Sync**: use Workbox BackgroundSync plugin to queue vitals log POST requests when offline and replay when online.
+- Manifest: `short_name: "KidneyCare"`, `name: "KidneyCare BD"`, `start_url: "/"`, `display: "standalone"`, `theme_color: "#1A6B8A"`, `background_color: "#ffffff"`. Icons in sizes 192x192 and 512x512.
+- Test that after installation, the app works fully without network for core patient actions.
+
+---
+
+## 8. MOBILE-FIRST UI/UX REQUIREMENTS
+- **Colors**: primary `#1A6B8A` (medical blue), success `#2ECC71`, warning `#F39C12`, danger `#E74C3C`.
+- **Typography**: Use `Noto Sans Bengali` for Bengali text, with fallback.
+- **Touch targets**: minimum 44x44px.
+- **Forms**: large input fields, phone‑optimized keyboards (`inputmode`, `tel` for BP), Bengali validation errors.
+- **Loading skeletons** for all data-heavy views.
+- Bottom navigation on mobile (Patient: Home, Vitals, Calculator, Education, Profile).
+- Offline indicator banner when no connectivity, plus sync status icons.
+- Fully bilingual (English/বাংলা) toggle in header; all labels, alerts, buttons must switch instantly using i18n (react-i18next or custom context).
+
+---
+
+## 9. BACKEND & API REQUIREMENTS
+- All routes protected with JWT middleware, role-based.
+- REST API endpoints for all CRUD operations.
+- Cron job (node-cron) for daily alert generation and missed-vital reminders.
+- SMS/IVR webhook endpoints (with signature verification mock).
+- FHIR endpoints return valid R4 bundles.
+- Aggregation pipelines for admin reports and heatmap data.
+- Redis used for session store, rate limiting, and alert deduplication.
+
+---
+
+## 10. SEEDING & DEMO DATA
+- Provide a script (`seed.js`) that populates the database with:
+  - 50+ patients across various districts, stages, risk profiles.
+  - 10 doctors, 5 admins, 5 CHWs.
+  - 6 months of vitals data for at least 5 patients (to show trends).
+  - 15 education articles in both languages.
+  - Food database with 50+ items.
+- This data must be realistic enough to demonstrate heatmaps, reports, and timeline charts immediately.
+
+---
+
+## 11. DELIVERABLES
+- **Complete source code** for both frontend and backend, with clear folder structure.
+- **Docker-compose.yml** that spins up MongoDB, Redis, backend, and frontend with one command.
+- **README.md** with setup instructions, environment variables, and PWA installation guide.
+- **Every feature** described above must be accessible, functional, and demonstrable in a web browser and as an installed PWA.
+- **No placeholder comments** – every button, every chart, every alert must do what it says.
+
+---
+
+## 12. CRITICAL SUCCESS CRITERIA
+- [ ] A patient can register, fill risk questionnaire, get a risk score, and view their GFR trend all on a 4-inch screen.
+- [ ] The app prompts "Add to Home Screen" on mobile, and after installation, works offline (turn off network, log vitals, view education articles, use GFR calc).
+- [ ] A doctor receives an alert when their patient’s eGFR drops >15%, clicks it, sees the patient timeline, and starts a video call.
+- [ ] An admin sees a heatmap with district coloring, generates a PDF report, and simulates budget for screening 100,000 people in Rangpur.
+- [ ] A CHW logs vitals for a rural patient with GPS coordinates; the data appears on the patient’s timeline.
+- [ ] Language toggle switches entire UI to Bengali, including prescription outputs and alerts.
+
+Build this entire system from scratch, making every feature work perfectly. The health of millions in Bangladesh depends on this platform being real. Do not cut corners.
