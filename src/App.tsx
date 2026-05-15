@@ -352,7 +352,7 @@ export default function App() {
         </nav>
       )}
 
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24' : ''}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24' : ''} ${user?.role === 'admin' ? 'pb-24 md:pb-8' : ''}`}>
         <motion.div key={currentPage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           {renderPage()}
         </motion.div>
@@ -425,6 +425,43 @@ export default function App() {
                   {active && (
                     <motion.div
                       layoutId="doctorNavIndicator"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#1A6B8A]"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+
+      {/* Bottom nav — admin (mobile only) */}
+      {user?.role === 'admin' && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-50 safe-area-inset-bottom">
+          <div className="flex items-stretch px-1">
+            {[
+              { id: 'admin-overview', icon: LayoutDashboard, label: language === 'bn' ? 'সারসংক্ষেপ' : 'Overview' },
+              { id: 'admin-map', icon: MapIcon, label: language === 'bn' ? 'মানচিত্র' : 'Map' },
+              { id: 'admin-reports', icon: FileText, label: language === 'bn' ? 'রিপোর্ট' : 'Reports' },
+              { id: 'admin-simulator', icon: Calculator, label: language === 'bn' ? 'সিমুলেটর' : 'Sim' },
+              { id: 'admin-users', icon: Shield, label: language === 'bn' ? 'ব্যবহারকারী' : 'Users' },
+            ].map(item => {
+              const active = currentPage === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setCurrentPage(item.id)}
+                  className="flex-1 flex flex-col items-center justify-center py-2.5 gap-1 min-h-[60px] transition-all relative"
+                >
+                  <div className={`p-1.5 rounded-2xl transition-all ${active ? 'bg-[#1A6B8A]/10' : ''}`}>
+                    <item.icon className={`w-5 h-5 transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`} />
+                  </div>
+                  <span className={`text-[10px] font-bold leading-none transition-colors ${active ? 'text-[#1A6B8A]' : 'text-slate-400'}`}>
+                    {item.label}
+                  </span>
+                  {active && (
+                    <motion.div
+                      layoutId="adminNavIndicator"
                       className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#1A6B8A]"
                     />
                   )}

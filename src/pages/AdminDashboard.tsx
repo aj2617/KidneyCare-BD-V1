@@ -324,25 +324,27 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900">
+      <div className="flex justify-between items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 truncate">
             {language === 'bn' ? 'জনস্বাস্থ্য ড্যাশবোর্ড' : 'Public Health Dashboard'}
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 hidden sm:block">
             {language === 'bn' ? 'বাংলাদেশের সিকেডি বোঝা পর্যবেক্ষণ করুন' : 'Monitor CKD burden and drive policy action across Bangladesh'}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button onClick={handleResearchExport} disabled={isResearchExporting}
-            className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all disabled:opacity-50 text-sm">
+            className="p-2 sm:px-4 sm:py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all disabled:opacity-50 text-sm"
+            title={language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}>
             {isResearchExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            {language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}
+            <span className="hidden sm:inline">{language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}</span>
           </button>
           <button onClick={handleExport} disabled={isExporting}
-            className="px-4 py-2 bg-[#1A6B8A] text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-[#14556e] transition-all disabled:opacity-50 text-sm">
+            className="p-2 sm:px-4 sm:py-2 bg-[#1A6B8A] text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-[#14556e] transition-all disabled:opacity-50 text-sm"
+            title={language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}>
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            {language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}
+            <span className="hidden sm:inline">{language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}</span>
           </button>
         </div>
       </div>
@@ -354,7 +356,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
         </div>
       )}
 
-      <div className="overflow-x-auto -mx-1 px-1">
+      <div className="hidden md:block overflow-x-auto -mx-1 px-1">
         <div className="flex border-b border-slate-200 min-w-max">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -364,6 +366,13 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="md:hidden flex items-center gap-2 pb-1">
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold text-[#1A6B8A] bg-[#1A6B8A]/10`}>
+          {(() => { const t = tabs.find(t => t.id === activeTab); return t ? <><t.icon className="w-4 h-4" />{language === 'bn' ? t.labelBn : t.label}</> : null; })()}
+        </div>
+        <span className="text-xs text-slate-400">{language === 'bn' ? '— নিচে নেভিগেট করুন' : '— use bottom nav to switch'}</span>
       </div>
 
       <AnimatePresence mode="wait">
@@ -491,7 +500,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                 <div className="lg:col-span-3">
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" style={{ height: '580px' }}>
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden h-[360px] sm:h-[480px] lg:h-[580px]">
                     {heatmapData.length ? (
                       <MapContainer center={[23.685, 90.3563]} zoom={7} style={{ height: '100%', width: '100%' }}>
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />

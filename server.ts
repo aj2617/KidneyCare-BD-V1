@@ -244,6 +244,7 @@ const addColumnIfMissing = (table: string, column: string, definition: string) =
   }
 };
 
+addColumnIfMissing('users', 'active', 'INTEGER DEFAULT 1');
 addColumnIfMissing('patients', 'arsenic_prone_area', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'herbal_remedy_use', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'nsaid_use', 'BOOLEAN DEFAULT 0');
