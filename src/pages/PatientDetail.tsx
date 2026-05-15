@@ -40,8 +40,162 @@ function buildRxPayload(rx: any): string {
   return `KidneyCare BD RX#${rx.id} | ${date} | ${meds}${rx.notes ? ` | Note: ${rx.notes}` : ''}`;
 }
 
+// ── 7-day adherence dot grid ───────────────────────────────────────────────
+const DAY_LABELS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_LABELS_BN = ['সোম', 'মঙ্গল', 'বুধ', 'বৃহ', 'শুক্র', 'শনি', 'রবি'];
+
+function AdherenceGrid({ patientId, prescriptionId, medicines, token, bn }: {
+  patientId: number;
+  prescriptionId: number;
+  medicines: any[];
+  token: string;
+  bn: boolean;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [dates, setDates] = useState<string[]>([]);
+  const [byMed, setByMed] = useState<Record<string, Record<string, boolean>>>({});
+
+  useEffect(() => {
+    fetch(`/api/doctor/adherence/${patientId}/${prescriptionId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => {
+        setDates(d.dates || []);
+        setByMed(d.byMed || {});
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [patientId, prescriptionId, token]);
+
+  const dayLabels = bn ? DAY_LABELS_BN : DAY_LABELS_EN;
+
+  // Calculate overall adherence rate from fetched data
+  let takenCount = 0;
+  let totalLogged = 0;
+  for (const medName of Object.keys(byMed)) {
+    for (const date of Object.keys(byMed[medName])) {
+      totalLogged++;
+      if (byMed[medName][date]) takenCount++;
+    }
+  }
+  const adherencePct = totalLogged > 0 ? Math.round((takenCount / totalLogged) * 100) : null;
+
+  const pctColor = adherencePct === null ? 'text-slate-400'
+    : adherencePct >= 80 ? 'text-emerald-600'
+    : adherencePct >= 50 ? 'text-amber-500'
+    : 'text-red-500';
+
+  const pctBg = adherencePct === null ? 'bg-slate-50'
+    : adherencePct >= 80 ? 'bg-emerald-50'
+    : adherencePct >= 50 ? 'bg-amber-50'
+    : 'bg-red-50';
+
+  return (
+    <div className="border-t border-slate-100 pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+          <Activity className="w-3 h-3" />
+          {bn ? '৭-দিনের ওষুধ গ্রহণ' : '7-Day Adherence'}
+        </p>
+        {adherencePct !== null && (
+          <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${pctColor} ${pctBg}`}>
+            {adherencePct}% {bn ? 'গ্রহণ' : 'taken'}
+          </span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="space-y-2.5">
+          {[1, 2].map(i => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="w-20 h-3 bg-slate-100 rounded animate-pulse" />
+              <div className="flex gap-1.5">
+                {Array(7).fill(0).map((_, j) => (
+                  <div key={j} className="w-6 h-6 rounded-full bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : medicines.length === 0 ? null : (
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-full min-w-[300px]">
+            <thead>
+              <tr>
+                <th className="text-left pr-2 pb-1.5 w-[80px]" />
+                {dates.map((d, i) => {
+                  const dow = new Date(d + 'T12:00:00').getDay();
+                  const label = dayLabels[(dow + 6) % 7];
+                  const isToday = d === new Date().toISOString().slice(0, 10);
+                  return (
+                    <th key={d} className="pb-1.5 text-center" style={{ width: 32 }}>
+                      <span className={`text-[9px] font-black uppercase ${isToday ? 'text-[#1A6B8A]' : 'text-slate-400'}`}>
+                        {label}
+                      </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {medicines.map((med: any, mi: number) => {
+                const medName: string = med.name;
+                const medData = byMed[medName] || {};
+                return (
+                  <tr key={mi}>
+                    <td className="pr-2 py-1 text-[10px] text-slate-600 font-bold truncate max-w-[80px]" title={medName}>
+                      {medName}
+                    </td>
+                    {dates.map(d => {
+                      const hasEntry = d in medData;
+                      const taken = medData[d];
+                      const isToday = d === new Date().toISOString().slice(0, 10);
+                      return (
+                        <td key={d} className="py-1 text-center">
+                          <div className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center text-[9px] font-black border-2 transition-all ${
+                            !hasEntry
+                              ? `bg-slate-50 border-slate-100 ${isToday ? 'border-[#1A6B8A]/30' : ''}`
+                              : taken
+                                ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
+                                : 'bg-red-50 border-red-300 text-red-500'
+                          }`}>
+                            {hasEntry ? (taken ? '✓' : '✕') : ''}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {/* Legend */}
+          <div className="flex items-center gap-4 mt-3 pl-[88px]">
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-400 inline-block" />
+              {bn ? 'গ্রহণ করেছে' : 'Taken'}
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span className="w-3 h-3 rounded-full bg-red-100 border border-red-300 inline-block" />
+              {bn ? 'মিস হয়েছে' : 'Missed'}
+            </span>
+            <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span className="w-3 h-3 rounded-full bg-slate-50 border border-slate-200 inline-block" />
+              {bn ? 'তথ্য নেই' : 'No data'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Single prescription card ───────────────────────────────────────────────
-function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
+function RxCard({ rx, index, bn, patientId, token }: {
+  rx: any; index: number; bn: boolean; patientId: number; token: string;
+}) {
   const [open, setOpen] = useState(index === 0);
   const [showQr, setShowQr] = useState(false);
   const medicines: any[] = rx.medicines || [];
@@ -138,6 +292,15 @@ function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
                   </div>
                 )}
 
+                {/* 7-day adherence grid */}
+                <AdherenceGrid
+                  patientId={patientId}
+                  prescriptionId={rx.id}
+                  medicines={medicines}
+                  token={token}
+                  bn={bn}
+                />
+
                 {/* QR code section */}
                 <div className="border-t border-slate-100 pt-3">
                   <button
@@ -158,7 +321,6 @@ function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
                         exit={{ opacity: 0, y: -6 }}
                         className="mt-3 flex flex-col sm:flex-row items-start gap-4"
                       >
-                        {/* QR image */}
                         <div className="shrink-0">
                           <img
                             src={qrUrl(buildRxPayload(rx))}
@@ -169,7 +331,6 @@ function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
                             loading="lazy"
                           />
                         </div>
-                        {/* Instructions */}
                         <div className="space-y-1.5">
                           <p className="text-xs font-bold text-slate-700">
                             {bn ? 'রোগীকে স্ক্যান করতে বলুন' : 'Ask patient to scan'}
@@ -201,7 +362,12 @@ function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
 }
 
 // ── Prescription timeline section ─────────────────────────────────────────
-function PrescriptionTimeline({ prescriptions, bn }: { prescriptions: any[]; bn: boolean }) {
+function PrescriptionTimeline({ prescriptions, bn, patientId, token }: {
+  prescriptions: any[];
+  bn: boolean;
+  patientId: number;
+  token: string;
+}) {
   if (!prescriptions || prescriptions.length === 0) return null;
 
   return (
@@ -222,14 +388,12 @@ function PrescriptionTimeline({ prescriptions, bn }: { prescriptions: any[]; bn:
         </button>
       </div>
 
-      {/* Vertical timeline */}
       <div className="relative">
-        {/* Connecting line */}
         <div className="absolute left-[7px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-[#1A6B8A]/40 via-[#1A6B8A]/20 to-transparent" />
 
         {prescriptions.map((rx: any, i: number) => {
           const parsed = { ...rx, medicines: typeof rx.medicines === 'string' ? JSON.parse(rx.medicines) : (rx.medicines || []) };
-          return <RxCard key={rx.id} rx={parsed} index={i} bn={bn} />;
+          return <RxCard key={rx.id} rx={parsed} index={i} bn={bn} patientId={patientId} token={token} />;
         })}
       </div>
     </div>
@@ -590,7 +754,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
       </div>
 
       {/* ── PRESCRIPTION TIMELINE ── */}
-      <PrescriptionTimeline prescriptions={prescriptions} bn={bn} />
+      <PrescriptionTimeline prescriptions={prescriptions} bn={bn} patientId={Number(id)} token={token || ''} />
 
       {/* ── RISK FEEDBACK ── */}
       <motion.div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">

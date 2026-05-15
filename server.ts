@@ -1068,6 +1068,37 @@ async function startServer() {
     res.json({ message: 'Vitals logged' });
   });
 
+  // GET 7-day adherence grid for a specific prescription (doctor view)
+  app.get('/api/doctor/adherence/:patientId/:prescriptionId', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const { patientId, prescriptionId } = req.params;
+
+    // Build list of last 7 dates (inclusive of today)
+    const dates: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+
+    const rows = db.prepare(`
+      SELECT medicine_name, date, taken
+      FROM medication_adherence
+      WHERE patient_id = ? AND prescription_id = ?
+        AND date >= date('now', '-6 days')
+      ORDER BY date ASC
+    `).all(patientId, prescriptionId) as any[];
+
+    // Group: { medicineName -> { date -> taken } }
+    const byMed: Record<string, Record<string, boolean>> = {};
+    for (const row of rows) {
+      if (!byMed[row.medicine_name]) byMed[row.medicine_name] = {};
+      byMed[row.medicine_name][row.date] = row.taken === 1;
+    }
+
+    res.json({ dates, byMed });
+  });
+
   app.post('/api/doctor/assign-patient', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
     const { patient_id } = req.body;
