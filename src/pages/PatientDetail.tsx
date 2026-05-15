@@ -4,13 +4,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 import {
   ArrowLeft, TrendingDown, Activity, Video, FileText,
   MessageSquare, ThumbsUp, ThumbsDown, Calendar, Plus,
-  AlertCircle, Loader2
+  AlertCircle, Loader2, Heart, Droplets, Scale, FlaskConical,
+  CheckCircle2, X, ClipboardEdit
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 function SkeletonBlock({ h = 'h-40' }: { h?: string }) {
   return <div className={`${h} rounded-2xl bg-slate-100 animate-pulse`} />;
@@ -25,6 +26,11 @@ const GFR_STAGE = (v: number) => {
   return { stage: 5, color: 'text-red-800', bg: 'bg-red-100' };
 };
 
+const EMPTY_VITALS = {
+  systolic: '', diastolic: '', blood_sugar: '',
+  creatinine: '', weight: '', edema: false,
+};
+
 export default function PatientDetail({ id, onBack }: { id: string; onBack: () => void }) {
   const { token } = useAuth();
   const { language } = useLanguage();
@@ -34,6 +40,11 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [activeVitalsRange, setActiveVitalsRange] = useState<7 | 30 | 90>(30);
+  const [showVitalsSheet, setShowVitalsSheet] = useState(false);
+  const [vitalsForm, setVitalsForm] = useState<typeof EMPTY_VITALS>(EMPTY_VITALS);
+  const [vitalsSubmitting, setVitalsSubmitting] = useState(false);
+  const [vitalsSuccess, setVitalsSuccess] = useState(false);
+  const [vitalsError, setVitalsError] = useState('');
 
   const bn = language === 'bn';
 
@@ -53,6 +64,39 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
     window.dispatchEvent(new CustomEvent('navigate', {
       detail: { page: 'teleconsult', teleconsultPatient: { id: parseInt(id), name: data.patient.name } },
     }));
+  };
+
+  const logVitals = async () => {
+    setVitalsSubmitting(true);
+    setVitalsError('');
+    try {
+      const res = await fetch('/api/doctor/log-vitals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          patient_id: parseInt(id),
+          systolic:     vitalsForm.systolic     ? +vitalsForm.systolic     : undefined,
+          diastolic:    vitalsForm.diastolic    ? +vitalsForm.diastolic    : undefined,
+          blood_sugar:  vitalsForm.blood_sugar  ? +vitalsForm.blood_sugar  : undefined,
+          creatinine:   vitalsForm.creatinine   ? +vitalsForm.creatinine   : undefined,
+          weight:       vitalsForm.weight       ? +vitalsForm.weight       : undefined,
+          edema: vitalsForm.edema,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) { setVitalsError(body.error || 'Failed to log vitals'); return; }
+      setVitalsSuccess(true);
+      setTimeout(() => {
+        setShowVitalsSheet(false);
+        setVitalsForm(EMPTY_VITALS);
+        setVitalsSuccess(false);
+        // refresh patient data so charts update
+        fetch(`/api/doctor/patient/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json()).then(d => { setData(d); if (d.prescriptions) setPrescriptions(d.prescriptions); });
+      }, 1400);
+    } finally {
+      setVitalsSubmitting(false);
+    }
   };
 
   const submitFeedback = async (type: 'too_high' | 'too_low' | 'correct') => {
@@ -420,21 +464,226 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
               <span className="truncate">{bn ? 'ভিডিও কল' : 'Teleconsult'}</span>
             </button>
             <button
-              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+              onClick={() => { setVitalsForm(EMPTY_VITALS); setVitalsSuccess(false); setVitalsError(''); setShowVitalsSheet(true); }}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-[#1A6B8A] text-white rounded-xl text-sm font-bold hover:bg-[#14556e] transition-all shadow-sm min-h-[48px]"
+            >
+              <ClipboardEdit className="w-4 h-4 shrink-0" />
+              <span className="truncate">{bn ? 'ভাইটালস লগ' : 'Log Vitals'}</span>
+            </button>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all shadow-sm min-h-[48px]"
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span className="truncate">{bn ? 'প্রেসক্রিপশন' : 'Issue Rx'}</span>
             </button>
-            <button
-              onClick={onBack}
-              className="flex items-center justify-center gap-2 px-3 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all min-h-[48px]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </div>
+
+      {/* ── VITALS ENTRY BOTTOM SHEET ── */}
+      <AnimatePresence>
+        {showVitalsSheet && (
+          <>
+            <motion.div
+              key="vitals-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-black/40"
+              onClick={() => !vitalsSubmitting && setShowVitalsSheet(false)}
+            />
+            <motion.div
+              key="vitals-sheet"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-[60] bg-white rounded-t-3xl shadow-2xl max-h-[88vh] overflow-y-auto"
+            >
+              {/* Sheet handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1.5 rounded-full bg-slate-200" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center">
+                    <ClipboardEdit className="w-4 h-4 text-[#1A6B8A]" />
+                  </div>
+                  <div>
+                    <h2 className="font-black text-slate-900 text-base">
+                      {bn ? 'ভাইটালস লগ করুন' : 'Log Vitals'}
+                    </h2>
+                    <p className="text-[11px] text-slate-400">{patient.name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !vitalsSubmitting && setShowVitalsSheet(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <AnimatePresence mode="wait">
+                {vitalsSuccess ? (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex flex-col items-center justify-center py-12 px-6 text-center"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                    </div>
+                    <h3 className="font-black text-slate-900 text-lg mb-1">
+                      {bn ? 'ভাইটালস সংরক্ষিত হয়েছে!' : 'Vitals Saved!'}
+                    </h3>
+                    <p className="text-sm text-slate-500">
+                      {bn ? 'চার্ট আপডেট হচ্ছে...' : 'Refreshing charts…'}
+                    </p>
+                  </motion.div>
+                ) : (
+                  <motion.div key="form" className="px-5 py-4 space-y-5 pb-8">
+
+                    {/* BP row */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                        <Heart className="w-3.5 h-3.5 text-red-400" />
+                        {bn ? 'রক্তচাপ (mmHg)' : 'Blood Pressure (mmHg)'}
+                      </label>
+                      <div className="flex gap-3">
+                        <div className="flex-1 relative">
+                          <input
+                            type="number"
+                            value={vitalsForm.systolic}
+                            onChange={e => setVitalsForm(f => ({ ...f, systolic: e.target.value }))}
+                            placeholder={bn ? 'সিস্টোলিক' : 'Systolic'}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">SYS</span>
+                        </div>
+                        <div className="flex-1 relative">
+                          <input
+                            type="number"
+                            value={vitalsForm.diastolic}
+                            onChange={e => setVitalsForm(f => ({ ...f, diastolic: e.target.value }))}
+                            placeholder={bn ? 'ডায়াস্টোলিক' : 'Diastolic'}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">DIA</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Blood Sugar + Weight row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                          <Droplets className="w-3.5 h-3.5 text-amber-400" />
+                          {bn ? 'রক্তে চিনি' : 'Blood Sugar'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={vitalsForm.blood_sugar}
+                            onChange={e => setVitalsForm(f => ({ ...f, blood_sugar: e.target.value }))}
+                            placeholder="—"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all"
+                          />
+                          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">mg/dL</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                          <Scale className="w-3.5 h-3.5 text-blue-400" />
+                          {bn ? 'ওজন' : 'Weight'}
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={vitalsForm.weight}
+                            onChange={e => setVitalsForm(f => ({ ...f, weight: e.target.value }))}
+                            placeholder="—"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">kg</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Creatinine */}
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
+                        <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
+                        {bn ? 'ক্রিয়েটিনিন' : 'Creatinine'}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={vitalsForm.creatinine}
+                          onChange={e => setVitalsForm(f => ({ ...f, creatinine: e.target.value }))}
+                          placeholder="—"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">mg/dL</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1.5 ml-1">
+                        {bn ? 'ইজিএফআর পুনরায় গণনা করা হবে।' : 'eGFR will be recalculated automatically.'}
+                      </p>
+                    </div>
+
+                    {/* Edema toggle */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl border border-slate-200">
+                      <div>
+                        <p className="text-sm font-bold text-slate-700">
+                          {bn ? 'ইডিমা' : 'Edema'}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {bn ? 'পা বা মুখ ফোলা' : 'Swelling in feet or face'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setVitalsForm(f => ({ ...f, edema: !f.edema }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          vitalsForm.edema ? 'bg-red-500' : 'bg-slate-200'
+                        }`}
+                        role="switch"
+                        aria-checked={vitalsForm.edema}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                          vitalsForm.edema ? 'translate-x-6' : 'translate-x-1'
+                        }`} />
+                      </button>
+                    </div>
+
+                    {/* Error */}
+                    {vitalsError && (
+                      <p className="text-sm text-red-600 font-medium bg-red-50 px-4 py-2.5 rounded-xl border border-red-100">
+                        {vitalsError}
+                      </p>
+                    )}
+
+                    {/* Submit */}
+                    <button
+                      onClick={logVitals}
+                      disabled={vitalsSubmitting}
+                      className="w-full py-4 bg-[#1A6B8A] text-white rounded-2xl font-black text-base hover:bg-[#14556e] active:scale-[0.98] transition-all shadow-lg shadow-[#1A6B8A]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {vitalsSubmitting
+                        ? <><Loader2 className="w-5 h-5 animate-spin" /> {bn ? 'সংরক্ষণ হচ্ছে...' : 'Saving…'}</>
+                        : <><CheckCircle2 className="w-5 h-5" /> {bn ? 'ভাইটালস সংরক্ষণ করুন' : 'Save Vitals'}</>}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

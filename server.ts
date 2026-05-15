@@ -1049,6 +1049,25 @@ async function startServer() {
     res.json(db.prepare(query).all(...params));
   });
 
+  app.post('/api/doctor/log-vitals', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const { patient_id, systolic, diastolic, blood_sugar, creatinine, weight, edema, notes } = req.body;
+    if (!patient_id) return res.status(400).json({ error: 'patient_id required' });
+    const validErr = validateVitals({ systolic, diastolic, blood_sugar, creatinine, weight });
+    if (validErr) return res.status(400).json({ error: validErr });
+    db.prepare(`
+      INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, weight, edema, logged_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'doctor')
+    `).run(
+      patient_id,
+      systolic || null, diastolic || null,
+      blood_sugar || null, creatinine || null,
+      weight || null, edema ? 1 : 0
+    );
+    checkAlerts(patient_id);
+    res.json({ message: 'Vitals logged' });
+  });
+
   app.post('/api/doctor/assign-patient', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
     const { patient_id } = req.body;
