@@ -389,9 +389,9 @@ export default function App() {
         </nav>
       )}
 
-      {/* Bottom nav — doctors (mobile + desktop) */}
+      {/* Bottom nav — doctors (mobile only, hidden on md+) */}
       {user?.role === 'doctor' && (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-50 safe-area-inset-bottom">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-50 safe-area-inset-bottom">
           <div className="flex items-stretch px-1 max-w-2xl mx-auto">
             {[
               { id: 'doctor-dashboard', icon: Users, label: language === 'bn' ? 'রোগী' : 'Patients' },

@@ -799,7 +799,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
       </motion.div>
 
       {/* ── FIXED BOTTOM ACTION BAR ── */}
-      <div className="fixed bottom-16 left-0 right-0 z-40 px-4 pb-2 pointer-events-none">
+      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-40 px-4 pb-2 pointer-events-none">
         <div className="max-w-7xl mx-auto">
           <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/10 p-3 flex gap-2 pointer-events-auto">
             <button
