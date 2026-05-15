@@ -1552,14 +1552,6 @@ async function startServer() {
     const totalVitalsLogs = (db.prepare('SELECT COUNT(*) as c FROM vitals_log').get() as any).c;
     const stageStats = db.prepare('SELECT ckd_stage, COUNT(*) as count FROM patients WHERE ckd_stage IS NOT NULL GROUP BY ckd_stage').all();
     const feedback = db.prepare('SELECT COUNT(*) as c FROM risk_feedback').get() as any;
-    const genderStats = db.prepare("SELECT COALESCE(sex,'unknown') as sex, COUNT(*) as count FROM patients GROUP BY sex").all();
-    const avgRisk = (db.prepare('SELECT ROUND(AVG(risk_score),0) as avg FROM patients WHERE risk_score IS NOT NULL').get() as any)?.avg ?? 0;
-    const weeklyRegs = db.prepare(`
-      SELECT date(created_at) as day, COUNT(*) as count
-      FROM users WHERE role='patient' AND created_at >= datetime('now','-6 days')
-      GROUP BY date(created_at) ORDER BY day
-    `).all();
-    const alertsToday = (db.prepare("SELECT COUNT(*) as c FROM alerts WHERE created_at >= date('now')").get() as any)?.c ?? 0;
 
     res.json({
       total_patients: totalPatients,
@@ -1569,10 +1561,6 @@ async function startServer() {
       total_vitals_logs: totalVitalsLogs,
       stage_distribution: stageStats,
       risk_feedback_count: feedback.c,
-      gender_stats: genderStats,
-      avg_risk_score: avgRisk,
-      weekly_registrations: weeklyRegs,
-      alerts_today: alertsToday,
     });
   });
 

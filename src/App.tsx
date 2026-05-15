@@ -5,7 +5,7 @@ import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
   Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill,
-  ClipboardList, Wrench, UserCircle, Shield, MoreHorizontal
+  ClipboardList, Wrench, UserCircle, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -127,7 +127,14 @@ export default function App() {
       { id: 'prescriptions', label: t('doctor.prescriptions'), icon: FileText },
       { id: 'teleconsult', label: t('doctor.teleconsult'), icon: Video },
     ],
-    admin: [],
+    admin: [
+      { id: 'admin-overview', label: language === 'bn' ? 'সারসংক্ষেপ' : 'Overview', icon: LayoutDashboard },
+      { id: 'admin-map', label: language === 'bn' ? 'মানচিত্র' : 'CKD Map', icon: MapIcon },
+      { id: 'admin-reports', label: language === 'bn' ? 'রিপোর্ট' : 'Reports', icon: FileText },
+      { id: 'admin-simulator', label: language === 'bn' ? 'সিমুলেটর' : 'Simulator', icon: BarChart2 },
+      { id: 'admin-cohorts', label: language === 'bn' ? 'কোহর্ট' : 'Cohorts', icon: Users },
+      { id: 'admin-users', label: language === 'bn' ? 'ব্যবহারকারী' : 'Users', icon: Shield },
+    ],
     chw: [
       { id: 'chw-dashboard', label: t('chw.dashboard'), icon: Users },
     ],
@@ -173,7 +180,6 @@ export default function App() {
         'admin-simulator': 'simulator',
         'admin-cohorts': 'cohorts',
         'admin-users': 'users',
-        'admin-more': 'more',
       };
       const adminTab = adminTabMap[currentPage] || 'overview';
       return <AdminDashboard initialTab={adminTab as any} />;
@@ -434,14 +440,13 @@ export default function App() {
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 z-50 safe-area-inset-bottom">
           <div className="flex items-stretch px-1">
             {[
-              { id: 'admin-overview', icon: LayoutDashboard, label: language === 'bn' ? 'হোম' : 'Home' },
+              { id: 'admin-overview', icon: LayoutDashboard, label: language === 'bn' ? 'সারসংক্ষেপ' : 'Overview' },
               { id: 'admin-map', icon: MapIcon, label: language === 'bn' ? 'মানচিত্র' : 'Map' },
               { id: 'admin-reports', icon: FileText, label: language === 'bn' ? 'রিপোর্ট' : 'Reports' },
-              { id: 'admin-users', icon: Users, label: language === 'bn' ? 'ব্যবহারকারী' : 'Users' },
-              { id: 'admin-more', icon: MoreHorizontal, label: language === 'bn' ? 'আরও' : 'More' },
+              { id: 'admin-simulator', icon: Calculator, label: language === 'bn' ? 'সিমুলেটর' : 'Sim' },
+              { id: 'admin-users', icon: Shield, label: language === 'bn' ? 'ব্যবহারকারী' : 'Users' },
             ].map(item => {
-              const active = currentPage === item.id
-                || (item.id === 'admin-more' && ['admin-simulator', 'admin-cohorts'].includes(currentPage));
+              const active = currentPage === item.id;
               return (
                 <button
                   key={item.id}
