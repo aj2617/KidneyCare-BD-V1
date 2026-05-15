@@ -5,7 +5,8 @@ import {
   ArrowLeft, TrendingDown, Activity, Video, FileText,
   MessageSquare, ThumbsUp, ThumbsDown, Calendar, Plus,
   AlertCircle, Loader2, Heart, Droplets, Scale, FlaskConical,
-  CheckCircle2, X, ClipboardEdit
+  CheckCircle2, X, ClipboardEdit, ChevronDown, ChevronUp,
+  QrCode, Pill, Clock3, StickyNote
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -25,6 +26,217 @@ const GFR_STAGE = (v: number) => {
   if (v >= 15) return { stage: 4, color: 'text-red-600', bg: 'bg-red-50' };
   return { stage: 5, color: 'text-red-800', bg: 'bg-red-100' };
 };
+
+// ── QR helper ─────────────────────────────────────────────────────────────
+function qrUrl(data: string, size = 200) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=ffffff&color=1A6B8A&margin=10`;
+}
+
+function buildRxPayload(rx: any): string {
+  const meds = (rx.medicines || [])
+    .map((m: any) => `${m.name} ${m.dosage || ''} ${m.frequency || ''}`.trim())
+    .join('; ');
+  const date = new Date(rx.date).toLocaleDateString('en-GB');
+  return `KidneyCare BD RX#${rx.id} | ${date} | ${meds}${rx.notes ? ` | Note: ${rx.notes}` : ''}`;
+}
+
+// ── Single prescription card ───────────────────────────────────────────────
+function RxCard({ rx, index, bn }: { rx: any; index: number; bn: boolean }) {
+  const [open, setOpen] = useState(index === 0);
+  const [showQr, setShowQr] = useState(false);
+  const medicines: any[] = rx.medicines || [];
+  const date = new Date(rx.date);
+
+  return (
+    <div className="relative pl-8">
+      {/* Timeline dot */}
+      <div className="absolute left-0 top-4 w-4 h-4 rounded-full border-2 border-[#1A6B8A] bg-white flex items-center justify-center z-10">
+        <div className="w-1.5 h-1.5 rounded-full bg-[#1A6B8A]" />
+      </div>
+
+      {/* Card */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden mb-4">
+
+        {/* Card header — always visible, tap to expand */}
+        <button
+          onClick={() => setOpen(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center shrink-0">
+              <FileText className="w-4 h-4 text-[#1A6B8A]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900">
+                {bn ? 'প্রেসক্রিপশন' : 'Prescription'} #{rx.id}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+                <Calendar className="w-3 h-3 shrink-0" />
+                {date.toLocaleDateString(bn ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                <span className="w-1 h-1 rounded-full bg-slate-300" />
+                {medicines.length} {bn ? 'ওষুধ' : medicines.length === 1 ? 'medicine' : 'medicines'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-2">
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-[#1A6B8A]/10 text-[#1A6B8A] rounded-full uppercase">
+              {rx.language === 'bn' ? 'বাংলা' : 'EN'}
+            </span>
+            {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          </div>
+        </button>
+
+        {/* Expandable body */}
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              key="body"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="border-t border-slate-100 px-4 pt-4 pb-4 space-y-4">
+
+                {/* Medicine rows */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <Pill className="w-3 h-3" />
+                    {bn ? 'ওষুধের তালিকা' : 'Medicines'}
+                  </p>
+                  {medicines.map((med: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-7 h-7 rounded-lg bg-[#1A6B8A]/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Pill className="w-3.5 h-3.5 text-[#1A6B8A]" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">{med.name}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
+                          {med.dosage && (
+                            <span className="text-xs text-slate-500">{med.dosage}</span>
+                          )}
+                          {med.frequency && (
+                            <span className="flex items-center gap-1 text-xs text-slate-500">
+                              <Clock3 className="w-3 h-3 shrink-0" />{med.frequency}
+                            </span>
+                          )}
+                          {med.duration && (
+                            <span className="text-xs text-slate-400">· {med.duration}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Notes */}
+                {rx.notes && (
+                  <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-100 rounded-xl">
+                    <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{rx.notes}</p>
+                  </div>
+                )}
+
+                {/* QR code section */}
+                <div className="border-t border-slate-100 pt-3">
+                  <button
+                    onClick={() => setShowQr(v => !v)}
+                    className="flex items-center gap-2 text-xs font-bold text-[#1A6B8A] hover:text-[#14556e] transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    {showQr
+                      ? (bn ? 'QR কোড লুকান' : 'Hide QR code')
+                      : (bn ? 'QR কোড দেখান' : 'Show QR for patient')}
+                  </button>
+
+                  <AnimatePresence>
+                    {showQr && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        className="mt-3 flex flex-col sm:flex-row items-start gap-4"
+                      >
+                        {/* QR image */}
+                        <div className="shrink-0">
+                          <img
+                            src={qrUrl(buildRxPayload(rx))}
+                            alt={`QR for Rx #${rx.id}`}
+                            width={120}
+                            height={120}
+                            className="rounded-xl border border-slate-100 shadow-sm"
+                            loading="lazy"
+                          />
+                        </div>
+                        {/* Instructions */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-bold text-slate-700">
+                            {bn ? 'রোগীকে স্ক্যান করতে বলুন' : 'Ask patient to scan'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            {bn
+                              ? 'এই QR কোডে প্রেসক্রিপশনের সমস্ত তথ্য রয়েছে। রোগী বা ফার্মাসিস্ট স্ক্যান করতে পারবেন।'
+                              : 'This QR contains the full prescription details. The patient or pharmacist can scan it at any time.'}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {bn ? 'অফলাইনেও কাজ করে' : 'Works offline · No internet required'}
+                            </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+// ── Prescription timeline section ─────────────────────────────────────────
+function PrescriptionTimeline({ prescriptions, bn }: { prescriptions: any[]; bn: boolean }) {
+  if (!prescriptions || prescriptions.length === 0) return null;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="font-black text-slate-900 flex items-center gap-2 text-sm">
+          <FileText className="w-4 h-4 text-[#1A6B8A]" />
+          {bn ? 'প্রেসক্রিপশন ইতিহাস' : 'Prescription History'}
+          <span className="ml-1 px-2 py-0.5 bg-[#1A6B8A]/10 text-[#1A6B8A] rounded-full text-[10px] font-black">
+            {prescriptions.length}
+          </span>
+        </h3>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+          className="text-xs font-bold text-[#1A6B8A] hover:underline"
+        >
+          {bn ? 'নতুন →' : 'Issue new →'}
+        </button>
+      </div>
+
+      {/* Vertical timeline */}
+      <div className="relative">
+        {/* Connecting line */}
+        <div className="absolute left-[7px] top-4 bottom-4 w-[2px] bg-gradient-to-b from-[#1A6B8A]/40 via-[#1A6B8A]/20 to-transparent" />
+
+        {prescriptions.map((rx: any, i: number) => {
+          const parsed = { ...rx, medicines: typeof rx.medicines === 'string' ? JSON.parse(rx.medicines) : (rx.medicines || []) };
+          return <RxCard key={rx.id} rx={parsed} index={i} bn={bn} />;
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const EMPTY_VITALS = {
   systolic: '', diastolic: '', blood_sugar: '',
@@ -377,38 +589,8 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
         </div>
       </div>
 
-      {/* ── PRESCRIPTIONS ── */}
-      {prescriptions.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-black text-slate-900 flex items-center gap-2 text-sm">
-              <FileText className="w-4 h-4 text-[#1A6B8A]" />
-              {bn ? 'সর্বশেষ প্রেসক্রিপশন' : 'Recent Prescriptions'}
-            </h3>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
-              className="text-xs font-bold text-[#1A6B8A] hover:underline"
-            >
-              {bn ? 'সব দেখুন →' : 'View all →'}
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {prescriptions.slice(0, 4).map((rx: any) => (
-              <div key={rx.id} className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <p className="text-[11px] text-slate-400 mb-2">{new Date(rx.date).toLocaleDateString()}</p>
-                <div className="space-y-1">
-                  {(rx.medicines || []).slice(0, 3).map((m: any, i: number) => (
-                    <p key={i} className="text-xs text-slate-700">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#1A6B8A] inline-block mr-1.5" />
-                      {m.name} {m.dosage} — {m.frequency}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── PRESCRIPTION TIMELINE ── */}
+      <PrescriptionTimeline prescriptions={prescriptions} bn={bn} />
 
       {/* ── RISK FEEDBACK ── */}
       <motion.div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
