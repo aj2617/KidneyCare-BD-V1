@@ -5,7 +5,7 @@ import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
   Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill,
-  ClipboardList, Wrench, UserCircle
+  ClipboardList, Wrench, UserCircle, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -62,7 +62,7 @@ export default function App() {
     if (user) {
       if (user.role === 'patient') setCurrentPage('dashboard');
       else if (user.role === 'doctor') setCurrentPage('doctor-dashboard');
-      else if (user.role === 'admin') setCurrentPage('admin-dashboard');
+      else if (user.role === 'admin') setCurrentPage('admin-overview');
       else if (user.role === 'chw') setCurrentPage('chw-dashboard');
     } else {
       setCurrentPage('landing');
@@ -128,11 +128,12 @@ export default function App() {
       { id: 'teleconsult', label: t('doctor.teleconsult'), icon: Video },
     ],
     admin: [
-      { id: 'admin-dashboard', label: t('admin.heatmap'), icon: MapIcon },
-      { id: 'admin-reports', label: t('admin.reports'), icon: Activity },
-      { id: 'admin-simulator', label: t('admin.simulator'), icon: BarChart2 },
-      { id: 'admin-cohorts', label: t('admin.cohorts'), icon: Users },
-      { id: 'fhir', label: t('nav.fhir'), icon: Cpu },
+      { id: 'admin-overview', label: language === 'bn' ? 'সারসংক্ষেপ' : 'Overview', icon: LayoutDashboard },
+      { id: 'admin-map', label: language === 'bn' ? 'মানচিত্র' : 'CKD Map', icon: MapIcon },
+      { id: 'admin-reports', label: language === 'bn' ? 'রিপোর্ট' : 'Reports', icon: FileText },
+      { id: 'admin-simulator', label: language === 'bn' ? 'সিমুলেটর' : 'Simulator', icon: BarChart2 },
+      { id: 'admin-cohorts', label: language === 'bn' ? 'কোহর্ট' : 'Cohorts', icon: Users },
+      { id: 'admin-users', label: language === 'bn' ? 'ব্যবহারকারী' : 'Users', icon: Shield },
     ],
     chw: [
       { id: 'chw-dashboard', label: t('chw.dashboard'), icon: Users },
@@ -171,12 +172,17 @@ export default function App() {
     }
 
     if (user?.role === 'admin') {
-      if (currentPage === 'admin-dashboard' || currentPage === 'admin-reports') {
-        return <AdminDashboard initialTab={currentPage === 'admin-reports' ? 'reports' : 'heatmap'} />;
-      }
-      if (currentPage === 'admin-simulator') return <BudgetSimulator />;
-      if (currentPage === 'admin-cohorts') return <OutcomeCohorts />;
-      if (currentPage === 'fhir') return <FHIRViewer />;
+      const adminTabMap: Record<string, string> = {
+        'admin-overview': 'overview',
+        'admin-dashboard': 'overview',
+        'admin-map': 'map',
+        'admin-reports': 'reports',
+        'admin-simulator': 'simulator',
+        'admin-cohorts': 'cohorts',
+        'admin-users': 'users',
+      };
+      const adminTab = adminTabMap[currentPage] || 'overview';
+      return <AdminDashboard initialTab={adminTab as any} />;
     }
 
     if (user?.role === 'chw') {

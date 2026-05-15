@@ -1659,6 +1659,35 @@ async function startServer() {
     res.json({ exported: data.length, data });
   });
 
+  // ─── Admin User Management ────────────────────────────────────────────────
+  app.get('/api/admin/users', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    const users = db.prepare(`
+      SELECT u.id, u.name, u.email, u.role, u.district, u.division, u.created_at,
+        COALESCE(u.active, 1) as active,
+        CASE WHEN u.role = 'patient' THEN p.ckd_stage ELSE NULL END as ckd_stage,
+        CASE WHEN u.role = 'patient' THEN p.risk_score ELSE NULL END as risk_score
+      FROM users u
+      LEFT JOIN patients p ON u.role = 'patient' AND p.user_id = u.id
+      ORDER BY u.created_at DESC
+    `).all();
+    res.json(users);
+  });
+
+  app.post('/api/admin/users/:id/toggle', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+    const userId = parseInt(req.params.id);
+    if (userId === req.user.id) return res.status(400).json({ error: 'Cannot modify your own account' });
+    try {
+      db.prepare('ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1').run();
+    } catch { /* column already exists */ }
+    const user = db.prepare('SELECT COALESCE(active, 1) as active FROM users WHERE id = ?').get(userId) as any;
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const newStatus = user.active ? 0 : 1;
+    db.prepare('UPDATE users SET active = ? WHERE id = ?').run(newStatus, userId);
+    res.json({ id: userId, active: newStatus });
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   // SMS / USSD / IVR ENDPOINTS (Mock — integration-ready)
   // ════════════════════════════════════════════════════════════════════════════
