@@ -1,0 +1,131 @@
+Redesign the ADMIN / PUBLIC HEALTH OFFICER DASHBOARD of “KidneyCare BD” into a **minimal, high‑efficiency tool** that works seamlessly on **desktop, tablet, and mobile**, and feels like a **native app when installed as a PWA**.  
+
+Keep **every existing feature** intact — heatmap, reports, budget simulator, user management, cohort tracking, DHIS2 export, etc. — but transform the visual design, navigation, and PWA behaviour to be clean, fast, and effortless to use.
+
+---
+
+## 1. DESIGN GOALS
+- **Minimalist** – Show only what the admin needs at that moment. Remove all decoration.
+- **Data‑focused** – Large numbers, clear charts, and the map dominate the interface.
+- **Fast** – Skeleton loading, cached data, no heavy transitions.
+- **Consistent** – Same design language as the other roles (Patient, Doctor, CHW) so the whole platform feels like one product.
+- **PWA‑native feel** – Bottom navigation bar on mobile/PWA, smooth page transitions, offline caching, install prompt.
+
+---
+
+## 2. LAYOUT STRATEGY
+- **Desktop**: Left sidebar navigation (icons + labels) for quick jumping between sections.  
+- **Mobile / PWA**: The sidebar disappears and is replaced by a **persistent bottom navigation bar** with 5 key tabs.  
+- **Tablet**: Either a collapsed sidebar (icons only) or the mobile bottom nav, depending on screen width (<768px → bottom nav).
+
+---
+
+## 3. BOTTOM NAVIGATION BAR (MOBILE / PWA)
+Always visible at the bottom, 56‑64px height, with these tabs (use minimal icons from Heroicons or Phosphor):
+
+1. **Home** (house icon) – Aggregate overview dashboard  
+2. **Map** (map pin icon) – Interactive Bangladesh CKD heatmap  
+3. **Reports** (document icon) – Generate & download reports  
+4. **Users** (people icon) – Manage users & CHWs  
+5. **More** (three‑dots or gear icon) – Simulator, cohorts, settings  
+
+- Active tab is coloured primary `#1A6B8A`, inactive tabs are neutral grey.  
+- Badge on “Reports” tab when a generated report is ready for download.
+
+---
+
+## 4. SCREEN‑BY‑SCREEN REDESIGN (MINIMAL)
+
+### 4.1 Home Tab (Overview)
+- **Top row** (large KPI cards):  
+  - Total Patients | High‑Risk % | Avg eGFR | Districts Covered  
+- **Second row** (2‑column grid on mobile, 4‑column on desktop):  
+  - New Registrations This Week (mini bar chart)  
+  - Alerts Triggered Today (number)  
+  - Gender Ratio (donut ring)  
+  - Top 5 High‑Burden Districts (simple list)
+- Every card uses subtle shadows, no borders, generous padding.  
+- Pull‑to‑refresh fetches latest aggregated data.
+
+### 4.2 Map Tab (CKD Heatmap)
+- Full‑width Leaflet.js map of Bangladesh with district GeoJSON.  
+- **Minimal overlay**: a single floating filter bar at the bottom/top with toggle chips:  
+  - Density | Risk | Gender | Age | Urban/Rural  
+- Tap a district → small bottom sheet slides up with that district’s key stats (population, patient count, % high‑risk).  
+- No heavy legends; instead, a simple gradient bar with “Low” and “High” labels.  
+- On desktop, filter panel is a small sidebar; map fills the rest.
+
+### 4.3 Reports Tab
+- **Two‑section layout**:  
+  1. **Quick Actions**: cards for “New Report”, “Budget Simulator”, “Annual Report”.  
+  2. **Recent Reports**: list of generated PDFs/Excels with dates and download buttons.
+- “New Report” wizard is a stepped modal (bottom sheet on mobile):  
+  - Step 1: Choose report type (National Burden, Gender, Age, Stage, GFR comparison)  
+  - Step 2: Date range & district filter  
+  - Step 3: Format (PDF/Excel) → generate.  
+- While generating, show a skeleton card with a subtle progress indicator.  
+- Once ready, the file downloads and a success toast appears.
+
+### 4.4 Users Tab
+- **Searchable list** of all platform users (Patients, Doctors, CHWs, Admins).  
+- Each row: avatar/initials, name, role badge, status (active/disabled), last active.  
+- Tapping a row opens a minimal profile drawer (mobile: bottom sheet) with:
+  - Key details  
+  - Approve / Disable toggle  
+  - “View Activity” link  
+- Batch actions (checkbox selection) available on desktop; mobile uses swipe actions.
+
+### 4.5 More Tab
+- Opens a grid of secondary but powerful tools (2‑column on mobile):
+  - **Budget Simulator** (sliders for population, intervention cost → savings chart)
+  - **Cohorts** (create a tracked patient group)
+  - **Research Export** (anonymized CSV download)
+  - **DHIS2 Export** (download aggregated data)
+  - **Settings** (language, profile, logout)
+- Each tool opens in its own screen (pushed onto the navigation stack) with a clean back button.
+
+---
+
+## 5. VISUAL DESIGN SYSTEM
+- **Colours**: Primary `#1A6B8A`, success `#2ECC71`, warning `#F39C12`, danger `#E74C3C`, backgrounds `#F8FAFC`, cards `#FFFFFF`.
+- **Typography**: Noto Sans Bengali for Bengali text, system font stack for English. Body 15px, headings 20px/24px. No font‑weight below 400.
+- **Spacing**: multiples of 4px; cards have 16–24px padding.
+- **Cards**: white, rounded corners 12px, `box-shadow: 0 1px 3px rgba(0,0,0,0.05)`.
+- **Forms/inputs**: minimal borders, full width on mobile, clear labels. Buttons with 48px touch height.
+- **Charts**: Recharts with muted grid lines, tooltips on hover/tap.
+- **Empty states**: a single, simple illustration + Bengali/English text (e.g., “No reports generated yet”).
+
+---
+
+## 6. PWA & OFFLINE BEHAVIOUR
+- **Manifest**: `name: "KidneyCare Admin"`, `short_name: "KC Admin"`, `theme_color: #1A6B8A`, `display: standalone`.
+- **Service worker** (Workbox):  
+  - Cache app shell, dashboard widgets, map tiles (for previously viewed areas).  
+  - Stale‑while‑revalidate for KPI data.  
+  - Background sync for any report generation requests made offline.
+- **Offline UI**:  
+  - Thin top banner: “You are offline. Showing cached data from <timestamp>”.  
+  - Map still navigable if tiles cached; otherwise, shows a grey placeholder.  
+  - Reports generated while offline are queued and downloaded when back online.
+- **Install prompt**: custom “Add to Home Screen” callout on first visit (if criteria met).
+
+---
+
+## 7. LANGUAGE & ACCESSIBILITY
+- Persistent EN / বাংলা toggle in the sidebar (desktop) or inside “More” tab (mobile).
+- All numbers and dates formatted according to Bengali locale when BN is selected.
+- Semantic HTML, ARIA labels, keyboard navigation for power users on desktop.
+
+---
+
+## 8. TECHNICAL IMPLEMENTATION NOTES
+- Built with React + Tailwind CSS.  
+- Use React Router with a layout component that switches between sidebar (desktop) and bottom nav (mobile) based on a media query.  
+- Charts: Recharts responsive containers.  
+- Map: react-leaflet with simple vector tiles or GeoJSON.  
+- Offline caching: idb for IndexedDB, Workbox for service worker.  
+- Backend APIs remain unchanged; the redesign is purely frontend.
+
+---
+
+Deliver a minimal, ultra‑functional Admin Dashboard that lets a public health officer in Bangladesh monitor the CKD crisis, generate policy reports, and manage users with zero friction — whether on a laptop in Dhaka or a smartphone in a field office.
