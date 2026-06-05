@@ -1,320 +1,939 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Users, MapPin, Star, Plus, CheckCircle2, Loader2, Activity, AlertCircle, Navigation } from 'lucide-react';
-import { motion } from 'motion/react';
+import {
+  Users, Activity, Star, Settings, MapPin, CheckCircle2,
+  Loader2, Navigation, RefreshCw, ChevronRight,
+  Award, AlertTriangle, Clock, Plus, Search, LogOut,
+  Wifi, WifiOff, Globe, Droplets, Heart, UserCircle
+} from 'lucide-react';
 
-export default function CHWDashboard() {
-  const { token, user } = useAuth();
-  const { language } = useLanguage();
+// ── IndexedDB offline queue ──────────────────────────────────────────────────
+const IDB_NAME = 'kidneycare-chw-v1';
+const STORE = 'pendingVisits';
+
+function openIDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE))
+        db.createObjectStore(STORE, { keyPath: 'localId', autoIncrement: true });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function queueVisit(visit: object) {
+  const db = await openIDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).add({ ...visit, queuedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getPendingVisits(): Promise<any[]> {
+  const db = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function removePendingVisit(localId: number) {
+  const db = await openIDB();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(localId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ── Plausibility validation ──────────────────────────────────────────────────
+function validateVitals(v: any): string[] {
+  const errors: string[] = [];
+  const s = Number(v.systolic), d = Number(v.diastolic);
+  if (v.systolic && (s < 60 || s > 280)) errors.push('সিস্টোলিক BP ৬০–২৮০ mmHg');
+  if (v.diastolic && (d < 40 || d > 150)) errors.push('ডায়াস্টোলিক BP ৪০–১৫০ mmHg');
+  if (v.systolic && v.diastolic && d >= s) errors.push('সিস্টোলিক > ডায়াস্টোলিক হতে হবে');
+  const bs = Number(v.blood_sugar);
+  if (v.blood_sugar && (bs < 1 || bs > 60)) errors.push('রক্তের শর্করা ১–৬০ mmol/L');
+  const cr = Number(v.creatinine);
+  if (v.creatinine && (cr < 0.2 || cr > 20)) errors.push('ক্রিয়েটিনিন ০.২–২০ mg/dL');
+  const wt = Number(v.weight);
+  if (v.weight && (wt < 20 || wt > 250)) errors.push('ওজন ২০–২৫০ কেজি');
+  return errors;
+}
+
+// ── Urgency helpers ──────────────────────────────────────────────────────────
+type Urgency = 'overdue' | 'due-soon' | 'done';
+function getUrgency(patient: any, lastVisitMap: Record<number, Date | null>): Urgency {
+  const last = lastVisitMap[patient.id];
+  const days = last ? Math.floor((Date.now() - last.getTime()) / 86400000) : 999;
+  const risk = patient.risk_score || 0;
+  if (risk > 75 || days > 14) return 'overdue';
+  if (risk > 50 || days > 7) return 'due-soon';
+  return 'done';
+}
+const urgencyOrder: Record<Urgency, number> = { overdue: 0, 'due-soon': 1, done: 2 };
+const urgencyStyle: Record<Urgency, string> = {
+  overdue: 'bg-red-100 text-red-700 border-red-200',
+  'due-soon': 'bg-amber-100 text-amber-700 border-amber-200',
+  done: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+};
+const urgencyDot: Record<Urgency, string> = {
+  overdue: 'bg-red-500',
+  'due-soon': 'bg-amber-400',
+  done: 'bg-emerald-500',
+};
+
+// ── Badges ───────────────────────────────────────────────────────────────────
+interface Badge { id: string; icon: string; en: string; bn: string; check: (p: any, vcount: number, pcount: number) => boolean }
+const BADGES: Badge[] = [
+  { id: 'first', icon: '🏃', en: 'First Visit', bn: 'প্রথম ভিজিট', check: (_p, v) => v >= 1 },
+  { id: 'ten', icon: '⭐', en: '10 Visits', bn: '১০ ভিজিট', check: (_p, v) => v >= 10 },
+  { id: 'fifty', icon: '🌟', en: '50 Visits', bn: '৫০ ভিজিট', check: (_p, v) => v >= 50 },
+  { id: 'pts100', icon: '🥉', en: '100 Points', bn: '১০০ পয়েন্ট', check: (p) => (p?.points || 0) >= 100 },
+  { id: 'pts500', icon: '🥈', en: '500 Points', bn: '৫০০ পয়েন্ট', check: (p) => (p?.points || 0) >= 500 },
+  { id: 'pts1000', icon: '🥇', en: '1000 Points', bn: '১০০০ পয়েন্ট', check: (p) => (p?.points || 0) >= 1000 },
+  { id: 'roster', icon: '👥', en: 'Full Roster', bn: 'পূর্ণ তালিকা', check: (_p, _v, pc) => pc >= 30 },
+  { id: 'guardian', icon: '🛡️', en: 'Guardian', bn: 'অভিভাবক', check: (p) => (p?.streak_days || 0) >= 7 },
+];
+
+interface Props { tab?: string }
+
+export default function CHWDashboard({ tab = 'chw-home' }: Props) {
+  const { token, user, logout } = useAuth();
+  const { language, setLanguage } = useLanguage();
+  const bn = language === 'bn';
+
   const [profile, setProfile] = useState<any>(null);
   const [patients, setPatients] = useState<any[]>([]);
   const [allPatients, setAllPatients] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'patients' | 'log-visit' | 'add-patient'>('patients');
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPatient, setSelectedPatient] = useState<any>(null);
-  const [visitForm, setVisitForm] = useState({
-    visit_type: 'routine',
-    notes: '',
-    lat: '',
-    lng: '',
-    vitals: { systolic: '', diastolic: '', blood_sugar: '', creatinine: '', weight: '', edema: false, fatigue: 5, urine_protein: 'Negative' }
-  });
-  const [logVitals, setLogVitals] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [gpsStatus, setGpsStatus] = useState('');
-  const [message, setMessage] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
-  useEffect(() => { fetchData(); }, []);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
+  const [visitType, setVisitType] = useState('routine');
+  const [notes, setNotes] = useState('');
+  const [gpsCoords, setGpsCoords] = useState<{ lat: string; lng: string } | null>(null);
+  const [gpsState, setGpsState] = useState<'idle' | 'getting' | 'got' | 'error'>('idle');
+  const [vitals, setVitals] = useState({ systolic: '', diastolic: '', blood_sugar: '', creatinine: '', weight: '', edema: false, fatigue: 5, urine_protein: 'Negative' });
+  const [showVitals, setShowVitals] = useState(false);
+  const [validErrors, setValidErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState('');
+  const [search, setSearch] = useState('');
+  const [showAddPatient, setShowAddPatient] = useState(false);
+  const [selectedPatientDetail, setSelectedPatientDetail] = useState<any>(null);
+
+  // Build lastVisit map
+  const lastVisitMap: Record<number, Date | null> = {};
+  visits.forEach(v => {
+    const d = new Date(v.timestamp);
+    if (!lastVisitMap[v.patient_id] || d > lastVisitMap[v.patient_id]!)
+      lastVisitMap[v.patient_id] = d;
+  });
+
+  const visitCount = visits.length;
+  const patientCount = patients.length;
+
+  useEffect(() => {
+    const on = () => { setIsOnline(true); syncPending(); };
+    const off = () => setIsOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, [token]);
+
+  useEffect(() => { fetchData(); refreshPending(); }, []);
+
+  const refreshPending = async () => {
+    const p = await getPendingVisits();
+    setPendingCount(p.length);
+  };
 
   const fetchData = async () => {
-    const headers = { Authorization: `Bearer ${token}` };
+    setIsLoading(true);
+    const h = { Authorization: `Bearer ${token}` };
     try {
-      const [profRes, patientsRes, allRes, visitsRes] = await Promise.all([
-        fetch('/api/chw/profile', { headers }),
-        fetch('/api/chw/patients', { headers }),
-        fetch('/api/chw/all-patients', { headers }),
-        fetch('/api/chw/visits', { headers }),
+      const [pr, pat, all, vis, lb] = await Promise.all([
+        fetch('/api/chw/profile', { headers: h }),
+        fetch('/api/chw/patients', { headers: h }),
+        fetch('/api/chw/all-patients', { headers: h }),
+        fetch('/api/chw/visits', { headers: h }),
+        fetch('/api/chw/leaderboard', { headers: h }),
       ]);
-      setProfile(await profRes.json());
-      setPatients(await patientsRes.json());
-      setAllPatients(await allRes.json());
-      setVisits(await visitsRes.json());
-    } catch (err) { console.error(err); }
+      if (pr.ok) setProfile(await pr.json());
+      if (pat.ok) setPatients(await pat.json());
+      if (all.ok) setAllPatients(await all.json());
+      if (vis.ok) setVisits(await vis.json());
+      if (lb.ok) setLeaderboard(await lb.json());
+    } catch { /* offline graceful */ }
     finally { setIsLoading(false); }
   };
 
-  const getGPS = () => {
-    setGpsStatus('Getting location...');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setVisitForm(v => ({ ...v, lat: pos.coords.latitude.toString(), lng: pos.coords.longitude.toString() }));
-        setGpsStatus(`📍 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`);
-      },
-      () => setGpsStatus('Location not available')
-    );
+  const syncPending = async () => {
+    const pending = await getPendingVisits();
+    if (!pending.length) return;
+    setIsSyncing(true);
+    setSyncMsg(bn ? 'সিঙ্ক হচ্ছে...' : 'Syncing...');
+    let synced = 0;
+    for (const visit of pending) {
+      try {
+        const { localId, queuedAt, ...payload } = visit;
+        const r = await fetch('/api/chw/log-visit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        });
+        if (r.ok) { await removePendingVisit(localId); synced++; }
+      } catch { /* skip */ }
+    }
+    setIsSyncing(false);
+    if (synced > 0) {
+      setSyncMsg(bn ? `${synced}টি ভিজিট সিঙ্ক হয়েছে ✓` : `${synced} visit(s) synced ✓`);
+      refreshPending(); fetchData();
+      setTimeout(() => setSyncMsg(''), 4000);
+    } else { setSyncMsg(''); }
   };
 
-  const assignPatient = async (patientId: number) => {
-    const res = await fetch('/api/chw/assign-patient', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ patient_id: patientId })
-    });
-    const data = await res.json();
-    if (res.ok) { setMessage('Patient added to your roster!'); fetchData(); }
-    else setMessage(data.error || 'Error');
+  const getGPS = () => {
+    setGpsState('getting');
+    navigator.geolocation.getCurrentPosition(
+      pos => { setGpsCoords({ lat: pos.coords.latitude.toString(), lng: pos.coords.longitude.toString() }); setGpsState('got'); },
+      () => setGpsState('error'),
+      { timeout: 10000, enableHighAccuracy: false }
+    );
   };
 
   const submitVisit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPatient) { setMessage('Select a patient first'); return; }
+    if (!selectedPatient) return;
+    const errs = showVitals ? validateVitals(vitals) : [];
+    if (errs.length) { setValidErrors(errs); return; }
+    setValidErrors([]);
     setIsSubmitting(true);
+
     const payload: any = {
       patient_id: selectedPatient.id,
-      lat: visitForm.lat ? parseFloat(visitForm.lat) : null,
-      lng: visitForm.lng ? parseFloat(visitForm.lng) : null,
-      visit_type: visitForm.visit_type,
-      notes: visitForm.notes,
+      lat: gpsCoords?.lat ? parseFloat(gpsCoords.lat) : null,
+      lng: gpsCoords?.lng ? parseFloat(gpsCoords.lng) : null,
+      visit_type: visitType,
+      notes,
     };
-    if (logVitals) payload.vitals = visitForm.vitals;
+    if (showVitals) payload.vitals = vitals;
 
-    const res = await fetch('/api/chw/log-visit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload)
-    });
-    setIsSubmitting(false);
-    if (res.ok) {
-      setMessage(language === 'bn' ? 'ভিজিট সফলভাবে লগ হয়েছে! +১০ পয়েন্ট' : 'Visit logged! +10 points');
-      setVisitForm({ visit_type: 'routine', notes: '', lat: '', lng: '', vitals: { systolic: '', diastolic: '', blood_sugar: '', creatinine: '', weight: '', edema: false, fatigue: 5, urine_protein: 'Negative' } });
-      setSelectedPatient(null);
+    const tryOnline = async () => {
+      const r = await fetch('/api/chw/log-visit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      return r.ok;
+    };
+
+    let saved = false;
+    if (isOnline) {
+      try { saved = await tryOnline(); } catch { /* fall through to queue */ }
+    }
+
+    if (!saved) {
+      await queueVisit(payload);
+      await refreshPending();
+      setSubmitMsg(bn ? '✓ অফলাইনে সংরক্ষিত। অনলাইনে এলে সিঙ্ক হবে।' : '✓ Saved offline. Will sync when connected.');
+    } else {
+      setSubmitMsg(bn ? '✓ ভিজিট সফলভাবে লগ হয়েছে! +১০ পয়েন্ট' : '✓ Visit logged! +10 points');
       fetchData();
     }
+
+    setSelectedPatient(null); setNotes(''); setGpsCoords(null); setGpsState('idle');
+    setVitals({ systolic: '', diastolic: '', blood_sugar: '', creatinine: '', weight: '', edema: false, fatigue: 5, urine_protein: 'Negative' });
+    setShowVitals(false);
+    setIsSubmitting(false);
+    setTimeout(() => setSubmitMsg(''), 5000);
   };
 
-  const getRiskColor = (score: number) => {
-    if (score <= 25) return 'text-emerald-600 bg-emerald-50';
-    if (score <= 50) return 'text-amber-600 bg-amber-50';
-    if (score <= 75) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
+  const assignPatient = async (pid: number) => {
+    const r = await fetch('/api/chw/assign-patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ patient_id: pid }),
+    });
+    if (r.ok) { fetchData(); }
   };
 
-  if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#1A6B8A]" /></div>;
+  const getRiskBadge = (score: number) => {
+    if (score > 75) return 'bg-red-100 text-red-700';
+    if (score > 50) return 'bg-orange-100 text-orange-700';
+    if (score > 25) return 'bg-amber-100 text-amber-700';
+    return 'bg-emerald-100 text-emerald-700';
+  };
+
+  const getRiskLabel = (score: number) => {
+    if (score > 75) return bn ? 'মারাত্মক' : 'Critical';
+    if (score > 50) return bn ? 'উচ্চ' : 'High';
+    if (score > 25) return bn ? 'মাঝারি' : 'Moderate';
+    return bn ? 'কম' : 'Low';
+  };
+
+  const getDaysSince = (patientId: number) => {
+    const last = lastVisitMap[patientId];
+    if (!last) return null;
+    return Math.floor((Date.now() - last.getTime()) / 86400000);
+  };
+
+  // Sort patients by urgency
+  const sortedPatients = [...patients].sort((a, b) => {
+    const ua = urgencyOrder[getUrgency(a, lastVisitMap)];
+    const ub = urgencyOrder[getUrgency(b, lastVisitMap)];
+    if (ua !== ub) return ua - ub;
+    return (b.risk_score || 0) - (a.risk_score || 0);
+  });
+
+  const filteredPatients = sortedPatients.filter(p =>
+    !search || p.name?.toLowerCase().includes(search.toLowerCase()) || p.district?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const unassigned = allPatients.filter(p => !patients.find(my => my.id === p.id));
+
+  const earnedBadges = BADGES.filter(b => b.check(profile, visitCount, patientCount));
+  const lockedBadges = BADGES.filter(b => !b.check(profile, visitCount, patientCount));
+
+  const myRank = leaderboard.findIndex(l => l.name === user?.name) + 1;
+  const nextMilestone = [100, 250, 500, 1000, 2000].find(m => m > (profile?.points || 0)) || 2000;
+  const progress = Math.min(100, ((profile?.points || 0) / nextMilestone) * 100);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-[#1A6B8A]" />
+        <p className="text-slate-500 text-sm">{bn ? 'লোড হচ্ছে...' : 'Loading...'}</p>
+      </div>
+    );
+  }
+
+  // ── Patient detail modal ─────────────────────────────────────────────────
+  if (selectedPatientDetail) {
+    const p = selectedPatientDetail;
+    const urgency = getUrgency(p, lastVisitMap);
+    const days = getDaysSince(p.id);
+    const recentVisits = visits.filter(v => v.patient_id === p.id).slice(0, 5);
+    return (
+      <div className="min-h-screen bg-[#F4F7FB]">
+        <div className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
+          <button onClick={() => setSelectedPatientDetail(null)} className="p-2 -ml-2 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors">
+            <ChevronRight className="w-6 h-6 rotate-180" />
+          </button>
+          <div className="flex-1">
+            <h2 className="font-bold text-slate-900 text-lg">{p.name}</h2>
+            <p className="text-xs text-slate-500">{p.district} · Stage {p.ckd_stage || '--'}</p>
+          </div>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${urgencyStyle[urgency]}`}>
+            {urgency === 'overdue' ? (bn ? 'মেয়াদ পেরিয়েছে' : 'Overdue') : urgency === 'due-soon' ? (bn ? 'শীঘ্রই দেখুন' : 'Due Soon') : (bn ? 'সম্পন্ন' : 'Done')}
+          </span>
+        </div>
+        <div className="px-4 py-4 space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center">
+              <p className={`text-2xl font-black ${getRiskBadge(p.risk_score || 0).includes('red') ? 'text-red-600' : getRiskBadge(p.risk_score || 0).includes('orange') ? 'text-orange-600' : getRiskBadge(p.risk_score || 0).includes('amber') ? 'text-amber-600' : 'text-emerald-600'}`}>{p.risk_score || 0}</p>
+              <p className="text-xs text-slate-500 mt-1">{bn ? 'ঝুঁকি স্কোর' : 'Risk Score'}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center">
+              <p className="text-2xl font-black text-slate-800">{p.age || '--'}</p>
+              <p className="text-xs text-slate-500 mt-1">{bn ? 'বয়স' : 'Age'}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center">
+              <p className="text-2xl font-black text-slate-800">{days !== null ? days : '—'}</p>
+              <p className="text-xs text-slate-500 mt-1">{bn ? 'দিন আগে' : 'Days ago'}</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#1A6B8A]" />
+              {bn ? 'সাম্প্রতিক ভিজিট' : 'Recent Visits'}
+            </h3>
+            {recentVisits.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-4">{bn ? 'কোনো ভিজিট নেই' : 'No visits yet'}</p>
+            ) : recentVisits.map(v => (
+              <div key={v.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800 capitalize">{v.visit_type}</p>
+                  <p className="text-xs text-slate-500">{new Date(v.timestamp).toLocaleDateString(bn ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                </div>
+                {v.lat && <span className="text-xs text-emerald-600 flex items-center gap-1"><MapPin className="w-3 h-3" />GPS</span>}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => { setSelectedPatientDetail(null); setSelectedPatient(p); window.dispatchEvent(new CustomEvent('navigate', { detail: 'chw-vitals' })); }}
+            className="w-full py-4 bg-[#1A6B8A] text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 active:bg-[#14556e] transition-colors"
+          >
+            <Activity className="w-5 h-5" />
+            {bn ? 'ভিজিট লগ করুন' : 'Log Visit'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">
-            {language === 'bn' ? 'সিএইচডব্লিউ ড্যাশবোর্ড' : 'CHW Dashboard'}
-          </h1>
-          <p className="text-slate-500">{language === 'bn' ? 'কমিউনিটি স্বাস্থ্যকর্মী পোর্টাল' : 'Community Health Worker Portal'} — {user?.name}</p>
-        </div>
-        {profile && (
-          <div className="flex gap-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center gap-3">
-              <Star className="w-5 h-5 text-amber-500" />
-              <div>
-                <p className="text-xs font-bold text-amber-600 uppercase">{language === 'bn' ? 'পয়েন্ট' : 'Points'}</p>
-                <p className="text-xl font-black text-amber-700">{profile.points || 0}</p>
-              </div>
-            </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl px-5 py-3">
-              <p className="text-xs font-bold text-slate-500 uppercase">{language === 'bn' ? 'রোগী' : 'Patients'}</p>
-              <p className="text-xl font-black text-slate-800">{patients.length}/30</p>
-            </div>
-          </div>
-        )}
-      </div>
+    <div className="min-h-screen bg-[#F4F7FB] pb-2">
 
-      {message && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 font-medium text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5" /> {message}
-        </motion.div>
-      )}
-
-      <div className="flex border-b border-slate-200 gap-1">
-        {[
-          { id: 'patients', label: language === 'bn' ? 'আমার রোগীরা' : 'My Patients', icon: Users },
-          { id: 'log-visit', label: language === 'bn' ? 'ভিজিট লগ করুন' : 'Log Visit', icon: Activity },
-          { id: 'add-patient', label: language === 'bn' ? 'রোগী যোগ করুন' : 'Add Patient', icon: Plus },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
-            className={`px-5 py-3 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${activeTab === tab.id ? 'border-[#1A6B8A] text-[#1A6B8A]' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-            <tab.icon className="w-4 h-4" /> {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'patients' && (
-        <div className="space-y-4">
-          {patients.length === 0 ? (
-            <div className="text-center py-20 bg-slate-50 rounded-3xl border border-dashed border-slate-300">
-              <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500">{language === 'bn' ? 'এখনো কোনো রোগী নেই। রোগী যোগ করুন।' : 'No patients yet. Add patients to your roster.'}</p>
-            </div>
-          ) : patients.map(p => (
-            <motion.div key={p.id} whileHover={{ x: 4 }} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-lg">{p.name?.charAt(0)}</div>
-                <div>
-                  <p className="font-bold text-slate-900">{p.name}</p>
-                  <p className="text-xs text-slate-500">{p.district} · Stage {p.ckd_stage || '--'} · Age {p.age}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${getRiskColor(p.risk_score || 0)}`}>
-                  {language === 'bn' ? 'ঝুঁকি' : 'Risk'} {p.risk_score || 0}
-                </span>
-                <button onClick={() => { setSelectedPatient(p); setActiveTab('log-visit'); }}
-                  className="px-3 py-1.5 bg-[#1A6B8A] text-white text-xs font-bold rounded-lg hover:bg-[#14556e] transition-all">
-                  {language === 'bn' ? 'ভিজিট লগ' : 'Log Visit'}
-                </button>
-              </div>
-            </motion.div>
-          ))}
+      {/* Sync / offline banner */}
+      {(!isOnline || isSyncing || syncMsg || pendingCount > 0) && (
+        <div className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold ${!isOnline ? 'bg-amber-500 text-white' : 'bg-[#1A6B8A] text-white'}`}>
+          {!isOnline ? <WifiOff className="w-4 h-4 flex-shrink-0" /> : isSyncing ? <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" /> : <Wifi className="w-4 h-4 flex-shrink-0" />}
+          <span className="flex-1">
+            {!isOnline
+              ? (bn ? 'অফলাইন — ডেটা সংরক্ষিত থাকবে' : 'Offline — data will be saved locally')
+              : syncMsg || (pendingCount > 0 ? (bn ? `${pendingCount}টি ভিজিট পেন্ডিং` : `${pendingCount} visit(s) pending sync`) : '')}
+          </span>
+          {isOnline && pendingCount > 0 && !isSyncing && (
+            <button onClick={syncPending} className="px-2 py-0.5 bg-white/20 rounded-lg text-xs font-bold">
+              {bn ? 'সিঙ্ক' : 'Sync'}
+            </button>
+          )}
         </div>
       )}
 
-      {activeTab === 'log-visit' && (
-        <form onSubmit={submitVisit} className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-2xl mx-auto space-y-6">
-          <h2 className="text-xl font-bold text-slate-900">{language === 'bn' ? 'বাড়ি পরিদর্শন লগ করুন' : 'Log Home Visit'}</h2>
+      {/* Submit feedback */}
+      {submitMsg && (
+        <div className="mx-4 mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-sm font-semibold flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> {submitMsg}
+        </div>
+      )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'রোগী নির্বাচন করুন' : 'Select Patient'}</label>
-            <select value={selectedPatient?.id || ''} onChange={e => setSelectedPatient(patients.find(p => p.id === parseInt(e.target.value)) || null)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <option value="">{language === 'bn' ? '-- রোগী বেছে নিন --' : '-- Choose patient --'}</option>
-              {patients.map(p => <option key={p.id} value={p.id}>{p.name} ({p.district})</option>)}
-            </select>
+      {/* ── HOME TAB ─────────────────────────────────────────────────────── */}
+      {tab === 'chw-home' && (
+        <div className="px-4 pt-4 space-y-4">
+          {/* Header stats */}
+          <div className="flex gap-3">
+            <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <Star className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{bn ? 'পয়েন্ট' : 'Points'}</span>
+              </div>
+              <p className="text-3xl font-black text-amber-600">{profile?.points || 0}</p>
+              {myRank > 0 && <p className="text-xs text-slate-400 mt-0.5">#{myRank} {bn ? 'র‍্যাঙ্ক' : 'rank'}</p>}
+            </div>
+            <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="w-4 h-4 text-[#1A6B8A]" />
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{bn ? 'রোগী' : 'Patients'}</span>
+              </div>
+              <p className="text-3xl font-black text-[#1A6B8A]">{patientCount}<span className="text-lg text-slate-400">/30</span></p>
+              <p className="text-xs text-slate-400 mt-0.5">{visitCount} {bn ? 'ভিজিট' : 'visits'}</p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'পরিদর্শনের ধরন' : 'Visit Type'}</label>
-            <select value={visitForm.visit_type} onChange={e => setVisitForm({ ...visitForm, visit_type: e.target.value })}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <option value="routine">{language === 'bn' ? 'নিয়মিত পরিদর্শন' : 'Routine Visit'}</option>
-              <option value="urgent">{language === 'bn' ? 'জরুরি পরিদর্শন' : 'Urgent Visit'}</option>
-              <option value="medication">{language === 'bn' ? 'ওষুধ পর্যবেক্ষণ' : 'Medication Check'}</option>
-              <option value="followup">{language === 'bn' ? 'ফলো-আপ' : 'Follow-up'}</option>
-            </select>
+          {/* Follow-up summary */}
+          {patients.length > 0 && (() => {
+            const overdue = patients.filter(p => getUrgency(p, lastVisitMap) === 'overdue').length;
+            const soon = patients.filter(p => getUrgency(p, lastVisitMap) === 'due-soon').length;
+            return overdue + soon > 0 ? (
+              <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                <p className="text-sm font-semibold text-red-700">
+                  {overdue > 0 && `${overdue} ${bn ? 'জন মেয়াদ পেরিয়েছে' : 'overdue'}${soon > 0 ? ', ' : ''}`}
+                  {soon > 0 && `${soon} ${bn ? 'জন শীঘ্রই দেখুন' : 'due soon'}`}
+                </p>
+              </div>
+            ) : null;
+          })()}
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="search"
+              placeholder={bn ? 'রোগীর নাম বা জেলা খুঁজুন...' : 'Search patient or district...'}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+            />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-              <Navigation className="w-4 h-4" />
-              {language === 'bn' ? 'জিপিএস অবস্থান' : 'GPS Location'}
-            </label>
-            <div className="flex gap-2">
-              <button type="button" onClick={getGPS} className="px-4 py-2.5 bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-sm font-medium hover:bg-slate-200 transition-all">
-                <MapPin className="w-4 h-4 inline mr-1" />{language === 'bn' ? 'অবস্থান নিন' : 'Get Location'}
+          {/* Patient list */}
+          {filteredPatients.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200">
+              <Users className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-400 font-medium">{bn ? 'কোনো রোগী নেই' : 'No patients yet'}</p>
+              <button onClick={() => setShowAddPatient(true)} className="mt-3 px-4 py-2 bg-[#1A6B8A] text-white rounded-xl text-sm font-bold">
+                {bn ? 'রোগী যোগ করুন' : 'Add Patients'}
               </button>
-              {gpsStatus && <span className="flex items-center text-sm text-slate-600">{gpsStatus}</span>}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'নোট' : 'Visit Notes'}</label>
-            <textarea value={visitForm.notes} onChange={e => setVisitForm({ ...visitForm, notes: e.target.value })}
-              rows={3} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl resize-none"
-              placeholder={language === 'bn' ? 'পরিদর্শনের বিবরণ লিখুন...' : 'Describe the visit...'} />
-          </div>
-
-          <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
-            <input type="checkbox" id="logVitals" checked={logVitals} onChange={e => setLogVitals(e.target.checked)} className="w-5 h-5 accent-[#1A6B8A]" />
-            <label htmlFor="logVitals" className="text-sm font-semibold text-slate-700">
-              {language === 'bn' ? 'এই পরিদর্শনে ভাইটালস লগ করুন' : 'Log vitals during this visit'}
-            </label>
-          </div>
-
-          {logVitals && (
-            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              {[
-                { key: 'systolic', label: language === 'bn' ? 'সিস্টোলিক BP' : 'Systolic BP', placeholder: '120' },
-                { key: 'diastolic', label: language === 'bn' ? 'ডায়াস্টোলিক BP' : 'Diastolic BP', placeholder: '80' },
-                { key: 'blood_sugar', label: language === 'bn' ? 'রক্তের শর্করা' : 'Blood Sugar', placeholder: '5.6' },
-                { key: 'creatinine', label: language === 'bn' ? 'ক্রিয়েটিনিন' : 'Creatinine', placeholder: '1.1' },
-                { key: 'weight', label: language === 'bn' ? 'ওজন (কেজি)' : 'Weight (kg)', placeholder: '65' },
-              ].map(field => (
-                <div key={field.key} className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-600">{field.label}</label>
-                  <input type="number" step="0.01" placeholder={field.placeholder}
-                    value={(visitForm.vitals as any)[field.key]}
-                    onChange={e => setVisitForm({ ...visitForm, vitals: { ...visitForm.vitals, [field.key]: e.target.value } })}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm" />
-                </div>
-              ))}
-              <div className="col-span-2 flex items-center gap-3">
-                <input type="checkbox" id="chwEdema" checked={visitForm.vitals.edema}
-                  onChange={e => setVisitForm({ ...visitForm, vitals: { ...visitForm.vitals, edema: e.target.checked } })}
-                  className="w-4 h-4 accent-[#1A6B8A]" />
-                <label htmlFor="chwEdema" className="text-sm text-slate-700">
-                  {language === 'bn' ? 'পা ফোলা (এডিমা)' : 'Edema / Swelling present'}
-                </label>
-              </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredPatients.map(p => {
+                const urgency = getUrgency(p, lastVisitMap);
+                const days = getDaysSince(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPatientDetail(p)}
+                    className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 active:bg-slate-50 transition-colors text-left"
+                  >
+                    <div className="relative flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-[#1A6B8A]/10 flex items-center justify-center text-[#1A6B8A] font-black text-lg">
+                        {p.name?.charAt(0)?.toUpperCase()}
+                      </div>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${urgencyDot[urgency]}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{p.name}</p>
+                      <p className="text-xs text-slate-500 truncate">{p.district} · {bn ? 'বয়স' : 'Age'} {p.age}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${getRiskBadge(p.risk_score || 0)}`}>
+                        {getRiskLabel(p.risk_score || 0)}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {days !== null
+                          ? (bn ? `${days} দিন আগে` : `${days}d ago`)
+                          : (bn ? 'ভিজিট নেই' : 'No visit')}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting || !selectedPatient}
-            className="w-full py-4 bg-[#1A6B8A] text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#14556e] transition-all disabled:opacity-50">
+          {/* Add patient button */}
+          <button
+            onClick={() => setShowAddPatient(!showAddPatient)}
+            className="w-full py-3.5 border-2 border-dashed border-[#1A6B8A]/30 rounded-2xl text-[#1A6B8A] font-bold text-sm flex items-center justify-center gap-2 active:bg-[#1A6B8A]/5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            {bn ? 'রোগী যোগ করুন' : 'Add Patient'} ({patientCount}/30)
+          </button>
+
+          {showAddPatient && (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="font-bold text-slate-800">{bn ? 'রোগী যোগ করুন' : 'Add to Roster'}</h3>
+                <span className="text-xs text-slate-400">{unassigned.length} {bn ? 'জন উপলব্ধ' : 'available'}</span>
+              </div>
+              <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+                {unassigned.length === 0 ? (
+                  <p className="text-center py-8 text-sm text-slate-400">{bn ? 'কোনো রোগী নেই' : 'No patients available'}</p>
+                ) : unassigned.slice(0, 20).map(p => (
+                  <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold flex-shrink-0">
+                      {p.name?.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-slate-800 text-sm truncate">{p.name}</p>
+                      <p className="text-xs text-slate-400">{p.district} · Stage {p.ckd_stage || '--'}</p>
+                    </div>
+                    <button
+                      onClick={() => assignPatient(p.id)}
+                      disabled={patientCount >= 30}
+                      className="px-3 py-1.5 bg-[#1A6B8A] text-white rounded-xl text-xs font-bold disabled:opacity-40 active:bg-[#14556e] transition-colors"
+                    >
+                      {bn ? 'যোগ' : 'Add'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── VITALS / LOG VISIT TAB ────────────────────────────────────────── */}
+      {tab === 'chw-vitals' && (
+        <form onSubmit={submitVisit} className="px-4 pt-4 space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 bg-[#1A6B8A]/5 border-b border-slate-100">
+              <h2 className="font-bold text-[#1A6B8A] flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                {bn ? 'বাড়ি ভিজিট লগ করুন' : 'Log Home Visit'}
+              </h2>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Patient select */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  {bn ? 'রোগী *' : 'Patient *'}
+                </label>
+                <select
+                  value={selectedPatient?.id || ''}
+                  onChange={e => setSelectedPatient(patients.find(p => p.id === parseInt(e.target.value)) || null)}
+                  className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                  required
+                >
+                  <option value="">{bn ? '— রোগী বেছে নিন —' : '— Select patient —'}</option>
+                  {sortedPatients.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {p.district}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Visit type */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  {bn ? 'পরিদর্শনের ধরন' : 'Visit Type'}
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { v: 'routine', en: 'Routine', bn: 'নিয়মিত' },
+                    { v: 'urgent', en: 'Urgent', bn: 'জরুরি' },
+                    { v: 'medication', en: 'Medication Check', bn: 'ওষুধ পরীক্ষা' },
+                    { v: 'followup', en: 'Follow-up', bn: 'ফলো-আপ' },
+                  ].map(t => (
+                    <button
+                      key={t.v}
+                      type="button"
+                      onClick={() => setVisitType(t.v)}
+                      className={`py-3 rounded-2xl text-sm font-bold border-2 transition-all active:scale-95 ${visitType === t.v ? 'border-[#1A6B8A] bg-[#1A6B8A] text-white' : 'border-slate-200 bg-white text-slate-600'}`}
+                    >
+                      {bn ? t.bn : t.en}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* GPS */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Navigation className="w-3.5 h-3.5" />
+                  {bn ? 'জিপিএস অবস্থান' : 'GPS Location'}
+                </label>
+                <button
+                  type="button"
+                  onClick={getGPS}
+                  className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${gpsState === 'got' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : gpsState === 'error' ? 'border-red-300 bg-red-50 text-red-600' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                >
+                  {gpsState === 'getting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                  {gpsState === 'idle' && (bn ? 'অবস্থান নিন (স্বয়ংক্রিয়)' : 'Get Location (auto)')}
+                  {gpsState === 'getting' && (bn ? 'অবস্থান খোঁজা হচ্ছে...' : 'Getting location...')}
+                  {gpsState === 'got' && `✓ ${parseFloat(gpsCoords!.lat).toFixed(4)}, ${parseFloat(gpsCoords!.lng).toFixed(4)}`}
+                  {gpsState === 'error' && (bn ? 'অবস্থান পাওয়া যায়নি' : 'Location unavailable')}
+                </button>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">
+                  {bn ? 'পরিদর্শনের নোট' : 'Visit Notes'}
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                  placeholder={bn ? 'পরিদর্শনের বিবরণ লিখুন...' : 'Describe the visit...'}
+                />
+              </div>
+
+              {/* Vitals toggle */}
+              <button
+                type="button"
+                onClick={() => setShowVitals(!showVitals)}
+                className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border-2 transition-all ${showVitals ? 'border-[#1A6B8A] bg-[#1A6B8A]/5 text-[#1A6B8A]' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+              >
+                <Activity className="w-4 h-4" />
+                {showVitals ? (bn ? '✓ ভাইটালস যোগ করা হচ্ছে' : '✓ Adding vitals') : (bn ? 'ভাইটালস পরিমাপ করুন (ঐচ্ছিক)' : 'Measure vitals (optional)')}
+              </button>
+
+              {showVitals && (
+                <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                  {/* BP row */}
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 flex items-center gap-1">
+                        <Heart className="w-3 h-3 text-red-500" />
+                        {bn ? 'সিস্টোলিক' : 'Systolic BP'}
+                      </label>
+                      <input type="number" inputMode="numeric" placeholder="120" value={vitals.systolic}
+                        onChange={e => setVitals({ ...vitals, systolic: e.target.value })}
+                        className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30" />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5">{bn ? 'ডায়াস্টোলিক' : 'Diastolic BP'}</label>
+                      <input type="number" inputMode="numeric" placeholder="80" value={vitals.diastolic}
+                        onChange={e => setVitals({ ...vitals, diastolic: e.target.value })}
+                        className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30" />
+                    </div>
+                  </div>
+                  {/* Other vitals */}
+                  {[
+                    { key: 'blood_sugar', icon: <Droplets className="w-3 h-3 text-blue-500" />, en: 'Blood Sugar (mmol/L)', bn: 'রক্তের শর্করা (mmol/L)', ph: '5.6' },
+                    { key: 'creatinine', icon: <Activity className="w-3 h-3 text-purple-500" />, en: 'Creatinine (mg/dL)', bn: 'ক্রিয়েটিনিন (mg/dL)', ph: '1.1' },
+                    { key: 'weight', icon: <UserCircle className="w-3 h-3 text-slate-500" />, en: 'Weight (kg)', bn: 'ওজন (কেজি)', ph: '65' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 flex items-center gap-1">
+                        {f.icon} {bn ? f.bn : f.en}
+                      </label>
+                      <input type="number" inputMode="decimal" placeholder={f.ph} step="0.1"
+                        value={(vitals as any)[f.key]}
+                        onChange={e => setVitals({ ...vitals, [f.key]: e.target.value })}
+                        className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30" />
+                    </div>
+                  ))}
+                  {/* Urine protein */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">{bn ? 'প্রস্রাবে প্রোটিন' : 'Urine Protein'}</label>
+                    <select value={vitals.urine_protein} onChange={e => setVitals({ ...vitals, urine_protein: e.target.value })}
+                      className="w-full px-3 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none">
+                      {['Negative', 'Trace', '1+', '2+', '3+', '4+'].map(v => <option key={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  {/* Fatigue */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                      {bn ? `ক্লান্তি: ${vitals.fatigue}/10` : `Fatigue: ${vitals.fatigue}/10`}
+                    </label>
+                    <input type="range" min="1" max="10" value={vitals.fatigue}
+                      onChange={e => setVitals({ ...vitals, fatigue: parseInt(e.target.value) })}
+                      className="w-full accent-[#1A6B8A]" />
+                    <div className="flex justify-between text-xs text-slate-400 mt-1">
+                      <span>{bn ? 'স্বাভাবিক' : 'Normal'}</span>
+                      <span>{bn ? 'অত্যন্ত ক্লান্ত' : 'Very tired'}</span>
+                    </div>
+                  </div>
+                  {/* Edema */}
+                  <label className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer active:bg-slate-50">
+                    <input type="checkbox" checked={vitals.edema} onChange={e => setVitals({ ...vitals, edema: e.target.checked })}
+                      className="w-5 h-5 accent-[#1A6B8A] flex-shrink-0" />
+                    <span className="text-sm font-semibold text-slate-700">{bn ? 'পা ফোলা (এডিমা) আছে' : 'Edema / Swelling present'}</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Validation errors */}
+              {validErrors.length > 0 && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-2xl space-y-1">
+                  {validErrors.map((err, i) => (
+                    <p key={i} className="text-sm text-red-700 flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" /> {err}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {/* Offline indicator */}
+              {!isOnline && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm">
+                  <WifiOff className="w-4 h-4 flex-shrink-0" />
+                  {bn ? 'অফলাইনে সংরক্ষিত হবে — পরে সিঙ্ক হবে' : 'Will save offline — syncs when connected'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting || !selectedPatient}
+            className="w-full py-4 bg-[#1A6B8A] text-white rounded-2xl font-bold text-lg flex items-center justify-center gap-2 active:bg-[#14556e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            {language === 'bn' ? 'ভিজিট জমা দিন' : 'Submit Visit'}
+            {!isOnline ? (bn ? 'অফলাইনে সংরক্ষণ করুন' : 'Save Offline') : (bn ? 'ভিজিট জমা দিন' : 'Submit Visit')}
           </button>
         </form>
       )}
 
-      {activeTab === 'add-patient' && (
-        <div className="space-y-4">
-          <p className="text-sm text-slate-500">
-            {language === 'bn' ? `আপনার রোস্টারে ${patients.length}/30 জন রোগী আছেন।` : `You have ${patients.length}/30 patients in your roster.`}
-          </p>
-          {allPatients.filter(p => !patients.find(mp => mp.id === p.id)).map(p => (
-            <div key={p.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="font-bold text-slate-900">{p.name}</p>
-                <p className="text-xs text-slate-500">{p.district} · Stage {p.ckd_stage || '--'} · Risk {p.risk_score || 0}</p>
-              </div>
-              <button onClick={() => assignPatient(p.id)}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${patients.length >= 30 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-[#1A6B8A] text-white hover:bg-[#14556e]'}`}
-                disabled={patients.length >= 30}>
-                <Plus className="w-4 h-4 inline mr-1" />
-                {language === 'bn' ? 'যোগ করুন' : 'Add'}
-              </button>
+      {/* ── POINTS TAB ───────────────────────────────────────────────────── */}
+      {tab === 'chw-points' && (
+        <div className="px-4 pt-4 space-y-4">
+          {/* Points hero */}
+          <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-200">
+            <div className="flex items-center gap-2 mb-1 opacity-80">
+              <Star className="w-4 h-4" />
+              <span className="text-sm font-bold uppercase tracking-wide">{bn ? 'মোট পয়েন্ট' : 'Total Points'}</span>
             </div>
-          ))}
+            <p className="text-5xl font-black mb-3">{profile?.points || 0}</p>
+            <div className="bg-white/20 rounded-full h-2.5 mb-2">
+              <div className="bg-white rounded-full h-2.5 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+            <p className="text-sm opacity-80">
+              {bn ? `পরবর্তী মাইলস্টোন: ${nextMilestone} পয়েন্ট` : `Next milestone: ${nextMilestone} pts`}
+            </p>
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
+              <p className="text-2xl font-black text-[#1A6B8A]">{visitCount}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{bn ? 'ভিজিট' : 'Visits'}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
+              <p className="text-2xl font-black text-slate-800">{profile?.streak_days || 0}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{bn ? 'স্ট্রিক' : 'Streak'}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
+              <p className="text-2xl font-black text-emerald-600">{earnedBadges.length}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{bn ? 'ব্যাজ' : 'Badges'}</p>
+            </div>
+          </div>
+
+          {/* Badges */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Award className="w-4 h-4 text-amber-500" />
+                {bn ? 'ব্যাজ ও পুরস্কার' : 'Badges & Rewards'}
+              </h3>
+            </div>
+            <div className="grid grid-cols-4 gap-3 p-4">
+              {BADGES.map(badge => {
+                const earned = badge.check(profile, visitCount, patientCount);
+                return (
+                  <div key={badge.id} className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all ${earned ? 'bg-amber-50' : 'bg-slate-50 opacity-40'}`}>
+                    <span className="text-2xl">{badge.icon}</span>
+                    <span className="text-[10px] font-bold text-center text-slate-600 leading-tight">{bn ? badge.bn : badge.en}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Leaderboard */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#1A6B8A]" />
+                {bn ? 'জেলা লিডারবোর্ড' : 'District Leaderboard'}
+              </h3>
+            </div>
+            {leaderboard.length === 0 ? (
+              <p className="text-center py-8 text-sm text-slate-400">{bn ? 'ডেটা নেই' : 'No data yet'}</p>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {leaderboard.slice(0, 10).map((l, i) => {
+                  const isMe = l.name === user?.name;
+                  return (
+                    <div key={i} className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-[#1A6B8A]/5' : ''}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate ${isMe ? 'text-[#1A6B8A]' : 'text-slate-800'}`}>{l.name} {isMe && '(আপনি)'}</p>
+                        <p className="text-xs text-slate-400">{l.district} · {l.visit_count} {bn ? 'ভিজিট' : 'visits'}</p>
+                      </div>
+                      <p className="font-black text-amber-600 text-sm">{l.points} {bn ? 'pts' : 'pts'}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-[#1A6B8A]" />
-          {language === 'bn' ? 'সাম্প্রতিক পরিদর্শন' : 'Recent Visits'}
-        </h3>
-        <div className="space-y-3">
-          {visits.slice(0, 5).map(v => (
-            <div key={v.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-              <div>
-                <p className="font-semibold text-slate-800 text-sm">{v.patient_name}</p>
-                <p className="text-xs text-slate-500">{v.visit_type} · {new Date(v.timestamp).toLocaleDateString()}</p>
-              </div>
-              {v.lat && <div className="flex items-center gap-1 text-xs text-emerald-600"><MapPin className="w-3 h-3" /> GPS ✓</div>}
+      {/* ── SETTINGS TAB ─────────────────────────────────────────────────── */}
+      {tab === 'chw-settings' && (
+        <div className="px-4 pt-4 space-y-4">
+          {/* Profile card */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full bg-[#1A6B8A] flex items-center justify-center text-white font-black text-2xl flex-shrink-0">
+              {user?.name?.charAt(0)?.toUpperCase()}
             </div>
-          ))}
-          {visits.length === 0 && <p className="text-sm text-slate-400 text-center py-4">{language === 'bn' ? 'কোনো পরিদর্শন নেই।' : 'No visits logged yet.'}</p>}
-        </div>
-      </div>
+            <div>
+              <p className="font-bold text-slate-900 text-lg">{user?.name}</p>
+              <p className="text-sm text-slate-500">{profile?.region || user?.email}</p>
+              <span className="inline-block mt-1 px-2.5 py-0.5 bg-[#1A6B8A]/10 text-[#1A6B8A] text-xs font-bold rounded-full uppercase">CHW</span>
+            </div>
+          </div>
 
-      {profile && profile.points >= 100 && (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-          className="bg-gradient-to-r from-amber-400 to-orange-500 text-white p-6 rounded-3xl text-center shadow-lg">
-          <Star className="w-10 h-10 mx-auto mb-2" />
-          <p className="text-xl font-black">
-            {language === 'bn' ? '🏆 চমৎকার পারফরম্যান্স!' : '🏆 Outstanding Performance!'}
-          </p>
-          <p className="text-sm opacity-90 mt-1">{profile.points} {language === 'bn' ? 'পয়েন্ট অর্জিত হয়েছে' : 'points earned this month'}</p>
-        </motion.div>
+          {/* Language */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-[#1A6B8A]" />
+                {bn ? 'ভাষা' : 'Language'}
+              </h3>
+            </div>
+            <div className="flex gap-3 p-4">
+              <button
+                onClick={() => setLanguage('bn')}
+                className={`flex-1 py-3 rounded-2xl font-bold border-2 transition-all ${language === 'bn' ? 'border-[#1A6B8A] bg-[#1A6B8A] text-white' : 'border-slate-200 text-slate-600'}`}
+              >
+                বাংলা
+              </button>
+              <button
+                onClick={() => setLanguage('en')}
+                className={`flex-1 py-3 rounded-2xl font-bold border-2 transition-all ${language === 'en' ? 'border-[#1A6B8A] bg-[#1A6B8A] text-white' : 'border-slate-200 text-slate-600'}`}
+              >
+                English
+              </button>
+            </div>
+          </div>
+
+          {/* Sync status */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                {isOnline ? <Wifi className="w-4 h-4 text-emerald-500" /> : <WifiOff className="w-4 h-4 text-amber-500" />}
+                {bn ? 'সিঙ্ক স্ট্যাটাস' : 'Sync Status'}
+              </h3>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">{bn ? 'সংযোগ' : 'Connection'}</span>
+                <span className={`text-sm font-bold ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {isOnline ? (bn ? 'অনলাইন' : 'Online') : (bn ? 'অফলাইন' : 'Offline')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-600">{bn ? 'পেন্ডিং ভিজিট' : 'Pending visits'}</span>
+                <span className={`text-sm font-bold ${pendingCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{pendingCount}</span>
+              </div>
+              {isOnline && pendingCount > 0 && (
+                <button
+                  onClick={syncPending}
+                  disabled={isSyncing}
+                  className="w-full py-3 bg-[#1A6B8A] text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:bg-[#14556e] transition-colors disabled:opacity-50"
+                >
+                  {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {bn ? 'এখনই সিঙ্ক করুন' : 'Sync Now'}
+                </button>
+              )}
+              {syncMsg && <p className="text-sm text-emerald-600 font-semibold text-center">{syncMsg}</p>}
+            </div>
+          </div>
+
+          {/* Stats summary */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4">
+            <h3 className="font-bold text-slate-800 mb-3">{bn ? 'আমার পরিসংখ্যান' : 'My Stats'}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { label: bn ? 'মোট পয়েন্ট' : 'Total Points', value: profile?.points || 0, color: 'text-amber-600' },
+                { label: bn ? 'মোট ভিজিট' : 'Total Visits', value: visitCount, color: 'text-[#1A6B8A]' },
+                { label: bn ? 'রোগীর সংখ্যা' : 'Patients', value: `${patientCount}/30`, color: 'text-slate-800' },
+                { label: bn ? 'ব্যাজ অর্জিত' : 'Badges Earned', value: earnedBadges.length, color: 'text-emerald-600' },
+              ].map(s => (
+                <div key={s.label} className="bg-slate-50 rounded-2xl p-3 text-center">
+                  <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Logout */}
+          <button
+            onClick={logout}
+            className="w-full py-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-2 active:bg-red-100 transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+            {bn ? 'লগআউট করুন' : 'Log Out'}
+          </button>
+        </div>
       )}
     </div>
   );

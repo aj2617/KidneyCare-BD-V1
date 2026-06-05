@@ -1391,8 +1391,20 @@ async function startServer() {
 
   app.get('/api/chw/all-patients', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'chw') return res.sendStatus(403);
-    const patients = db.prepare('SELECT u.name, u.email, u.district, p.* FROM users u JOIN patients p ON u.id = p.user_id WHERE u.role = "patient" ORDER BY p.risk_score DESC LIMIT 50').all();
+    const patients = db.prepare("SELECT u.name, u.email, u.district, p.* FROM users u JOIN patients p ON u.id = p.user_id WHERE u.role = 'patient' ORDER BY p.risk_score DESC LIMIT 50").all();
     res.json(patients);
+  });
+
+  app.get('/api/chw/leaderboard', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const leaders = db.prepare(`
+      SELECT u.name, u.district, c.points, c.streak_days,
+        (SELECT COUNT(*) FROM chw_patient_assignments WHERE chw_id = c.user_id) as patient_count,
+        (SELECT COUNT(*) FROM chw_patient_logs WHERE chw_id = c.user_id) as visit_count
+      FROM chw_workers c JOIN users u ON c.user_id = u.id
+      ORDER BY c.points DESC LIMIT 20
+    `).all();
+    res.json(leaders);
   });
 
   // ════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,35 @@
+Redesign the COMMUNITY HEALTH WORKER (CHW) DASHBOARD for "KidneyCare BD". CHWs manage up to 30 patients in rural areas, logging vitals during home visits, collecting GPS data, and ensuring follow‑ups. Their interface must be extremely mobile‑friendly, fast over 2G, and work offline.
+
+KEY REQUIREMENTS:
+1. **Ultra‑Lightweight Mobile Dashboard**  
+   - Simple bottom nav: Home (My Patients), Add Vitals, My Points, Settings.  
+   - Cards for each assigned patient with: name, photo (or initials), latest risk color, last visit date.  
+   - Tap a patient card → opens a summary with recent vitals and a big “Log Visit” button.
+
+2. **Offline‑First Vitals Logging**  
+   - Log form: BP, blood sugar, creatinine, urine protein, edema, fatigue (sliders), medications.  
+   - GPS is automatically captured and stored.  
+   - Form works fully offline; entries are queued in IndexedDB and synced when signal returns.  
+   - Sync status indicator and retry mechanism.
+
+3. **Visit History & Follow‑up Reminders**  
+   - List of pending follow‑ups sorted by urgency (based on risk and time since last visit).  
+   - Color coding: red = overdue, yellow = due soon, green = done.  
+   - Swipe right on a patient to mark visit complete.
+
+4. **Gamified Points & Motivation**  
+   - Points for each logged visit, bonus for completing monthly targets.  
+   - Simple leaderboard among CHWs in same district.  
+   - Rewards displayed as badges.
+
+5. **Performance & Design**  
+   - Minimal animations to preserve battery and CPU on low‑end Android devices.  
+   - Large touch targets, high contrast, Bengali as default language.  
+   - Use system font or Noto Sans Bengali for fast loading.  
+   - PWA: installable, fully offline, background sync using Workbox.
+
+6. **Data Integrity**  
+   - All entries stamped with CHW ID, GPS, timestamp.  
+   - Plausibility checks before local save (e.g., BP 70–250 range).  
+
+Deliver a CHW dashboard that feels like a lightweight, reliable companion tool for frontline health workers in the most remote areas of Bangladesh.
