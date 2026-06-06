@@ -352,7 +352,7 @@ export default function App() {
         </nav>
       )}
 
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24' : ''} ${user?.role === 'admin' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'chw' ? 'pb-24 px-0 sm:px-0 lg:px-0 py-0' : ''}`}>
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'admin' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'chw' ? 'pb-24 px-0 sm:px-0 lg:px-0 py-0' : ''}`}>
         <motion.div key={currentPage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
           {renderPage()}
         </motion.div>

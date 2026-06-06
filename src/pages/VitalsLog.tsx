@@ -443,6 +443,7 @@ export default function VitalsLog() {
                     <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">{field.label}</label>
                     <input
                       type={field.type}
+                      inputMode="decimal"
                       step={(field as any).step}
                       required={field.required}
                       value={(formData as any)[field.key]}

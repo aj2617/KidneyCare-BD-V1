@@ -110,13 +110,13 @@ export default function GfrCalculator() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <div className="flex justify-between items-start">
-        <div className="text-center flex-1">
-          <h1 className="text-3xl font-bold text-slate-900">{t('gfr.title')}</h1>
-          <p className="text-slate-500 mt-2">{language === 'bn' ? 'এমডিআরডি, কককক্রফট-গল্ট, সিকেডি-ইপিআই সূত্র' : 'MDRD, Cockcroft-Gault, CKD-EPI equations + KDIGO UACR staging'}</p>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+        <div className="text-center sm:text-left flex-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{t('gfr.title')}</h1>
+          <p className="text-slate-500 mt-1 text-sm sm:text-base">{language === 'bn' ? 'এমডিআরডি, কককক্রফট-গল্ট, সিকেডি-ইপিআই সূত্র' : 'MDRD, Cockcroft-Gault, CKD-EPI equations + KDIGO UACR staging'}</p>
         </div>
         <button onClick={() => setShowOcr(!showOcr)}
-          className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-sm font-bold hover:bg-purple-100 transition-all">
+          className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-sm font-bold hover:bg-purple-100 transition-all shrink-0">
           <Camera className="w-4 h-4" />
           {language === 'bn' ? 'ল্যাব স্ক্যান' : 'Scan Lab Report'}
         </button>
@@ -193,7 +193,7 @@ export default function GfrCalculator() {
           <form onSubmit={handleCalculate} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">{t('gfr.creatinine')}</label>
-              <input type="number" step="0.01" required value={formData.creatinine}
+              <input type="number" inputMode="decimal" step="0.01" required value={formData.creatinine}
                 onChange={e => { setFormData({ ...formData, creatinine: e.target.value }); setOcrHighlighted(h => h.filter(x => x !== 'creatinine')); }}
                 className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('creatinine') ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-200' : 'bg-slate-50 border-slate-200'}`}
                 placeholder="e.g. 1.2" />
@@ -204,7 +204,7 @@ export default function GfrCalculator() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700">{t('gfr.uacr')}</label>
-              <input type="number" step="0.1" value={formData.uacr}
+              <input type="number" inputMode="decimal" step="0.1" value={formData.uacr}
                 onChange={e => { setFormData({ ...formData, uacr: e.target.value }); setOcrHighlighted(h => h.filter(x => x !== 'uacr')); }}
                 className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('uacr') ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-200' : 'bg-slate-50 border-slate-200'}`}
                 placeholder={language === 'bn' ? 'যেমন: 45 (ঐচ্ছিক)' : 'e.g. 45 (optional)'} />
@@ -220,12 +220,12 @@ export default function GfrCalculator() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">{t('gfr.age')}</label>
-                <input type="number" required value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })}
+                <input type="number" inputMode="numeric" required value={formData.age} onChange={e => setFormData({ ...formData, age: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20" placeholder="45" />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">{t('gfr.weight')}</label>
-                <input type="number" required value={formData.weight} onChange={e => setFormData({ ...formData, weight: e.target.value })}
+                <input type="number" inputMode="decimal" required value={formData.weight} onChange={e => setFormData({ ...formData, weight: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20" placeholder="70" />
               </div>
             </div>
@@ -235,7 +235,7 @@ export default function GfrCalculator() {
               <div className="grid grid-cols-2 gap-4">
                 {['male', 'female'].map(s => (
                   <button key={s} type="button" onClick={() => setFormData({ ...formData, sex: s })}
-                    className={`py-3 rounded-xl border font-medium transition-all capitalize ${formData.sex === s ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]' : 'bg-white text-slate-600 border-slate-200'}`}>
+                    className={`py-3 min-h-[48px] rounded-xl border font-medium transition-all capitalize ${formData.sex === s ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]' : 'bg-white text-slate-600 border-slate-200'}`}>
                     {language === 'bn' ? (s === 'male' ? 'পুরুষ' : 'মহিলা') : s.charAt(0).toUpperCase() + s.slice(1)}
                   </button>
                 ))}
@@ -256,15 +256,16 @@ export default function GfrCalculator() {
               className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
               <h3 className="text-xl font-bold text-slate-900">{language === 'bn' ? 'ফলাফল' : 'Calculation Results'}</h3>
 
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'MDRD Equation', value: result.mdrd },
                   { label: 'Cockcroft-Gault', value: result.cg },
                   { label: 'CKD-EPI Equation', value: result.ckdEpi },
                 ].map(eq => (
-                  <div key={eq.label} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex justify-between items-center">
-                    <p className="text-sm text-slate-500 font-medium">{eq.label}</p>
-                    <p className="text-2xl font-black text-[#1A6B8A]">{Math.round(eq.value)} <span className="text-xs font-normal text-slate-400">mL/min</span></p>
+                  <div key={eq.label} className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex flex-col items-center text-center gap-1">
+                    <p className="text-xs text-slate-500 font-medium leading-tight">{eq.label}</p>
+                    <p className="text-2xl font-black text-[#1A6B8A]">{Math.round(eq.value)}</p>
+                    <p className="text-xs font-normal text-slate-400">mL/min</p>
                   </div>
                 ))}
               </div>

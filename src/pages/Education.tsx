@@ -34,11 +34,11 @@ export default function Education() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">{t('edu.title')}</h1>
-          <p className="text-slate-500">Learn how to manage your kidney health</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{t('edu.title')}</h1>
+          <p className="text-slate-500 text-sm sm:text-base">Learn how to manage your kidney health</p>
         </div>
         <div className="relative w-full md:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -52,9 +52,34 @@ export default function Education() {
         </div>
       </div>
 
+      {/* Mobile: horizontal scrollable pill bar */}
+      <div className="lg:hidden flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4">
+        <button
+          onClick={() => setSelectedCategory(null)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 transition-all ${
+            !selectedCategory ? 'bg-[#1A6B8A] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          All
+        </button>
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCategory(cat.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap shrink-0 transition-all ${
+              selectedCategory === cat.id ? 'bg-[#1A6B8A] text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'
+            }`}
+          >
+            <cat.icon className="w-4 h-4" />
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar Categories */}
-        <div className="space-y-2">
+        {/* Desktop Sidebar Categories */}
+        <div className="hidden lg:block space-y-2">
           <button
             onClick={() => setSelectedCategory(null)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium transition-all ${
@@ -84,15 +109,15 @@ export default function Education() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm"
+              className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm"
             >
               <button
                 onClick={() => setSelectedArticle(null)}
-                className="text-sm font-bold text-[#1A6B8A] mb-6 flex items-center gap-1 hover:underline"
+                className="text-sm font-bold text-[#1A6B8A] mb-6 flex items-center gap-1 hover:underline min-h-[44px]"
               >
                 ← Back to Library
               </button>
-              <h2 className="text-3xl font-bold text-slate-900 mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-6">
                 {language === 'en' ? selectedArticle.title_en : selectedArticle.title_bn}
               </h2>
               <div className="prose prose-slate max-w-none">
@@ -102,7 +127,7 @@ export default function Education() {
               </div>
             </motion.div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {filteredArticles.map((article) => (
                 <motion.div
                   key={article.id}
@@ -121,7 +146,7 @@ export default function Education() {
                   <span className="text-[10px] font-bold text-[#1A6B8A] uppercase tracking-widest px-2 py-1 bg-[#1A6B8A]/10 rounded-md">
                     {article.category}
                   </span>
-                  <h3 className="text-xl font-bold text-slate-900 mt-3 mb-2 group-hover:text-[#1A6B8A] transition-colors">
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 mt-3 mb-2 group-hover:text-[#1A6B8A] transition-colors">
                     {language === 'en' ? article.title_en : article.title_bn}
                   </h3>
                   <p className="text-slate-500 text-sm line-clamp-2">
