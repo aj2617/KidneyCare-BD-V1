@@ -199,6 +199,50 @@ async function flushOfflineVitals() {
   } catch (_) {}
 }
 
+// ── Push Notifications ────────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (_) {}
+
+  const title  = data.title  || 'KidneyCare BD';
+  const body   = data.body   || 'Please log your vitals today.';
+  const url    = data.url    || '/?page=vitals';
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon:      '/favicon.svg',
+      badge:     '/favicon.svg',
+      tag:       'vitals-reminder',
+      renotify:  false,
+      vibrate:   [200, 100, 200],
+      data:      { url },
+      actions: [
+        { action: 'log',    title: 'Log Now' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
+
+  const url = event.notification.data?.url || '/?page=vitals';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    })
+  );
+});
+
 // ── SW Update Notification ────────────────────────────────────────────────────
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') {

@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import webpush from 'web-push';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -233,6 +234,21 @@ db.exec(`
     FOREIGN KEY(prescription_id) REFERENCES prescriptions(id),
     UNIQUE(patient_id, prescription_id, medicine_name, date)
   );
+
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER UNIQUE,
+    subscription TEXT NOT NULL,
+    language TEXT DEFAULT 'en',
+    last_reminded TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 
 // ─── Add new columns to existing tables (safe, idempotent) ──────────────────
@@ -245,6 +261,83 @@ const addColumnIfMissing = (table: string, column: string, definition: string) =
 };
 
 addColumnIfMissing('users', 'active', 'INTEGER DEFAULT 1');
+// ─── VAPID Key Management ─────────────────────────────────────────────────────
+function getOrCreateVapidKeys(): { publicKey: string; privateKey: string } {
+  const pubRow  = db.prepare("SELECT value FROM app_settings WHERE key = 'vapid_public_key'").get() as any;
+  const privRow = db.prepare("SELECT value FROM app_settings WHERE key = 'vapid_private_key'").get() as any;
+  if (pubRow && privRow) {
+    return { publicKey: pubRow.value, privateKey: privRow.value };
+  }
+  const keys = webpush.generateVAPIDKeys();
+  db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('vapid_public_key', ?)").run(keys.publicKey);
+  db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('vapid_private_key', ?)").run(keys.privateKey);
+  console.log('[Push] Generated new VAPID keys');
+  return keys;
+}
+const vapidKeys = getOrCreateVapidKeys();
+webpush.setVapidDetails('mailto:admin@kidneycare.bd', vapidKeys.publicKey, vapidKeys.privateKey);
+
+// ─── Daily Reminder Scheduler (runs every 15 min, fires at ~08:00 BD time) ───
+function scheduleDailyReminders() {
+  const sendReminders = async () => {
+    // Bangladesh is UTC+6; 8 AM local = 2 AM UTC
+    const now       = new Date();
+    const bdHour    = (now.getUTCHours() + 6) % 24;
+    const bdMinute  = now.getUTCMinutes();
+    if (bdHour !== 8 || bdMinute > 15) return; // only within 8:00–8:15 AM BD time
+
+    const todayBD = new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    // Patients who have a push subscription but haven't logged vitals today
+    // and haven't been reminded today
+    const candidates = db.prepare(`
+      SELECT ps.user_id, ps.subscription, ps.language, ps.last_reminded,
+             u.name
+      FROM push_subscriptions ps
+      JOIN users u ON u.id = ps.user_id
+      WHERE u.role = 'patient'
+        AND (ps.last_reminded IS NULL OR ps.last_reminded < ?)
+    `).all(todayBD) as any[];
+
+    for (const row of candidates) {
+      // Skip if they already logged today
+      const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(row.user_id) as any;
+      if (!patient) continue;
+      const loggedToday = db.prepare(`
+        SELECT id FROM vitals_log WHERE patient_id = ? AND date(date) = ?
+      `).get(patient.id, todayBD);
+      if (loggedToday) continue;
+
+      const bn = row.language === 'bn';
+      const firstName = (row.name || '').split(' ')[0];
+      const payload = JSON.stringify({
+        title: bn ? '💊 ভাইটালস রিমাইন্ডার' : '💊 Vitals Reminder',
+        body:  bn
+          ? `${firstName}, আজকের ভাইটালস এখনো লগ করা হয়নি। এখনই লগ করুন।`
+          : `${firstName}, you haven't logged vitals yet today. Tap to track your health.`,
+        url: '/?page=vitals',
+      });
+
+      try {
+        await webpush.sendNotification(JSON.parse(row.subscription), payload);
+        db.prepare("UPDATE push_subscriptions SET last_reminded = ? WHERE user_id = ?").run(todayBD, row.user_id);
+        console.log(`[Push] Sent reminder to user ${row.user_id}`);
+      } catch (err: any) {
+        // Subscription expired or invalid — remove it
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(row.user_id);
+          console.log(`[Push] Removed stale subscription for user ${row.user_id}`);
+        }
+      }
+    }
+  };
+
+  // Run every 15 minutes
+  setInterval(sendReminders, 15 * 60 * 1000);
+  // Also attempt once shortly after startup (in case server restarts at reminder time)
+  setTimeout(sendReminders, 10_000);
+}
+
 addColumnIfMissing('patients', 'arsenic_prone_area', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'herbal_remedy_use', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'nsaid_use', 'BOOLEAN DEFAULT 0');
@@ -1783,6 +1876,33 @@ async function startServer() {
     res.json({ success: true, mock: true, smsReply, from });
   });
 
+  // ─── Push Notification Routes ─────────────────────────────────────────────
+  // Return the VAPID public key so the client can subscribe
+  app.get('/api/push/public-key', (_req, res) => {
+    res.json({ publicKey: vapidKeys.publicKey });
+  });
+
+  // Save a new push subscription for the authenticated patient
+  app.post('/api/push/subscribe', authenticateToken, (req: any, res) => {
+    const { subscription, language } = req.body;
+    if (!subscription) return res.status(400).json({ error: 'Missing subscription' });
+    try {
+      db.prepare(`
+        INSERT OR REPLACE INTO push_subscriptions (user_id, subscription, language)
+        VALUES (?, ?, ?)
+      `).run(req.user.userId, JSON.stringify(subscription), language || 'en');
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to save subscription' });
+    }
+  });
+
+  // Remove a push subscription (patient opts out)
+  app.delete('/api/push/unsubscribe', authenticateToken, (req: any, res) => {
+    db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(req.user.userId);
+    res.json({ ok: true });
+  });
+
   // ─── Vite / Static ────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({ server: { middlewareMode: true, allowedHosts: true }, appType: 'spa' });
@@ -1796,6 +1916,8 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`KidneyCare BD Enhanced Server running on http://localhost:${PORT}`);
     console.log(`Database: ${databasePath}`);
+    scheduleDailyReminders();
+    console.log('[Push] Daily reminder scheduler started');
   });
 }
 

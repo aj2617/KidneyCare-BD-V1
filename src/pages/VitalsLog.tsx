@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { enqueueVital, getQueuedVitals, syncQueuedVitals, QueuedVital } from '../lib/offlineVitals';
 import PWAInstallPrompt from '../components/PWAInstallPrompt';
+import NotificationOptIn from '../components/NotificationOptIn';
 
 const STREAK_MESSAGES: Record<string, Record<number, string>> = {
   en: {
@@ -233,6 +234,9 @@ export default function VitalsLog() {
             : (bn ? 'লগ করুন' : 'Log Vitals')}
         </button>
       </div>
+
+      {/* Push notification opt-in */}
+      <NotificationOptIn language={language as 'en' | 'bn'} />
 
       {/* Offline / Sync banner */}
       <AnimatePresence>
