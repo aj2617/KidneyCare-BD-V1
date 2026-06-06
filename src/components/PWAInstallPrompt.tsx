@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Download, X, Share, Plus } from 'lucide-react';
+import { Download, X, Share, Plus, Smartphone } from 'lucide-react';
 
 interface Props {
   language: 'en' | 'bn';
+  /** When true, show the prompt immediately (used after first vitals save) */
+  triggered?: boolean;
+  /** Called when the sheet is dismissed so parent can reset state */
+  onDismiss?: () => void;
 }
 
-const STORAGE_KEY = 'pwa-install-dismissed';
+const DISMISSED_KEY = 'pwa-install-dismissed';
+const VITALS_KEY   = 'pwa-prompted-after-vitals';
 
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent) && !(window as any).MSStream;
@@ -19,7 +24,7 @@ function isInStandaloneMode() {
   );
 }
 
-export default function PWAInstallPrompt({ language }: Props) {
+export default function PWAInstallPrompt({ language, triggered = false, onDismiss }: Props) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
   const [isIOSDevice, setIsIOSDevice] = useState(false);
@@ -27,31 +32,31 @@ export default function PWAInstallPrompt({ language }: Props) {
 
   const bn = language === 'bn';
 
+  // Always capture the beforeinstallprompt event so we have it ready
   useEffect(() => {
-    // Don't show if already installed or dismissed before
-    if (isInStandaloneMode()) return;
-    if (localStorage.getItem(STORAGE_KEY)) return;
+    setIsIOSDevice(isIOS());
 
-    const ios = isIOS();
-    setIsIOSDevice(ios);
-
-    if (ios) {
-      // iOS: show manual instructions prompt after a short delay
-      const timer = setTimeout(() => setShow(true), 3000);
-      return () => clearTimeout(timer);
-    }
-
-    // Android / Chrome: listen for the browser's native prompt event
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Wait a moment after login before showing
-      setTimeout(() => setShow(true), 2500);
     };
-
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  // Show when triggered by parent (after first vitals save)
+  useEffect(() => {
+    if (!triggered) return;
+    if (isInStandaloneMode()) return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
+    if (localStorage.getItem(VITALS_KEY)) return;
+
+    // Mark so we only trigger once across sessions
+    localStorage.setItem(VITALS_KEY, '1');
+    // Small delay so the success animation plays first
+    const t = setTimeout(() => setShow(true), 800);
+    return () => clearTimeout(t);
+  }, [triggered]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -68,36 +73,37 @@ export default function PWAInstallPrompt({ language }: Props) {
 
   const dismiss = () => {
     setShow(false);
-    localStorage.setItem(STORAGE_KEY, '1');
+    localStorage.setItem(DISMISSED_KEY, '1');
+    onDismiss?.();
   };
 
   return (
     <AnimatePresence>
       {show && (
         <>
-          {/* Backdrop — subtle, not blocking */}
+          {/* Backdrop */}
           <motion.div
             key="backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 z-[60] md:hidden"
+            className="fixed inset-0 bg-black/30 z-[60] md:hidden"
             onClick={dismiss}
           />
 
-          {/* Bottom sheet */}
+          {/* ── Mobile bottom sheet ── */}
           <motion.div
             key="sheet"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-3xl shadow-2xl px-5 pt-5 pb-8 md:hidden"
+            className="fixed bottom-0 left-0 right-0 z-[70] bg-white rounded-t-3xl shadow-2xl px-5 pt-5 pb-10 md:hidden"
           >
             {/* Drag handle */}
             <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-5" />
 
-            {/* Dismiss button */}
+            {/* Dismiss */}
             <button
               onClick={dismiss}
               className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 transition-colors"
@@ -106,52 +112,53 @@ export default function PWAInstallPrompt({ language }: Props) {
               <X className="w-5 h-5" />
             </button>
 
-            {/* App icon */}
-            <div className="flex items-center gap-4 mb-5">
-              <div className="w-14 h-14 rounded-2xl bg-[#1A6B8A] text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-[#1A6B8A]/25 shrink-0">
+            {/* Celebration header */}
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1A6B8A] to-[#0f4a63] text-white flex items-center justify-center text-2xl font-black shadow-lg shadow-[#1A6B8A]/30 shrink-0">
                 K
               </div>
               <div>
                 <p className="text-base font-black text-slate-900">
-                  {bn ? 'কিডনিকেয়ার বিডি' : 'KidneyCare BD'}
+                  {bn ? '✓ ভাইটালস সেভ হয়েছে!' : '✓ Vitals saved!'}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {bn ? 'হোম স্ক্রিনে যোগ করুন' : 'Add to Home Screen'}
+                  {bn ? 'কিডনিকেয়ার বিডি হোম স্ক্রিনে যোগ করুন' : 'Add KidneyCare BD to your home screen'}
                 </p>
               </div>
             </div>
 
-            {/* Description */}
-            <p className="text-sm text-slate-600 leading-relaxed mb-5">
-              {bn
-                ? 'অ্যাপটি ইনস্টল করুন এবং ইন্টারনেট ছাড়াও আপনার কিডনি স্বাস্থ্য পর্যবেক্ষণ করুন। দ্রুত অ্যাক্সেস, অফলাইন সাপোর্ট।'
-                : 'Install the app for quick access and offline support — even without internet, track your kidney health from your home screen.'}
-            </p>
+            {/* Benefit chips */}
+            <div className="flex flex-wrap gap-2 mb-5">
+              {(bn
+                ? ['⚡ দ্রুত অ্যাক্সেস', '📴 অফলাইন সাপোর্ট', '🔔 রিমাইন্ডার']
+                : ['⚡ Faster access', '📴 Works offline', '🔔 Reminders']
+              ).map(chip => (
+                <span key={chip} className="text-xs font-semibold px-3 py-1 bg-[#1A6B8A]/10 text-[#1A6B8A] rounded-full">
+                  {chip}
+                </span>
+              ))}
+            </div>
 
-            {/* iOS manual instructions */}
+            {/* iOS step-by-step */}
             {isIOSDevice ? (
               <div className="bg-slate-50 rounded-2xl p-4 mb-5 space-y-3">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                  {bn ? 'কিভাবে যোগ করবেন' : 'How to install'}
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  {bn ? 'কিভাবে ইনস্টল করবেন' : 'How to install on iPhone'}
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center shrink-0">
                     <Share className="w-4 h-4 text-[#1A6B8A]" />
                   </div>
                   <p className="text-sm text-slate-700">
-                    {bn
-                      ? 'Safari-এ নিচের Share বাটনে ট্যাপ করুন'
-                      : 'Tap the Share button at the bottom of Safari'}
+                    {bn ? 'Safari-এ নিচের Share বাটনে ট্যাপ করুন' : 'Tap the Share button in Safari'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-[#1A6B8A]/10 flex items-center justify-center shrink-0">
                     <Plus className="w-4 h-4 text-[#1A6B8A]" />
                   </div>
                   <p className="text-sm text-slate-700">
-                    {bn
-                      ? '"হোম স্ক্রিনে যোগ করুন" বেছে নিন'
-                      : 'Select "Add to Home Screen"'}
+                    {bn ? '"হোম স্ক্রিনে যোগ করুন" বেছে নিন' : 'Select "Add to Home Screen"'}
                   </p>
                 </div>
                 <button
@@ -162,7 +169,7 @@ export default function PWAInstallPrompt({ language }: Props) {
                 </button>
               </div>
             ) : (
-              /* Android / Chrome install button */
+              /* Android / Chrome */
               <div className="flex gap-3">
                 <button
                   onClick={dismiss}
@@ -171,7 +178,7 @@ export default function PWAInstallPrompt({ language }: Props) {
                   {bn ? 'পরে করব' : 'Maybe Later'}
                 </button>
                 <button
-                  onClick={handleInstall}
+                  onClick={deferredPrompt ? handleInstall : dismiss}
                   disabled={installing}
                   className="flex-[2] py-3.5 rounded-2xl bg-[#1A6B8A] text-white text-sm font-bold hover:bg-[#14556e] transition-colors flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
                 >
@@ -186,32 +193,32 @@ export default function PWAInstallPrompt({ language }: Props) {
             )}
           </motion.div>
 
-          {/* ── Desktop banner (optional, tasteful) ── */}
+          {/* ── Desktop toast banner ── */}
           <motion.div
             key="desktop-banner"
-            initial={{ opacity: 0, y: -16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -16 }}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
             transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-            className="hidden md:flex fixed top-20 right-6 z-[70] items-center gap-4 bg-white border border-slate-200 rounded-2xl shadow-xl px-5 py-4 max-w-sm"
+            className="hidden md:flex fixed bottom-6 right-6 z-[70] items-center gap-4 bg-white border border-slate-200 rounded-2xl shadow-2xl px-5 py-4 max-w-xs"
           >
-            <div className="w-10 h-10 rounded-xl bg-[#1A6B8A] text-white flex items-center justify-center text-lg font-black shrink-0">
-              K
+            <div className="w-10 h-10 rounded-xl bg-[#1A6B8A] text-white flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-slate-900">
                 {bn ? 'অ্যাপ ইনস্টল করুন' : 'Install KidneyCare BD'}
               </p>
-              <p className="text-xs text-slate-500 truncate">
-                {bn ? 'অফলাইনেও ব্যবহার করুন' : 'Works offline too'}
+              <p className="text-xs text-slate-500">
+                {bn ? 'অফলাইনেও কাজ করে' : 'Works offline too'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {!isIOSDevice && (
+            <div className="flex items-center gap-1.5">
+              {!isIOSDevice && deferredPrompt && (
                 <button
                   onClick={handleInstall}
                   disabled={installing}
-                  className="px-3 py-2 bg-[#1A6B8A] text-white text-xs font-bold rounded-xl hover:bg-[#14556e] transition-colors flex items-center gap-1.5 min-h-[36px]"
+                  className="px-3 py-2 bg-[#1A6B8A] text-white text-xs font-bold rounded-xl hover:bg-[#14556e] transition-colors flex items-center gap-1.5 min-h-[36px] disabled:opacity-60"
                 >
                   {installing
                     ? <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
