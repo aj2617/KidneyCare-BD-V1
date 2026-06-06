@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, Plus, History, Loader2, CheckCircle2,
-  Flame, AlertTriangle, WifiOff, RefreshCw, CloudOff, Cloud
+  Flame, AlertTriangle, WifiOff, RefreshCw, CloudOff, Cloud, TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 import { enqueueVital, getQueuedVitals, syncQueuedVitals, QueuedVital } from '../lib/offlineVitals';
 
 const STREAK_MESSAGES: Record<string, Record<number, string>> = {
@@ -54,7 +57,24 @@ export default function VitalsLog() {
   const [syncResult, setSyncResult] = useState<{ synced: number; failed: number } | null>(null);
   const [savedOffline, setSavedOffline] = useState(false);
 
+  // Chart state
+  const [chartRange, setChartRange] = useState<7 | 30 | 90>(30);
+
   const bn = language === 'bn';
+
+  // ── Chart data derivation ─────────────────────────────────────────────────
+  const chartData = useMemo(() => {
+    const cutoff = Date.now() - chartRange * 24 * 60 * 60 * 1000;
+    return [...logs]
+      .filter(l => new Date(l.date).getTime() >= cutoff)
+      .reverse()
+      .map(l => ({
+        date: new Date(l.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        BP: l.systolic ? +l.systolic : null,
+        Sugar: l.blood_sugar ? +Number(l.blood_sugar).toFixed(1) : null,
+        Creatinine: l.creatinine ? +Number(l.creatinine * 10).toFixed(0) : null,
+      }));
+  }, [logs, chartRange]);
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
   const fetchLogs = useCallback(async () => {
@@ -501,7 +521,129 @@ export default function VitalsLog() {
             </form>
           </motion.div>
         ) : (
-          <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+          <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+
+            {/* ── TREND CHART ── */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#1A6B8A]" />
+                  {bn ? 'ভাইটালস প্রবণতা' : 'Vitals Trend'}
+                </h2>
+                <div className="flex gap-1">
+                  {([7, 30, 90] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setChartRange(d)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                        chartRange === d
+                          ? 'bg-[#1A6B8A] text-white'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                      }`}
+                    >
+                      {d}{bn ? 'দ' : 'd'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {isLoading ? (
+                <div className="h-52 bg-slate-100 rounded-xl animate-pulse" />
+              ) : chartData.length > 1 ? (
+                <>
+                  <div className="h-52">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: '#94A3B8', fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis
+                          tick={{ fill: '#94A3B8', fontSize: 10 }}
+                          axisLine={false}
+                          tickLine={false}
+                          width={28}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: 12,
+                            border: 'none',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
+                            fontSize: 12,
+                          }}
+                          formatter={(val: any, name: string) => {
+                            if (name === 'Creatinine') return [`${(val / 10).toFixed(2)} mg/dL`, 'Creatinine'];
+                            if (name === 'BP') return [`${val} mmHg`, 'Systolic BP'];
+                            if (name === 'Sugar') return [`${val} mmol/L`, 'Blood Sugar'];
+                            return [val, name];
+                          }}
+                        />
+                        <Legend
+                          iconType="circle"
+                          iconSize={8}
+                          wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                          formatter={(val: string) => {
+                            if (val === 'BP') return bn ? 'সিস্টোলিক BP' : 'Systolic BP';
+                            if (val === 'Sugar') return bn ? 'রক্তের শর্করা' : 'Blood Sugar';
+                            if (val === 'Creatinine') return bn ? 'ক্রিয়েটিনিন ×১০' : 'Creatinine ×10';
+                            return val;
+                          }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="BP"
+                          stroke="#E74C3C"
+                          strokeWidth={2.5}
+                          dot={{ r: 3, fill: '#E74C3C', strokeWidth: 0 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Sugar"
+                          stroke="#F39C12"
+                          strokeWidth={2.5}
+                          dot={{ r: 3, fill: '#F39C12', strokeWidth: 0 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="Creatinine"
+                          stroke="#7C3AED"
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                          dot={{ r: 3, fill: '#7C3AED', strokeWidth: 0 }}
+                          activeDot={{ r: 5 }}
+                          connectNulls
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 text-right">
+                    {bn
+                      ? '* ক্রিয়েটিনিন মান ১০ দিয়ে গুণ করা হয়েছে দেখানোর সুবিধার জন্য'
+                      : '* Creatinine multiplied ×10 for display scale'}
+                  </p>
+                </>
+              ) : (
+                <div className="h-52 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <TrendingUp className="w-8 h-8 opacity-20" />
+                  <p className="text-sm font-medium text-center px-4">
+                    {bn
+                      ? `গত ${chartRange} দিনে কমপক্ষে ২টি লগ প্রয়োজন`
+                      : `Log at least 2 entries in the last ${chartRange} days to see the chart`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── HISTORY CARDS ── */}
+            <div className="space-y-3">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-20 bg-slate-100 rounded-2xl animate-pulse" />
@@ -557,6 +699,7 @@ export default function VitalsLog() {
                 </p>
               </div>
             )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

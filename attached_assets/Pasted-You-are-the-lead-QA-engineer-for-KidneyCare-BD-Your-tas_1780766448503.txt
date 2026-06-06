@@ -1,0 +1,174 @@
+You are the lead QA engineer for “KidneyCare BD”. Your task is to audit **every dashboard** and **every feature** in the entire platform. The system has four dashboards: Patient, Doctor, Community Health Worker (CHW), and Admin. All must be fully responsive, work as a PWA with offline support, and contain every feature listed below.
+
+Perform a line-by-line check. Fix any missing, broken, or incomplete functionality. Do NOT add new features. Ensure only completeness, correctness, mobile-first responsiveness, and PWA readiness.
+
+---
+
+## GLOBAL REQUIREMENTS (APPLIES TO ALL DASHBOARDS)
+
+- [ ] Bilingual toggle (English / বাংলা) present in every dashboard. Switches all text instantly.
+- [ ] Fully responsive on mobile (360px), tablet (768px), desktop (1280px+). No horizontal scroll, readable text, proper touch targets.
+- [ ] Each dashboard has its own bottom navigation bar on mobile/PWA (<768px), sidebar on desktop. Bottom nav tabs are role-appropriate (see each dashboard).
+- [ ] PWA manifest with correct `name`, `short_name`, `theme_color: #1A6B8A`, `display: standalone`, proper icons.
+- [ ] Service worker (Workbox) caches:
+  - App shell
+  - Dashboard API data (last synced)
+  - Education articles, food database
+  - Map tiles for previously viewed areas
+- [ ] Background Sync for offline actions: vitals logging, alert dismissal, report generation requests.
+- [ ] Custom “Add to Home Screen” prompt appears once when eligible and not installed.
+- [ ] Offline indicator banner visible when no network. Sync icon when reconnected.
+- [ ] Loading skeletons on all data-fetching views.
+- [ ] Consistent colour usage: primary `#1A6B8A`, success `#2ECC71`, warning `#F39C12`, danger `#E74C3C`.
+
+---
+
+## 1. PATIENT DASHBOARD
+
+- [ ] Bottom nav tabs (mobile): Home, Vitals, Calculator, Learn, Profile.
+- [ ] **Home tab:**
+  - [ ] Risk score card (colour-coded, score /100).
+  - [ ] Latest GFR mini sparkline (tap → Calculator).
+  - [ ] Vitals logging streak counter.
+  - [ ] Quick action FAB: “Log Today’s Vitals”.
+- [ ] **Vitals tab:**
+  - [ ] Multi-line chart (BP, blood sugar, creatinine) with time toggles (7d, 30d, 90d).
+  - [ ] Swipeable daily log cards. Abnormal values in red.
+  - [ ] Offline vitals log form (bottom sheet or full screen). Large inputs.
+  - [ ] Milestone markers on chart (stage change, referral).
+- [ ] **Calculator tab:**
+  - [ ] Inputs: creatinine, age, sex, weight, race. Also optional UACR.
+  - [ ] Outputs MDRD, Cockcroft-Gault, CKD-EPI simultaneously.
+  - [ ] Colour-coded CKD stage + recommendation.
+  - [ ] Works offline (formulas client-side).
+  - [ ] History trend line of past GFR values.
+- [ ] **Learn tab:**
+  - [ ] Category pills for articles.
+  - [ ] Article cards with Bengali title & thumbnail. Open in full-screen reader.
+  - [ ] Recommended based on CKD stage.
+  - [ ] Diet assistant: search foods, safe/caution/avoid badges, nutrient detail modal.
+  - [ ] All articles and food data cached for offline access.
+- [ ] **Profile tab:**
+  - [ ] Personal details, caregiver phone link, logout.
+- [ ] **Cost Planner** (accessible from Home or Profile):
+  - [ ] Cost tables in BDT by stage, dialysis, transplant.
+  - [ ] Government hospitals list.
+  - [ ] Projected timeline to ESRD based on GFR slope.
+
+---
+
+## 2. DOCTOR / CLINICIAN DASHBOARD
+
+- [ ] Bottom nav tabs (mobile): Patients, Alerts, Today, Tools, Profile.
+- [ ] **Patients tab:**
+  - [ ] Search bar, filter chips (All, Critical, Stage 3+, Unlogged >7d).
+  - [ ] Patient cards: avatar, risk badge, latest eGFR + trend arrow, last vitals date.
+  - [ ] Tap → full patient detail.
+- [ ] **Alerts tab:**
+  - [ ] Unread badge on tab icon.
+  - [ ] Collapsible groups: Critical, Warning, Reminder.
+  - [ ] Alert card: icon, patient name, message, relative time.
+  - [ ] Tap → deep-links to patient’s problematic data.
+  - [ ] Swipe-to-dismiss / mark all read. Works offline (status synced later).
+- [ ] **Today tab:**
+  - [ ] Patients with follow-ups due today.
+  - [ ] Missed vitals alerts.
+  - [ ] Upcoming teleconsult appointments.
+- [ ] **Tools tab:**
+  - [ ] Grid: GFR Calculator, Issue Prescription, Teleconsult, Compare Equations, Staging Reference.
+  - [ ] Each tool opens full-screen, works offline where possible.
+- [ ] **Patient detail screen (deep-linked):**
+  - [ ] Sticky header with patient name, risk badge, quick actions (Call, Prescription, Log Vitals).
+  - [ ] Interactive timeline with multi-line chart, milestone markers.
+  - [ ] GFR comparison card (3 equations side-by-side).
+  - [ ] Inline alerts for this patient.
+  - [ ] Bottom action bar: Log Vitals, Issue Rx, Teleconsult.
+- [ ] **Telemedicine:**
+  - [ ] WebRTC video call launched from patient detail or Tools.
+  - [ ] Draggable PiP widget with latest GFR during call.
+- [ ] **E‑prescription:**
+  - [ ] Structured form (medicine name, dosage, frequency, duration).
+  - [ ] Live Bengali preview, QR code, printable PDF.
+- [ ] **Medication refill tracking:** alert if refill missed >3 days.
+
+---
+
+## 3. CHW (COMMUNITY HEALTH WORKER) DASHBOARD
+
+- [ ] Bottom nav tabs (mobile): Home (My Patients), Log Visit, My Points, Settings.
+- [ ] **Home:**
+  - [ ] Assigned patient cards (max 30): risk colour, last visit date.
+  - [ ] Tap → patient summary + big “Log Visit” button.
+- [ ] **Log Visit:**
+  - [ ] Form: BP, blood sugar, creatinine, urine protein, edema, fatigue (slider), medications.
+  - [ ] GPS automatically captured and stored.
+  - [ ] Works fully offline; entries queued in IndexedDB and synced later.
+  - [ ] Sync status indicator and retry.
+- [ ] **My Points:**
+  - [ ] Points for visits, bonus for targets.
+  - [ ] Simple leaderboard.
+  - [ ] Badges displayed.
+- [ ] **Follow-up reminders:**
+  - [ ] List sorted by urgency (red overdue, yellow due soon).
+  - [ ] Swipe right to mark done.
+
+---
+
+## 4. ADMIN / PUBLIC HEALTH OFFICER DASHBOARD
+
+- [ ] Bottom nav tabs (mobile): Home, Map, Reports, Users, More.
+- [ ] **Home:**
+  - [ ] KPI cards: Total Patients, High Risk %, Avg eGFR, Districts Covered.
+  - [ ] Mini charts: new registrations, gender ratio, top burden districts.
+- [ ] **Map:**
+  - [ ] Interactive Leaflet.js Bangladesh district choropleth.
+  - [ ] Layer toggles: density, risk, gender, age, urban/rural.
+  - [ ] Tap district → bottom sheet with stats.
+- [ ] **Reports:**
+  - [ ] “New Report” wizard: type, date range, filters, format (PDF/Excel).
+  - [ ] Budget Impact Simulator (sliders → projected dialysis demand, cost savings).
+  - [ ] Annual report auto-generation.
+  - [ ] List of recent downloads.
+- [ ] **Users:**
+  - [ ] Searchable list of all users, role badges, approve/disable toggles.
+  - [ ] Tapping user opens profile drawer/bottom sheet.
+- [ ] **More:**
+  - [ ] Grid: Budget Simulator, Cohorts, Research Export (anonymized CSV), DHIS2 Export, Settings.
+  - [ ] Cohort creator (select criteria → track outcomes).
+  - [ ] Settings: profile, language, logout.
+
+---
+
+## RESPONSIVENESS & PWA VERIFICATION
+
+For each dashboard:
+- [ ] On mobile viewport (360×640) the bottom nav is present and all content stacks vertically without overflow.
+- [ ] On tablet (768×1024) either collapsed sidebar or bottom nav, content adapts.
+- [ ] On desktop (1280×800) full sidebar is shown, no bottom nav.
+- [ ] Install the PWA. Verify standalone mode, no browser chrome.
+- [ ] Turn off network. Dashboard loads cached data, vitals logging works offline.
+- [ ] Queue actions offline, then reconnect. Confirm background sync pushes pending changes.
+
+---
+
+## BACKEND & DATA VERIFICATION
+
+- [ ] All APIs return correct data, all CRUD operations work.
+- [ ] Cron job for doctor alerts runs daily and generates correct alerts.
+- [ ] FHIR R4 endpoints return valid bundles.
+- [ ] DHIS2 export generates aggregated data file.
+- [ ] OCR lab report upload extracts values and pre-fills forms.
+- [ ] Plausibility checks reject impossible values.
+
+---
+
+## SEEDING
+
+- [ ] Seed script populates: 50+ patients, 10 doctors, 5 admins, 5 CHWs, 6 months vitals, 15 articles, 50+ foods.
+- [ ] Heatmap and reports show realistic demo data.
+
+---
+
+After completing the audit, fix all failures. Then provide a final checklist where every item is marked ✅ (or ❌ with reason if impossible). Confirm that **every dashboard feature** is present, responsive, and working in offline and online modes.
+
+Proceed with the full audit and fixes. Do not skip any item.
