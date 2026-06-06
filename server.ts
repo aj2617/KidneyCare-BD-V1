@@ -1347,8 +1347,15 @@ async function startServer() {
 
   app.post('/api/teleconsult/:id/end', authenticateToken, (req: any, res) => {
     const { notes } = req.body;
-    db.prepare('UPDATE teleconsultations SET end_time = CURRENT_TIMESTAMP, status = ?, notes = ? WHERE id = ?').run('ended', notes, req.params.id);
+    db.prepare('UPDATE teleconsultations SET end_time = CURRENT_TIMESTAMP, status = ?, notes = ? WHERE id = ?').run('ended', notes || '', req.params.id);
     res.json({ message: 'Consultation ended' });
+  });
+
+  // Save notes mid-call without ending the session
+  app.patch('/api/teleconsult/:id/notes', authenticateToken, (req: any, res) => {
+    const { notes } = req.body;
+    db.prepare('UPDATE teleconsultations SET notes = ? WHERE id = ?').run(notes || '', req.params.id);
+    res.json({ ok: true });
   });
 
   app.get('/api/teleconsult/history', authenticateToken, (req: any, res) => {
@@ -1890,7 +1897,7 @@ async function startServer() {
       db.prepare(`
         INSERT OR REPLACE INTO push_subscriptions (user_id, subscription, language)
         VALUES (?, ?, ?)
-      `).run(req.user.userId, JSON.stringify(subscription), language || 'en');
+      `).run(req.user.id, JSON.stringify(subscription), language || 'en');
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: 'Failed to save subscription' });
@@ -1899,7 +1906,7 @@ async function startServer() {
 
   // Remove a push subscription (patient opts out)
   app.delete('/api/push/unsubscribe', authenticateToken, (req: any, res) => {
-    db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(req.user.userId);
+    db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(req.user.id);
     res.json({ ok: true });
   });
 
