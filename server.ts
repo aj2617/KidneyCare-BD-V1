@@ -348,6 +348,65 @@ function scheduleDailyReminders() {
   setTimeout(sendReminders, 10_000);
 }
 
+// ─── Missed-Log Alert Scheduler ───────────────────────────────────────────────
+// Runs once per day. For every active patient whose last_log_date is NULL or
+// more than 3 days ago, raises a WARNING alert on their assigned doctor
+// (if no unread missed-log alert already exists for that patient).
+function scheduleMissedLogAlerts() {
+  const runCheck = () => {
+    try {
+      const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+      // Patients who haven't logged in 3+ days (or never)
+      const stalePatients = db.prepare(`
+        SELECT p.id, p.assigned_doctor_id, p.last_log_date,
+               u.name
+        FROM patients p
+        JOIN users u ON u.id = p.user_id
+        WHERE p.last_log_date IS NULL OR p.last_log_date < ?
+      `).all(cutoff) as any[];
+
+      let generated = 0;
+      for (const patient of stalePatients) {
+        // Skip if an unread missed-log alert already exists for this patient
+        const existing = db.prepare(`
+          SELECT id FROM alerts
+          WHERE patient_id = ?
+            AND message LIKE '%missed%log%'
+            AND is_read = 0
+            AND triggered_at >= datetime('now', '-3 days')
+        `).get(patient.id);
+        if (existing) continue;
+
+        const daysSince = patient.last_log_date
+          ? Math.floor((Date.now() - new Date(patient.last_log_date).getTime()) / 86400000)
+          : null;
+        const sinceTxt = daysSince !== null ? `${daysSince} days` : 'never';
+
+        db.prepare(
+          'INSERT INTO alerts (patient_id, doctor_id, type, message) VALUES (?, ?, ?, ?)'
+        ).run(
+          patient.id,
+          patient.assigned_doctor_id,
+          'WARNING',
+          `${patient.name} has missed log entries (last logged: ${sinceTxt}). Please follow up.`
+        );
+        generated++;
+      }
+
+      if (generated > 0) {
+        console.log(`[Alerts] Missed-log check: raised ${generated} alert(s) for inactive patients.`);
+      }
+    } catch (err) {
+      console.error('[Alerts] Missed-log scheduler error:', err);
+    }
+  };
+
+  // Run once 30 seconds after startup, then every 24 hours
+  setTimeout(runCheck, 30_000);
+  setInterval(runCheck, 24 * 60 * 60 * 1000);
+}
+
 addColumnIfMissing('teleconsultations', 'join_token', 'TEXT');
 addColumnIfMissing('teleconsultations', 'room_id', 'TEXT');
 addColumnIfMissing('patients', 'arsenic_prone_area', 'BOOLEAN DEFAULT 0');
@@ -508,6 +567,53 @@ async function startServer() {
       },
     ];
   };
+
+  // ─── eGFR Drop Alert ──────────────────────────────────────────────────────
+  // Called every time a new GFR record is saved. Compares the two most recent
+  // eGFR values; raises CRITICAL (≥15 drop) or WARNING (≥10 drop).
+  function checkGFRDropAlert(patientId: number, latestEgfr: number) {
+    const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId) as any;
+    // Get the previous GFR record (the one before the one just inserted)
+    const prevRecords = db.prepare(
+      'SELECT ckd_epi FROM gfr_records WHERE patient_id = ? ORDER BY date DESC LIMIT 2'
+    ).all(patientId) as any[];
+
+    // We need at least 2 records to compare (the new one is already saved)
+    if (prevRecords.length < 2) return;
+
+    const prevEgfr = prevRecords[1].ckd_epi;
+    if (!prevEgfr || prevEgfr <= 0) return;
+
+    const drop = prevEgfr - latestEgfr;
+    if (drop <= 0) return; // improvement or no change — no alert
+
+    if (drop >= 15) {
+      // Avoid duplicate: skip if a CRITICAL eGFR alert was raised in the last 7 days
+      const recent = db.prepare(
+        `SELECT id FROM alerts WHERE patient_id = ? AND type = 'CRITICAL'
+         AND message LIKE '%eGFR%' AND triggered_at >= datetime('now', '-7 days')`
+      ).get(patientId);
+      if (recent) return;
+      db.prepare('INSERT INTO alerts (patient_id, doctor_id, type, message) VALUES (?, ?, ?, ?)').run(
+        patientId,
+        patient?.assigned_doctor_id,
+        'CRITICAL',
+        `Rapid eGFR decline: dropped ${drop.toFixed(1)} mL/min (${prevEgfr.toFixed(0)} → ${latestEgfr.toFixed(0)}). Urgent nephrology review required.`
+      );
+    } else if (drop >= 10) {
+      const recent = db.prepare(
+        `SELECT id FROM alerts WHERE patient_id = ? AND type = 'WARNING'
+         AND message LIKE '%eGFR%' AND triggered_at >= datetime('now', '-7 days')`
+      ).get(patientId);
+      if (recent) return;
+      db.prepare('INSERT INTO alerts (patient_id, doctor_id, type, message) VALUES (?, ?, ?, ?)').run(
+        patientId,
+        patient?.assigned_doctor_id,
+        'WARNING',
+        `eGFR drop detected: ${drop.toFixed(1)} mL/min decrease (${prevEgfr.toFixed(0)} → ${latestEgfr.toFixed(0)}). Schedule follow-up.`
+      );
+    }
+  }
 
   // ─── Alert Engine ─────────────────────────────────────────────────────────
   function checkAlerts(patientId: number) {
@@ -1010,6 +1116,9 @@ async function startServer() {
 
     // Update CKD stage in patients table
     db.prepare('UPDATE patients SET ckd_stage = ? WHERE id = ?').run(stage, patient.id);
+
+    // ── eGFR drop alert ────────────────────────────────────────────────────
+    checkGFRDropAlert(patient.id, ckdEpi);
 
     res.json({ mdrd, cg, ckdEpi, stage, recommendation, uacrCategory, avgGfr });
   });
@@ -1991,6 +2100,8 @@ async function startServer() {
     console.log(`Database: ${databasePath}`);
     scheduleDailyReminders();
     console.log('[Push] Daily reminder scheduler started');
+    scheduleMissedLogAlerts();
+    console.log('[Alerts] Missed-log alert scheduler started');
   });
 }
 
