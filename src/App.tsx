@@ -36,6 +36,7 @@ import MedicationAdherence from './pages/MedicationAdherence';
 import DoctorToday from './pages/DoctorToday';
 import DoctorProfile from './pages/DoctorProfile';
 import DoctorTools from './pages/DoctorTools';
+import JoinCall from './pages/JoinCall';
 
 export default function App() {
   const { user, logout, token } = useAuth();
@@ -44,6 +45,12 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [teleconsultPatient, setTeleconsultPatient] = useState<{ id: number; name: string } | null>(null);
+
+  // Detect ?join=TOKEN in URL — show public join page immediately
+  const joinToken = new URLSearchParams(window.location.search).get('join');
+  if (joinToken) {
+    return <JoinCall joinToken={joinToken} />;
+  }
 
   useEffect(() => {
     const handleNavigate = (e: any) => {

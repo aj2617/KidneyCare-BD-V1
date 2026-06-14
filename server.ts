@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import webpush from 'web-push';
+import { randomUUID } from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -235,6 +236,15 @@ db.exec(`
     UNIQUE(patient_id, prescription_id, medicine_name, date)
   );
 
+  CREATE TABLE IF NOT EXISTS teleconsult_signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    room_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS push_subscriptions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER UNIQUE,
@@ -338,6 +348,8 @@ function scheduleDailyReminders() {
   setTimeout(sendReminders, 10_000);
 }
 
+addColumnIfMissing('teleconsultations', 'join_token', 'TEXT');
+addColumnIfMissing('teleconsultations', 'room_id', 'TEXT');
 addColumnIfMissing('patients', 'arsenic_prone_area', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'herbal_remedy_use', 'BOOLEAN DEFAULT 0');
 addColumnIfMissing('patients', 'nsaid_use', 'BOOLEAN DEFAULT 0');
@@ -1341,8 +1353,12 @@ async function startServer() {
   app.post('/api/teleconsult/start', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
     const { patient_id } = req.body;
-    const result = db.prepare('INSERT INTO teleconsultations (doctor_id, patient_id, status) VALUES (?, ?, ?)').run(req.user.id, patient_id, 'active');
-    res.json({ id: result.lastInsertRowid, room: `kc-room-${result.lastInsertRowid}` });
+    const joinToken = randomUUID();
+    const roomId    = `kc-${randomUUID().slice(0, 8)}`;
+    const result = db.prepare(
+      'INSERT INTO teleconsultations (doctor_id, patient_id, status, join_token, room_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.user.id, patient_id || null, 'active', joinToken, roomId);
+    res.json({ id: result.lastInsertRowid, joinToken, roomId });
   });
 
   app.post('/api/teleconsult/:id/end', authenticateToken, (req: any, res) => {
@@ -1881,6 +1897,56 @@ async function startServer() {
       ? `KidneyCare BD: Your latest GFR is ${Math.round(gfr.ckd_epi)} mL/min, CKD Stage ${gfr.stage}. Visit app.kidneycare.bd for full report.`
       : 'KidneyCare BD: No GFR record found. Register at app.kidneycare.bd or ask your CHW.';
     res.json({ success: true, mock: true, smsReply, from });
+  });
+
+  // ─── Teleconsult Join & Signaling (public — no auth) ─────────────────────
+  // Validate invite token and return room info
+  app.get('/api/join/:token', (req, res) => {
+    const row = db.prepare(`
+      SELECT t.id, t.room_id, t.join_token, t.status,
+             u.name AS doctor_name, pu.name AS patient_name
+      FROM teleconsultations t
+      JOIN users u ON t.doctor_id = u.id
+      LEFT JOIN patients p ON t.patient_id = p.id
+      LEFT JOIN users pu ON p.user_id = pu.id
+      WHERE t.join_token = ?
+    `).get(req.params.token) as any;
+    if (!row) return res.status(404).json({ error: 'Invalid or expired invite' });
+    res.json({
+      consultId:   row.id,
+      roomId:      row.room_id,
+      joinToken:   row.join_token,
+      doctorName:  row.doctor_name,
+      patientName: row.patient_name,
+      status:      row.status,
+    });
+  });
+
+  // Store a WebRTC signal (offer / answer / ice candidate)
+  app.post('/api/signal', (req, res) => {
+    const { roomToken, type, sender, payload } = req.body;
+    if (!roomToken || !type || !sender || !payload) return res.status(400).json({ error: 'Missing fields' });
+    // Validate roomToken matches an active teleconsult
+    const consult = db.prepare("SELECT id, room_id FROM teleconsultations WHERE join_token = ?").get(roomToken) as any;
+    if (!consult) return res.status(403).json({ error: 'Invalid room token' });
+    const result = db.prepare(
+      'INSERT INTO teleconsult_signals (room_id, type, sender, payload) VALUES (?, ?, ?, ?)'
+    ).run(consult.room_id, type, sender, payload);
+    res.json({ ok: true, id: result.lastInsertRowid });
+  });
+
+  // Poll for signals in a room (returns all signals after :after id)
+  app.get('/api/signals/:roomId', (req, res) => {
+    const { after = 0, token, type } = req.query as any;
+    // Validate room token
+    const consult = db.prepare("SELECT id FROM teleconsultations WHERE join_token = ? AND room_id = ?").get(token, req.params.roomId) as any;
+    if (!consult) return res.status(403).json({ error: 'Invalid room token' });
+    let query = 'SELECT * FROM teleconsult_signals WHERE room_id = ? AND id > ?';
+    const params: any[] = [req.params.roomId, Number(after)];
+    if (type) { query += ' AND type = ?'; params.push(type); }
+    query += ' ORDER BY id ASC LIMIT 50';
+    const rows = db.prepare(query).all(...params);
+    res.json(rows);
   });
 
   // ─── Push Notification Routes ─────────────────────────────────────────────

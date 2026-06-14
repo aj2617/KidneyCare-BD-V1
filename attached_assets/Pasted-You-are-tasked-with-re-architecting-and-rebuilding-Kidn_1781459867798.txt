@@ -1,0 +1,128 @@
+You are tasked with re‑architecting and rebuilding “KidneyCare BD” as a **minimal, perfectly working digital health tool** that directly solves the real‑world CKD crisis in Bangladesh. Remove all unnecessary complexity, decorative features, or “future‑proofing” that is not immediately required to achieve the core goal. Keep the project lean, functional, and laser‑focused on impact. The system must be a PWA, fully responsive, mobile‑first, with a bottom navigation bar for each role on mobile.
+
+---
+
+## 1. GUIDING PRINCIPLES
+- Every feature must trace back to a specific problem from the original research paper (see below).
+- If a feature does not directly address a listed problem, it must be removed.
+- The UI must be minimal: clean cards, few colors, no unnecessary animations, only essential data displayed.
+- The codebase must be simple, maintainable, and deployable with minimal infrastructure.
+- Bilingual support (English/বাংলা) must be present in all user‑facing text.
+
+---
+
+## 2. PROBLEMS THE SYSTEM MUST SOLVE (the ONLY justification for features)
+1. High undiagnosed CKD rate (22.48% prevalence)  
+2. Rural population unaware of risk  
+3. Gender disparity (women more affected)  
+4. Age >40 increases risk  
+5. Diabetes/hypertension as triggers  
+6. No centralized monitoring platform  
+7. High cost of dialysis/transplant  
+8. Policymakers lack real‑time data  
+
+Every feature added must explicitly solve one or more of these. If a feature does not, **it must be omitted**.
+
+---
+
+## 3. RETAINED FEATURES (MINIMAL BUT COMPLETE)
+Only these features are to be implemented. Any other features from previous iterations (telemedicine, gamification, OCR, FHIR, DHIS2 export, budget simulator, outcome cohorts, medication refill tracker, IVR, USSD, missed‑call triggers) **must be removed** unless they directly satisfy a problem above and you can justify their inclusion in a single sentence. If in doubt, remove it.
+
+1. **GFR Calculator** (solves problems 1,6)  
+   - Three formulas: MDRD, Cockcroft‑Gault, CKD‑EPI  
+   - Color‑coded stage and recommendation  
+   - Simple trend line (only 3 most recent results shown; no heavy chart library)  
+   - Works offline (client‑side calculation)
+
+2. **CKD Risk Scoring Questionnaire** (solves problems 1,2,3,4,5)  
+   - Weighted questions on age, sex, diabetes, hypertension, family history, rural location (no arsenic/herbal/NSAID extras)  
+   - Score 0–100, color‑coded  
+   - Automatically assigns risk level and follow‑up frequency
+
+3. **Vitals & Symptoms Log** (solves problems 1,6)  
+   - Daily entry of BP, blood sugar, creatinine, weight, edema (yes/no), fatigue (1‑5)  
+   - No medication logging (keep it simple)  
+   - List view of recent entries, with abnormal values in red  
+   - One mini‑chart (BP trend only) for the past 7 days; no complex multi‑line timelines  
+   - Offline logging via PWA
+
+4. **Doctor Alerts** (solves problems 1,6)  
+   - Three alert types only:  
+     - “eGFR dropped >15% in last 30 days”  
+     - “BP consistently >140/90 in last 2 weeks”  
+     - “Patient not logged vitals for 7 days”  
+   - Alerts displayed as a simple list with patient name and action link  
+   - No alert grouping, no swipe actions, just mark as read
+
+5. **Bilingual Education Library** (solves problems 2,5,7)  
+   - 10‑15 static articles in English and Bengali (CKD basics, diet, managing diabetes/HTN)  
+   - No diet assistant; just a list of “foods to limit” per stage as static content  
+   - Articles cached offline
+
+6. **Cost Awareness Panel** (solves problem 7)  
+   - Simple static table showing estimated monthly costs in BDT for Stage 3,4,5 and dialysis  
+   - List of 5‑6 government hospitals with dialysis subsidies  
+   - No dynamic projection; just informative
+
+7. **Admin Heatmap** (solves problem 8)  
+   - Leaflet.js Bangladesh district map, color‑coded by total patient count  
+   - One filter: risk level (all/high)  
+   - Tapping a district shows: #patients, #high‑risk, %female  
+   - No other layers (no gender/age toggles)
+
+8. **Admin Basic Reports** (solves problem 8)  
+   - Two report types:  
+     - “District‑wise CKD burden” (PDF)  
+     - “Gender & age distribution” (PDF)  
+   - No export to Excel, no scheduling, no simulator
+
+9. **PWA, Offline, and Mobile‑First** (solves problem 2,6)  
+   - Installable PWA with bottom navigation (3‑4 tabs per role)  
+   - Service worker caches app shell + education articles + last viewed patient lists  
+   - Background sync only for vitals log queue
+
+---
+
+## 4. USER ROLES & DASHBOARD DEFINITIONS
+
+### 4.1 Patient Dashboard
+- Bottom tabs: Home, Log Vitals, Calculator, Learn, Profile  
+- **Home**: Risk score card, last GFR value, last BP, streak (days logged this week)  
+- **Log Vitals**: Simple form (offline capable), list of last 7 entries  
+- **Calculator**: GFR inputs and results (no history chart, just last 3 records)  
+- **Learn**: Article list by category (bilingual)  
+- **Profile**: Name, age, sex, linked caregiver phone (optional), logout  
+- **Cost Panel**: accessible from a card on Home or Learn
+
+### 4.2 Doctor Dashboard
+- Bottom tabs: Patients, Alerts, Tools, Profile  
+- **Patients**: Searchable list of assigned patients with risk badge and last vitals date; tap opens minimal profile (latest vitals, GFR trend mini‑card, risk history)  
+- **Alerts**: Simple list of unread alerts with patient link and “mark read” button  
+- **Tools**: GFR Calculator, quick‑access to a static CKD staging table; no e‑prescription, no teleconsult  
+- **Profile**: settings, language toggle, logout
+
+### 4.3 CHW Dashboard (optional but if kept, ultra‑minimal)
+- Bottom tabs: My Patients, Log Visit, Profile  
+- **My Patients**: Assigned patients with last visit and risk color  
+- **Log Visit**: Offline‑first form (BP, sugar, creatinine, edema, fatigue) with GPS capture  
+- **Profile**: Name, ID, logout  
+
+### 4.4 Admin Dashboard
+- Bottom tabs: Home, Map, Reports, Users, Profile  
+- **Home**: Simple KPI cards (total patients, high‑risk count, %female, top 3 districts)  
+- **Map**: Interactive district heatmap (only patient count or high‑risk count)  
+- **Reports**: Generate the two static PDFs  
+- **Users**: List of all users with role filter, approve/disable toggle  
+- **Profile**: Language, logout
+
+---
+
+## 5. DELIVERABLES
+- Complete, clean codebase for frontend (React + Tailwind) and backend (Node/Express + MongoDB + Redis)  
+- Docker‑compose for one‑command deployment  
+- PWA fully functional with offline vitals logging  
+- Bilingual support with instant toggle  
+- Bottom navigation on mobile (<768px), simple sidebar on desktop  
+- No unused code, no placeholder features, no “coming soon” modules
+
+Build only what is listed. Every feature must solve a stated problem. The result must be a minimal, rock‑solid tool that can genuinely help patients, doctors, and policymakers in Bangladesh.
