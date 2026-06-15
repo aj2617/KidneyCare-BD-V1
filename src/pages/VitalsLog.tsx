@@ -246,25 +246,22 @@ export default function VitalsLog() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className={`rounded-2xl border p-4 flex items-center justify-between gap-3 ${
-              !isOnline
-                ? 'bg-amber-50 border-amber-200'
-                : 'bg-blue-50 border-blue-200'
-            }`}
+            className="rounded-2xl border p-4 flex items-center justify-between gap-3"
+            style={!isOnline ? { background: '#FEF5E7', borderColor: '#F39C12' } : { background: '#EFF8FB', borderColor: '#1A6B8A' }}
           >
             <div className="flex items-center gap-3">
               {!isOnline
-                ? <WifiOff className="w-5 h-5 text-amber-600 shrink-0" />
-                : <CloudOff className="w-5 h-5 text-blue-600 shrink-0" />
+                ? <WifiOff className="w-5 h-5 shrink-0" style={{ color: '#F39C12' }} />
+                : <CloudOff className="w-5 h-5 shrink-0" style={{ color: '#1A6B8A' }} />
               }
               <div>
-                <p className={`text-sm font-bold ${!isOnline ? 'text-amber-800' : 'text-blue-800'}`}>
+                <p className="text-sm font-bold" style={{ color: !isOnline ? '#7d5100' : '#1A6B8A' }}>
                   {!isOnline
                     ? (bn ? 'আপনি অফলাইনে আছেন' : 'You are offline')
                     : (bn ? `${queue.length}টি ভাইটালস সিঙ্কের অপেক্ষায়` : `${queue.length} vital${queue.length !== 1 ? 's' : ''} pending sync`)
                   }
                 </p>
-                <p className={`text-xs mt-0.5 ${!isOnline ? 'text-amber-600' : 'text-blue-600'}`}>
+                <p className="text-xs mt-0.5" style={{ color: !isOnline ? '#7d5100' : '#1A6B8A' }}>
                   {!isOnline
                     ? (bn ? 'ভাইটালস সংরক্ষণ করা হবে এবং পরে সিঙ্ক হবে।' : 'Vitals will be saved locally and synced when you reconnect.')
                     : (bn ? 'সংযোগ ফিরে এসেছে — সিঙ্ক করুন।' : 'Connection restored — tap to sync your pending entries.')
@@ -276,7 +273,8 @@ export default function VitalsLog() {
               <button
                 onClick={handleSync}
                 disabled={isSyncing}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all disabled:opacity-60 shrink-0 min-h-[40px]"
+                className="flex items-center gap-2 px-4 py-2 text-white rounded-xl text-sm font-bold transition-all disabled:opacity-60 shrink-0 min-h-[40px]"
+                style={{ background: '#1A6B8A' }}
               >
                 {isSyncing
                   ? <Loader2 className="w-4 h-4 animate-spin" />
@@ -297,10 +295,11 @@ export default function VitalsLog() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl"
+            className="flex items-center gap-3 p-4 rounded-2xl"
+            style={{ background: '#EAFAF1', border: '1px solid #2ECC71' }}
           >
-            <CloudOff className="w-5 h-5 text-emerald-600 shrink-0" />
-            <p className="text-sm font-bold text-emerald-800">
+            <CloudOff className="w-5 h-5 shrink-0" style={{ color: '#2ECC71' }} />
+            <p className="text-sm font-bold" style={{ color: '#1a7a44' }}>
               {bn
                 ? 'ভাইটালস স্থানীয়ভাবে সংরক্ষিত হয়েছে। সংযোগ ফিরলে স্বয়ংক্রিয়ভাবে আপলোড হবে।'
                 : 'Vitals saved locally. They will upload automatically when you reconnect.'}
@@ -317,17 +316,14 @@ export default function VitalsLog() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className={`flex items-center gap-3 p-4 rounded-2xl border ${
-              syncResult.failed === 0
-                ? 'bg-emerald-50 border-emerald-200'
-                : 'bg-amber-50 border-amber-200'
-            }`}
+            className="flex items-center gap-3 p-4 rounded-2xl border"
+            style={syncResult.failed === 0 ? { background: '#EAFAF1', borderColor: '#2ECC71' } : { background: '#FEF5E7', borderColor: '#F39C12' }}
           >
             {syncResult.failed === 0
-              ? <Cloud className="w-5 h-5 text-emerald-600 shrink-0" />
-              : <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              ? <Cloud className="w-5 h-5 shrink-0" style={{ color: '#2ECC71' }} />
+              : <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: '#F39C12' }} />
             }
-            <p className={`text-sm font-bold ${syncResult.failed === 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
+            <p className="text-sm font-bold" style={{ color: syncResult.failed === 0 ? '#1a7a44' : '#7d5100' }}>
               {syncResult.failed === 0
                 ? (bn
                     ? `${syncResult.synced}টি ভাইটালস সফলভাবে সিঙ্ক হয়েছে!`
@@ -346,22 +342,18 @@ export default function VitalsLog() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`flex items-center gap-4 p-4 rounded-2xl border ${
-            streak >= 10
-              ? 'bg-amber-50 border-amber-200'
-              : 'bg-[#1A6B8A]/5 border-[#1A6B8A]/20'
-          }`}
+          className="flex items-center gap-4 p-4 rounded-2xl border"
+          style={streak >= 10 ? { background: '#FEF5E7', borderColor: '#F39C12' } : { background: '#EFF8FB', borderColor: '#1A6B8A' }}
         >
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-            streak >= 10 ? 'bg-amber-100' : 'bg-[#1A6B8A]/10'
-          }`}>
-            <Flame className={`w-5 h-5 ${streak >= 10 ? 'text-amber-600' : 'text-[#1A6B8A]'}`} />
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+            style={{ background: streak >= 10 ? '#FEF5E7' : '#EFF8FB' }}>
+            <Flame className="w-5 h-5" style={{ color: streak >= 10 ? '#F39C12' : '#1A6B8A' }} />
           </div>
           <div>
-            <p className={`text-xl font-black ${streak >= 10 ? 'text-amber-700' : 'text-[#1A6B8A]'}`}>
+            <p className="text-xl font-black" style={{ color: streak >= 10 ? '#7d5100' : '#1A6B8A' }}>
               {streak} {bn ? 'দিনের স্ট্রিক!' : 'Day Streak!'}
             </p>
-            <p className={`text-sm ${streak >= 10 ? 'text-amber-600' : 'text-[#1A6B8A]/80'}`}>
+            <p className="text-sm" style={{ color: streak >= 10 ? '#7d5100' : '#1A6B8A' }}>
               {getStreakMessage(streak, language)}
             </p>
           </div>
@@ -373,9 +365,9 @@ export default function VitalsLog() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <p className="text-sm font-black text-slate-700 flex items-center gap-2">
-              <CloudOff className="w-4 h-4 text-blue-500" />
+              <CloudOff className="w-4 h-4 text-[#1A6B8A]" />
               {bn ? 'অপেক্ষমাণ ভাইটালস' : 'Pending Offline Entries'}
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black rounded-full">
+              <span className="px-2 py-0.5 text-[10px] font-black rounded-full" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
                 {queue.length}
               </span>
             </p>
@@ -384,8 +376,8 @@ export default function VitalsLog() {
             {queue.map((entry) => (
               <div key={entry.id} className="flex items-center justify-between px-4 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                    <Activity className="w-4 h-4 text-blue-500" />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
+                    <Activity className="w-4 h-4 text-[#1A6B8A]" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-900">
@@ -396,7 +388,7 @@ export default function VitalsLog() {
                     </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg" style={{ color: '#1A6B8A', background: '#EFF8FB', border: '1px solid #1A6B8A33' }}>
                   {bn ? 'সিঙ্কের অপেক্ষায়' : 'Pending'}
                 </span>
               </div>
@@ -416,7 +408,7 @@ export default function VitalsLog() {
           >
             {/* Offline mode hint on form */}
             {!isOnline && (
-              <div className="mb-5 flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-700">
+              <div className="mb-5 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold" style={{ background: '#FEF5E7', border: '1px solid #F39C12', color: '#7d5100' }}>
                 <WifiOff className="w-3.5 h-3.5 shrink-0" />
                 {bn
                   ? 'অফলাইন মোড — জমা দিলে স্থানীয়ভাবে সংরক্ষিত হবে।'
@@ -512,11 +504,8 @@ export default function VitalsLog() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[48px] ${
-                  !isOnline
-                    ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20'
-                    : 'bg-[#1A6B8A] hover:bg-[#14556e] text-white shadow-lg shadow-[#1A6B8A]/20'
-                }`}
+                className="w-full py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50 min-h-[48px] text-white"
+                style={{ background: !isOnline ? '#F39C12' : '#1A6B8A' }}
               >
                 {isSubmitting
                   ? <Loader2 className="w-5 h-5 animate-spin" />
@@ -677,7 +666,7 @@ export default function VitalsLog() {
                       </p>
                       <p className="text-xs text-slate-500">Blood Pressure</p>
                       {log.logged_by === 'chw' && (
-                        <span className="text-[10px] text-blue-600 font-bold">CHW visit</span>
+                        <span className="text-[10px] font-bold" style={{ color: '#1A6B8A' }}>CHW visit</span>
                       )}
                     </div>
                   </div>
@@ -691,11 +680,11 @@ export default function VitalsLog() {
                           ? (bn ? 'হ্যাঁ' : 'Yes')
                           : (bn ? 'না' : 'No'),
                         label: 'Edema',
-                        color: log.edema ? 'text-red-500' : 'text-emerald-600',
+                        color: log.edema ? '#E74C3C' : '#2ECC71',
                       },
                     ].map(({ val, label, color }) => (
                       <div key={label}>
-                        <p className={`font-bold text-sm ${color || 'text-slate-700'}`}>{val ?? '--'}</p>
+                        <p className="font-bold text-sm" style={color ? { color } : { color: '#334155' }}>{val ?? '--'}</p>
                         <p className="text-[10px] text-slate-400 font-bold uppercase">{label}</p>
                       </div>
                     ))}

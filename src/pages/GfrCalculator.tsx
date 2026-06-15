@@ -133,8 +133,13 @@ export default function GfrCalculator() {
     } finally { setIsLoading(false); }
   };
 
-  const stageColors = ['', 'bg-emerald-50 border-emerald-200 text-emerald-700', 'bg-blue-50 border-blue-200 text-blue-700',
-    'bg-amber-50 border-amber-200 text-amber-700', 'bg-orange-50 border-orange-200 text-orange-700', 'bg-red-50 border-red-200 text-red-700'];
+  const stageStyleMap: Record<number, { bg: string; border: string; color: string }> = {
+    1: { bg: '#EAFAF1', border: '#2ECC71', color: '#1a7a44' },
+    2: { bg: '#EFF8FB', border: '#1A6B8A', color: '#1A6B8A' },
+    3: { bg: '#FEF5E7', border: '#F39C12', color: '#7d5100' },
+    4: { bg: '#FDECEA', border: '#E74C3C', color: '#7b1a1a' },
+    5: { bg: '#FDECEA', border: '#E74C3C', color: '#7b1a1a' },
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -144,7 +149,7 @@ export default function GfrCalculator() {
           <p className="text-slate-500 mt-1 text-sm sm:text-base">{language === 'bn' ? 'এমডিআরডি, কককক্রফট-গল্ট, সিকেডি-ইপিআই সূত্র' : 'MDRD, Cockcroft-Gault, CKD-EPI equations + KDIGO UACR staging'}</p>
         </div>
         <button onClick={() => setShowOcr(!showOcr)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-sm font-bold hover:bg-purple-100 transition-all shrink-0">
+          className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-bold transition-all shrink-0" style={{ background: '#EFF8FB', border: '1px solid #1A6B8A', color: '#1A6B8A' }}>
           <Camera className="w-4 h-4" />
           {language === 'bn' ? 'ল্যাব স্ক্যান' : 'Scan Lab Report'}
         </button>
@@ -153,34 +158,34 @@ export default function GfrCalculator() {
       <AnimatePresence>
         {showOcr && (
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-            className="bg-purple-50 p-6 rounded-3xl border border-purple-200 space-y-4">
+            className="p-6 rounded-3xl border space-y-4" style={{ background: '#EFF8FB', borderColor: '#1A6B8A' }}>
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-purple-900 flex items-center gap-2">
+              <h3 className="font-bold flex items-center gap-2" style={{ color: '#1A6B8A' }}>
                 <Zap className="w-5 h-5" />
                 {language === 'bn' ? 'ল্যাব রিপোর্ট স্ক্যান করুন' : 'Scan or paste your lab report'}
               </h3>
               <button onClick={() => { setShowOcr(false); setOcrPreviewUrl(''); setOcrText(''); setOcrStatus(''); }}
-                className="p-1 text-purple-400 hover:text-purple-700"><X className="w-4 h-4" /></button>
+                className="p-1 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
             </div>
 
             {/* Photo Upload */}
             <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-2xl cursor-pointer transition-all
-              ${isOcrProcessing ? 'opacity-50 pointer-events-none' : 'hover:bg-purple-100/50'}
-              ${ocrPreviewUrl ? 'border-purple-400 p-2' : 'border-purple-300 p-6'}`}>
+              ${isOcrProcessing ? 'opacity-50 pointer-events-none' : 'hover:bg-[#1A6B8A]/5'}
+              ${ocrPreviewUrl ? 'border-[#1A6B8A] p-2' : 'border-[#1A6B8A]/30 p-6'}`}>
               {ocrPreviewUrl ? (
                 <div className="w-full relative">
                   <img src={ocrPreviewUrl} alt="Lab report" className="max-h-44 w-full object-contain rounded-xl" />
-                  <div className="absolute top-1 right-1 bg-purple-600 text-white rounded-full p-1">
+                  <div className="absolute top-1 right-1 text-white rounded-full p-1" style={{ background: '#1A6B8A' }}>
                     <Camera className="w-3 h-3" />
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-2 text-purple-600">
-                  <div className="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2" style={{ color: '#1A6B8A' }}>
+                  <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: '#EFF8FB' }}>
                     <Camera className="w-7 h-7" />
                   </div>
                   <span className="text-sm font-semibold">{language === 'bn' ? 'ছবি তুলুন বা ফাইল বেছে নিন' : 'Take photo or choose file'}</span>
-                  <span className="text-xs text-purple-400">JPG, PNG — Creatinine & UACR will be auto-extracted</span>
+                  <span className="text-xs" style={{ color: '#1A6B8A99' }}>JPG, PNG — Creatinine & UACR will be auto-extracted</span>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageOcr} disabled={isOcrProcessing} />
@@ -188,7 +193,8 @@ export default function GfrCalculator() {
 
             {/* OCR Status */}
             {(isOcrProcessing || ocrStatus) && (
-              <div className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl ${isOcrProcessing ? 'bg-purple-100 text-purple-700' : ocrHighlighted.length > 0 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+              <div className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl"
+                style={isOcrProcessing ? { background: '#EFF8FB', color: '#1A6B8A' } : ocrHighlighted.length > 0 ? { background: '#EAFAF1', color: '#1a7a44' } : { background: '#FEF5E7', color: '#7d5100' }}>
                 {isOcrProcessing && <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />}
                 {!isOcrProcessing && ocrHighlighted.length > 0 && <CheckCircle2 className="w-4 h-4 flex-shrink-0" />}
                 <span>{ocrStatus || (ocrHighlighted.length > 0 ? `✓ Auto-filled: ${ocrHighlighted.join(', ')}` : '')}</span>
@@ -197,18 +203,18 @@ export default function GfrCalculator() {
 
             {/* Divider */}
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-purple-200" />
-              <span className="text-xs text-purple-400 font-medium">{language === 'bn' ? 'অথবা সরাসরি টেক্সট পেস্ট করুন' : 'or paste text directly'}</span>
-              <div className="flex-1 h-px bg-purple-200" />
+              <div className="flex-1 h-px" style={{ background: '#1A6B8A33' }} />
+              <span className="text-xs font-medium" style={{ color: '#1A6B8A99' }}>{language === 'bn' ? 'অথবা সরাসরি টেক্সট পেস্ট করুন' : 'or paste text directly'}</span>
+              <div className="flex-1 h-px" style={{ background: '#1A6B8A33' }} />
             </div>
 
             {/* Text fallback */}
             <textarea value={ocrText} onChange={e => setOcrText(e.target.value)} rows={3}
-              className="w-full px-4 py-3 bg-white border border-purple-200 rounded-xl resize-none text-sm focus:ring-2 focus:ring-purple-300"
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl resize-none text-sm focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A]"
               placeholder={language === 'bn' ? 'ল্যাব রিপোর্টের টেক্সট এখানে পেস্ট করুন...\nযেমন: Creatinine: 1.4 mg/dL' : 'Paste lab report text here...\ne.g., Creatinine: 1.4 mg/dL\nUACR: 45 mg/g'} />
 
             <button onClick={handleOcrPrefill} disabled={isOcrProcessing || !ocrText.trim()}
-              className="w-full px-6 py-3 bg-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-purple-700 disabled:opacity-50">
+              className="w-full px-6 py-3 text-white rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50" style={{ background: '#1A6B8A' }}>
               {isOcrProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {language === 'bn' ? 'মান খুঁজুন ও পূরণ করুন' : 'Extract & Pre-fill Values'}
             </button>
@@ -223,10 +229,10 @@ export default function GfrCalculator() {
               <label className="text-sm font-semibold text-slate-700">{t('gfr.creatinine')}</label>
               <input type="number" inputMode="decimal" step="0.01" required value={formData.creatinine}
                 onChange={e => { setFormData({ ...formData, creatinine: e.target.value }); setOcrHighlighted(h => h.filter(x => x !== 'creatinine')); }}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('creatinine') ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-200' : 'bg-slate-50 border-slate-200'}`}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('creatinine') ? 'bg-[#EFF8FB] border-[#1A6B8A] ring-2 ring-[#1A6B8A]/20' : 'bg-slate-50 border-slate-200'}`}
                 placeholder="e.g. 1.2" />
               {ocrHighlighted.includes('creatinine') && (
-                <p className="text-xs text-purple-600 font-medium">✓ {language === 'bn' ? 'স্বয়ংক্রিয়ভাবে পূরণ হয়েছে' : 'Auto-filled from lab report'}</p>
+                <p className="text-xs font-medium" style={{ color: '#1A6B8A' }}>✓ {language === 'bn' ? 'স্বয়ংক্রিয়ভাবে পূরণ হয়েছে' : 'Auto-filled from lab report'}</p>
               )}
             </div>
 
@@ -234,7 +240,7 @@ export default function GfrCalculator() {
               <label className="text-sm font-semibold text-slate-700">{t('gfr.uacr')}</label>
               <input type="number" inputMode="decimal" step="0.1" value={formData.uacr}
                 onChange={e => { setFormData({ ...formData, uacr: e.target.value }); setOcrHighlighted(h => h.filter(x => x !== 'uacr')); }}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('uacr') ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-200' : 'bg-slate-50 border-slate-200'}`}
+                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A] transition-all ${ocrHighlighted.includes('uacr') ? 'bg-[#EFF8FB] border-[#1A6B8A] ring-2 ring-[#1A6B8A]/20' : 'bg-slate-50 border-slate-200'}`}
                 placeholder={language === 'bn' ? 'যেমন: 45 (ঐচ্ছিক)' : 'e.g. 45 (optional)'} />
               {formData.uacr && (
                 <p className="text-xs text-slate-500">
@@ -288,9 +294,9 @@ export default function GfrCalculator() {
                 {history.map((h, i) => (
                   <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
                     <div className="flex items-center gap-3">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                        h.stage >= 4 ? 'bg-red-100 text-red-700' : h.stage === 3 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                      }`}>Stage {h.stage}</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                        style={h.stage >= 4 ? { background: '#FDECEA', color: '#7b1a1a' } : h.stage === 3 ? { background: '#FEF5E7', color: '#7d5100' } : { background: '#EAFAF1', color: '#1a7a44' }}>
+                        Stage {h.stage}</span>
                       <span className="text-sm font-black text-slate-900">{Math.round(h.ckdEpi ?? h.avgGfr ?? 0)} <span className="text-xs font-normal text-slate-400">mL/min</span></span>
                     </div>
                     {h.created_at && (
@@ -308,7 +314,7 @@ export default function GfrCalculator() {
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-slate-900">{language === 'bn' ? 'ফলাফল' : 'Calculation Results'}</h3>
                 {result?.offline && (
-                  <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">
+                  <span className="text-xs font-bold px-2 py-1 rounded-lg" style={{ background: '#FEF5E7', color: '#7d5100' }}>
                     {language === 'bn' ? 'অফলাইন' : 'Offline'}
                   </span>
                 )}
@@ -335,7 +341,7 @@ export default function GfrCalculator() {
                 </div>
               )}
 
-              <div className={`p-6 rounded-2xl border ${stageColors[result.stage] || 'bg-slate-50 border-slate-200'}`}>
+              <div className="p-6 rounded-2xl border" style={stageStyleMap[result.stage] ? { background: stageStyleMap[result.stage].bg, borderColor: stageStyleMap[result.stage].border, color: stageStyleMap[result.stage].color } : { background: '#f8fafc', borderColor: '#e2e8f0' }}>
                 <div className="flex items-center gap-2 mb-3">
                   {result.stage >= 4 ? <AlertTriangle className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
                   <p className="font-bold text-lg">CKD Stage {result.stage}</p>

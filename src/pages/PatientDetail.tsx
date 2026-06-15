@@ -19,12 +19,12 @@ function SkeletonBlock({ h = 'h-40' }: { h?: string }) {
 }
 
 const GFR_STAGE = (v: number) => {
-  if (v >= 90) return { stage: 1, color: 'text-emerald-600', bg: 'bg-emerald-50' };
-  if (v >= 60) return { stage: 2, color: 'text-blue-600', bg: 'bg-blue-50' };
-  if (v >= 45) return { stage: '3a', color: 'text-yellow-600', bg: 'bg-yellow-50' };
-  if (v >= 30) return { stage: '3b', color: 'text-orange-600', bg: 'bg-orange-50' };
-  if (v >= 15) return { stage: 4, color: 'text-red-600', bg: 'bg-red-50' };
-  return { stage: 5, color: 'text-red-800', bg: 'bg-red-100' };
+  if (v >= 90) return { stage: 1, color: '#1a7a44', bg: '#EAFAF1' };
+  if (v >= 60) return { stage: 2, color: '#1A6B8A', bg: '#EFF8FB' };
+  if (v >= 45) return { stage: '3a', color: '#7d5100', bg: '#FEF5E7' };
+  if (v >= 30) return { stage: '3b', color: '#7d5100', bg: '#FEF5E7' };
+  if (v >= 15) return { stage: 4, color: '#7b1a1a', bg: '#FDECEA' };
+  return { stage: 5, color: '#7b1a1a', bg: '#FDECEA' };
 };
 
 // ── QR helper ─────────────────────────────────────────────────────────────
@@ -81,15 +81,15 @@ function AdherenceGrid({ patientId, prescriptionId, medicines, token, bn }: {
   }
   const adherencePct = totalLogged > 0 ? Math.round((takenCount / totalLogged) * 100) : null;
 
-  const pctColor = adherencePct === null ? 'text-slate-400'
-    : adherencePct >= 80 ? 'text-emerald-600'
-    : adherencePct >= 50 ? 'text-amber-500'
-    : 'text-red-500';
+  const pctColor = adherencePct === null ? '#94a3b8'
+    : adherencePct >= 80 ? '#2ECC71'
+    : adherencePct >= 50 ? '#F39C12'
+    : '#E74C3C';
 
-  const pctBg = adherencePct === null ? 'bg-slate-50'
-    : adherencePct >= 80 ? 'bg-emerald-50'
-    : adherencePct >= 50 ? 'bg-amber-50'
-    : 'bg-red-50';
+  const pctBg = adherencePct === null ? '#f8fafc'
+    : adherencePct >= 80 ? '#EAFAF1'
+    : adherencePct >= 50 ? '#FEF5E7'
+    : '#FDECEA';
 
   return (
     <div className="border-t border-slate-100 pt-4">
@@ -99,7 +99,7 @@ function AdherenceGrid({ patientId, prescriptionId, medicines, token, bn }: {
           {bn ? '৭-দিনের ওষুধ গ্রহণ' : '7-Day Adherence'}
         </p>
         {adherencePct !== null && (
-          <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${pctColor} ${pctBg}`}>
+          <span className="text-[11px] font-black px-2 py-0.5 rounded-full" style={{ color: pctColor, background: pctBg }}>
             {adherencePct}% {bn ? 'গ্রহণ' : 'taken'}
           </span>
         )}
@@ -153,13 +153,8 @@ function AdherenceGrid({ patientId, prescriptionId, medicines, token, bn }: {
                       const isToday = d === new Date().toISOString().slice(0, 10);
                       return (
                         <td key={d} className="py-1 text-center">
-                          <div className={`w-6 h-6 rounded-full mx-auto flex items-center justify-center text-[9px] font-black border-2 transition-all ${
-                            !hasEntry
-                              ? `bg-slate-50 border-slate-100 ${isToday ? 'border-[#1A6B8A]/30' : ''}`
-                              : taken
-                                ? 'bg-emerald-50 border-emerald-400 text-emerald-700'
-                                : 'bg-red-50 border-red-300 text-red-500'
-                          }`}>
+                          <div className="w-6 h-6 rounded-full mx-auto flex items-center justify-center text-[9px] font-black border-2 transition-all"
+                            style={!hasEntry ? { background: '#f8fafc', borderColor: isToday ? '#1A6B8A4D' : '#f1f5f9' } : taken ? { background: '#EAFAF1', borderColor: '#2ECC71', color: '#1a7a44' } : { background: '#FDECEA', borderColor: '#E74C3C', color: '#7b1a1a' }}>
                             {hasEntry ? (taken ? '✓' : '✕') : ''}
                           </div>
                         </td>
@@ -174,7 +169,7 @@ function AdherenceGrid({ patientId, prescriptionId, medicines, token, bn }: {
           {/* Legend */}
           <div className="flex items-center gap-4 mt-3 pl-[88px]">
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <span className="w-3 h-3 rounded-full bg-emerald-100 border border-emerald-400 inline-block" />
+              <span className="w-3 h-3 rounded-full inline-block" style={{ background: '#EAFAF1', border: '1.5px solid #2ECC71' }} />
               {bn ? 'গ্রহণ করেছে' : 'Taken'}
             </span>
             <span className="flex items-center gap-1.5 text-[10px] text-slate-400">
@@ -286,9 +281,9 @@ function RxCard({ rx, index, bn, patientId, token }: {
 
                 {/* Notes */}
                 {rx.notes && (
-                  <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-100 rounded-xl">
-                    <StickyNote className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 font-medium leading-relaxed">{rx.notes}</p>
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: '#FEF5E7', border: '1px solid #F39C12' }}>
+                    <StickyNote className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: '#F39C12' }} />
+                    <p className="text-xs font-medium leading-relaxed" style={{ color: '#7d5100' }}>{rx.notes}</p>
                   </div>
                 )}
 
@@ -341,7 +336,7 @@ function RxCard({ rx, index, bn, patientId, token }: {
                               : 'This QR contains the full prescription details. The patient or pharmacist can scan it at any time.'}
                           </p>
                           <div className="flex items-center gap-1.5 mt-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <div className="w-2 h-2 rounded-full" style={{ background: '#2ECC71' }} />
                             <span className="text-[10px] text-slate-400 font-medium">
                               {bn ? 'অফলাইনেও কাজ করে' : 'Works offline · No internet required'}
                             </span>
@@ -529,10 +524,10 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
   }));
 
   const conditionTags = [
-    patient.diabetes && { label: bn ? 'ডায়াবেটিস' : 'Diabetes', cls: 'bg-red-50 text-red-600 border-red-100' },
-    patient.hypertension && { label: bn ? 'উচ্চ রক্তচাপ' : 'Hypertension', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
-    patient.arsenic_prone_area && { label: bn ? 'আর্সেনিক ঝুঁকি' : 'Arsenic Risk', cls: 'bg-purple-50 text-purple-600 border-purple-100' },
-    patient.herbal_remedy_use && { label: bn ? 'ভেষজ ব্যবহার' : 'Herbal Remedies', cls: 'bg-orange-50 text-orange-600 border-orange-100' },
+    patient.diabetes && { label: bn ? 'ডায়াবেটিস' : 'Diabetes', cls: 'bg-[#FDECEA] text-[#E74C3C] border-[#E74C3C]/30' },
+    patient.hypertension && { label: bn ? 'উচ্চ রক্তচাপ' : 'Hypertension', cls: 'bg-[#FEF5E7] text-[#F39C12] border-[#F39C12]/30' },
+    patient.arsenic_prone_area && { label: bn ? 'আর্সেনিক ঝুঁকি' : 'Arsenic Risk', cls: 'bg-[#FDECEA] text-[#E74C3C] border-[#E74C3C]/30' },
+    patient.herbal_remedy_use && { label: bn ? 'ভেষজ ব্যবহার' : 'Herbal Remedies', cls: 'bg-[#FEF5E7] text-[#F39C12] border-[#F39C12]/30' },
     patient.nsaid_use && { label: 'NSAID Use', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
   ].filter(Boolean) as { label: string; cls: string }[];
 
@@ -597,18 +592,18 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
           {/* Key stats */}
           <div className="flex flex-wrap items-center gap-4">
             {latestGfrVal && gfrStage && (
-              <div className={`text-center px-4 py-2 rounded-2xl ${gfrStage.bg}`}>
-                <p className={`text-2xl font-black ${gfrStage.color}`}>{latestGfrVal}</p>
-                <p className={`text-[10px] font-bold uppercase ${gfrStage.color}`}>eGFR · Stage {gfrStage.stage}</p>
+              <div className="text-center px-4 py-2 rounded-2xl" style={{ background: gfrStage.bg }}>
+                <p className="text-2xl font-black" style={{ color: gfrStage.color }}>{latestGfrVal}</p>
+                <p className="text-[10px] font-bold uppercase" style={{ color: gfrStage.color }}>eGFR · Stage {gfrStage.stage}</p>
               </div>
             )}
             <div className="text-center">
-              <p className="text-2xl font-black text-orange-500">{patient.risk_score || 0}</p>
+              <p className="text-2xl font-black" style={{ color: '#E74C3C' }}>{patient.risk_score || 0}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase">{bn ? 'ঝুঁকি স্কোর' : 'Risk Score'}</p>
             </div>
             {patient.uacr && (
               <div className="text-center">
-                <p className="text-2xl font-black text-purple-600">{patient.uacr}</p>
+                <p className="text-2xl font-black" style={{ color: '#1A6B8A' }}>{patient.uacr}</p>
                 <p className="text-[10px] font-bold text-slate-400 uppercase">UACR mg/g</p>
               </div>
             )}
@@ -619,7 +614,8 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
         <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-slate-100">
           <button
             onClick={startTeleconsult}
-            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-sm shadow-emerald-500/20 min-h-[44px]"
+            className="flex items-center gap-2 px-4 py-2.5 text-white rounded-xl text-sm font-bold transition-all min-h-[44px]"
+            style={{ background: '#2ECC71' }}
           >
             <Video className="w-4 h-4" />
             {bn ? 'ভিডিও কল' : 'Start Teleconsult'}
@@ -763,7 +759,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
           {bn ? 'ঝুঁকি স্কোর যাচাই' : 'Risk Score Validation'}
         </h3>
         {feedbackSent ? (
-          <p className="text-emerald-600 font-semibold text-sm">
+          <p className="font-semibold text-sm" style={{ color: '#2ECC71' }}>
             ✓ {bn ? 'ফিডব্যাক পাঠানো হয়েছে। ধন্যবাদ।' : 'Feedback submitted. Thank you.'}
           </p>
         ) : (
@@ -786,11 +782,13 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
                 <ThumbsDown className="w-4 h-4" /> {bn ? 'অনেক বেশি' : 'Too High'}
               </button>
               <button onClick={() => submitFeedback('correct')}
-                className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-50 min-h-[44px]">
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold min-h-[44px]"
+                style={{ border: '1px solid #2ECC71', color: '#2ECC71' }}>
                 <ThumbsUp className="w-4 h-4" /> {bn ? 'সঠিক' : 'Correct'}
               </button>
               <button onClick={() => submitFeedback('too_low')}
-                className="flex items-center gap-2 px-4 py-2 border border-blue-200 text-blue-600 rounded-xl text-sm font-bold hover:bg-blue-50 min-h-[44px]">
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold min-h-[44px]"
+                style={{ border: '1px solid #1A6B8A', color: '#1A6B8A' }}>
                 <ThumbsUp className="w-4 h-4 rotate-180" /> {bn ? 'অনেক কম' : 'Too Low'}
               </button>
             </div>
@@ -804,7 +802,8 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
           <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-2xl shadow-xl shadow-slate-900/10 p-3 flex gap-2 pointer-events-auto">
             <button
               onClick={startTeleconsult}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-all shadow-sm min-h-[48px]"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 text-white rounded-xl text-sm font-bold transition-all min-h-[48px]"
+              style={{ background: '#2ECC71' }}
             >
               <Video className="w-4 h-4 shrink-0" />
               <span className="truncate">{bn ? 'ভিডিও কল' : 'Teleconsult'}</span>
@@ -881,8 +880,8 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
                     animate={{ opacity: 1, scale: 1 }}
                     className="flex flex-col items-center justify-center py-12 px-6 text-center"
                   >
-                    <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
-                      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ background: '#EAFAF1' }}>
+                      <CheckCircle2 className="w-8 h-8" style={{ color: '#2ECC71' }} />
                     </div>
                     <h3 className="font-black text-slate-900 text-lg mb-1">
                       {bn ? 'ভাইটালস সংরক্ষিত হয়েছে!' : 'Vitals Saved!'}
@@ -928,7 +927,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                          <Droplets className="w-3.5 h-3.5 text-amber-400" />
+                          <Droplets className="w-3.5 h-3.5" style={{ color: '#F39C12' }} />
                           {bn ? 'রক্তে চিনি' : 'Blood Sugar'}
                         </label>
                         <div className="relative">
@@ -944,7 +943,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
                       </div>
                       <div>
                         <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                          <Scale className="w-3.5 h-3.5 text-blue-400" />
+                          <Scale className="w-3.5 h-3.5 text-[#1A6B8A]" />
                           {bn ? 'ওজন' : 'Weight'}
                         </label>
                         <div className="relative">
@@ -963,7 +962,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
                     {/* Creatinine */}
                     <div>
                       <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-                        <FlaskConical className="w-3.5 h-3.5 text-purple-400" />
+                        <FlaskConical className="w-3.5 h-3.5 text-[#1A6B8A]" />
                         {bn ? 'ক্রিয়েটিনিন' : 'Creatinine'}
                       </label>
                       <div className="relative">

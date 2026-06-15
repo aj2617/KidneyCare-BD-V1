@@ -322,8 +322,8 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
 
   const qualityConfig = {
     connecting: { color: 'text-slate-400', dot: 'bg-slate-400', label: bn ? 'সংযোগ হচ্ছে' : 'Waiting' },
-    good:       { color: 'text-emerald-400', dot: 'bg-emerald-400', label: bn ? 'ভালো' : 'Good' },
-    fair:       { color: 'text-amber-400',   dot: 'bg-amber-400',   label: bn ? 'মোটামুটি' : 'Fair' },
+    good:       { color: 'text-[#2ECC71]', dot: 'bg-[#2ECC71]', label: bn ? 'ভালো' : 'Good' },
+    fair:       { color: 'text-[#F39C12]',   dot: 'bg-[#F39C12]',   label: bn ? 'মোটামুটি' : 'Fair' },
     poor:       { color: 'text-red-400',     dot: 'bg-red-400',     label: bn ? 'দুর্বল' : 'Poor' },
   }[connectionQuality];
 
@@ -447,7 +447,7 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
           <div className="flex items-center justify-center gap-3">
             {!isCallActive ? (
               <button onClick={startCall} disabled={isConnecting}
-                className="px-8 py-3.5 bg-emerald-500 text-white rounded-2xl font-bold flex items-center gap-2.5 hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50 min-h-[52px]">
+                className="px-8 py-3.5 text-white rounded-2xl font-bold flex items-center gap-2.5 transition-all disabled:opacity-50 min-h-[52px]" style={{ background: '#2ECC71' }}>
                 {isConnecting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Phone className="w-5 h-5" />}
                 {isConnecting ? (bn ? 'সংযোগ হচ্ছে...' : 'Starting...') : (bn ? 'কল শুরু করুন' : 'Start Call')}
               </button>
@@ -493,7 +493,7 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
                 <span className="text-xs text-slate-600 flex-1 truncate font-mono">{joinUrl}</span>
                 <button onClick={copyLink}
                   className="shrink-0 flex items-center gap-1 text-xs font-bold text-[#1A6B8A] hover:text-[#14556e] transition-colors">
-                  {linkCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {linkCopied ? <CheckCircle2 className="w-3.5 h-3.5 text-[#2ECC71]" /> : <Copy className="w-3.5 h-3.5" />}
                   {linkCopied ? (bn ? 'কপি হয়েছে!' : 'Copied!') : (bn ? 'কপি করুন' : 'Copy')}
                 </button>
               </div>
@@ -501,12 +501,12 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
               {/* Share buttons */}
               <div className="flex gap-2">
                 <button onClick={shareViaWhatsApp}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-emerald-500 text-white text-xs font-bold rounded-xl hover:bg-emerald-600 transition-colors">
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-white text-xs font-bold rounded-xl transition-colors" style={{ background: '#2ECC71' }}>
                   <MessageCircle className="w-3.5 h-3.5" />
                   WhatsApp
                 </button>
                 <button onClick={shareViaSMS}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-blue-500 text-white text-xs font-bold rounded-xl hover:bg-blue-600 transition-colors">
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-white text-xs font-bold rounded-xl transition-colors" style={{ background: '#1A6B8A' }}>
                   <MessageCircle className="w-3.5 h-3.5" />
                   SMS
                 </button>
@@ -530,7 +530,7 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
                 <button onClick={saveNotes}
                   className="flex items-center gap-1.5 text-xs font-bold text-[#1A6B8A] hover:text-[#14556e] transition-colors">
                   {notesSaved
-                    ? <><CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> {bn ? 'সংরক্ষিত' : 'Saved'}</>
+                    ? <><CheckCircle2 className="w-3.5 h-3.5 text-[#2ECC71]" /> {bn ? 'সংরক্ষিত' : 'Saved'}</>
                     : <><Save className="w-3.5 h-3.5" /> {bn ? 'সংরক্ষণ' : 'Save notes'}</>}
                 </button>
               </div>
@@ -561,7 +561,7 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {patientData.patient.diabetes    && <span className="text-xs px-2 py-0.5 bg-red-50 text-red-600 rounded-md font-medium">Diabetes</span>}
-                    {patientData.patient.hypertension && <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-600 rounded-md font-medium">Hypertension</span>}
+                    {patientData.patient.hypertension && <span className="text-xs px-2 py-0.5 rounded-md font-medium" style={{ background: '#FEF5E7', color: '#7d5100' }}>Hypertension</span>}
                   </div>
                 </div>
               )}
@@ -598,7 +598,7 @@ export default function Teleconsult({ patientId, patientName, onEnd }: Teleconsu
                   <p className="text-sm font-semibold text-slate-800">{h.patient_name || h.doctor_name}</p>
                   <p className="text-xs text-slate-500">
                     {new Date(h.start_time).toLocaleDateString(bn ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    {' · '}<span className={h.status === 'ended' ? 'text-emerald-600' : 'text-amber-600'}>{h.status}</span>
+                    {' · '}<span className={h.status === 'ended' ? 'text-[#2ECC71]' : 'text-[#F39C12]'}>{h.status}</span>
                   </p>
                   {h.notes && <p className="text-xs text-slate-500 mt-1 italic line-clamp-2">{h.notes}</p>}
                 </div>

@@ -117,7 +117,7 @@ export default function Prescriptions() {
       </div>
 
       {message && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 font-medium text-sm flex items-center gap-2">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl font-medium text-sm flex items-center gap-2" style={{ background: '#EAFAF1', border: '1px solid #2ECC71', color: '#1a7a44' }}>
           <CheckCircle2 className="w-5 h-5" /> {message}
         </motion.div>
       )}
@@ -228,11 +228,11 @@ export default function Prescriptions() {
             </div>
 
             {selectedRx?.id === rx.id && rx.qr_code && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex items-center gap-3">
-                <QrCode className="w-8 h-8 text-blue-600" />
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-4 rounded-2xl border flex items-center gap-3" style={{ background: '#EFF8FB', borderColor: '#1A6B8A' }}>
+                <QrCode className="w-8 h-8" style={{ color: '#1A6B8A' }} />
                 <div>
-                  <p className="text-xs font-bold text-blue-700">{language === 'bn' ? 'ফার্মেসি QR কোড' : 'Pharmacy QR Code'}</p>
-                  <p className="text-sm font-mono text-blue-600">{rx.qr_code}</p>
+                  <p className="text-xs font-bold" style={{ color: '#1A6B8A' }}>{language === 'bn' ? 'ফার্মেসি QR কোড' : 'Pharmacy QR Code'}</p>
+                  <p className="text-sm font-mono" style={{ color: '#1A6B8A' }}>{rx.qr_code}</p>
                 </div>
               </motion.div>
             )}

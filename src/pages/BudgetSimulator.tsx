@@ -133,12 +133,12 @@ export default function BudgetSimulator() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: language === 'bn' ? 'অনুমানিত সিকেডি রোগী' : 'Est. CKD Patients', value: result.estimated_ckd.toLocaleString(), color: 'bg-blue-50 text-blue-700' },
-                  { label: language === 'bn' ? 'স্ক্রিন হওয়া রোগী' : 'Screened Patients', value: result.screened_patients.toLocaleString(), color: 'bg-purple-50 text-purple-700' },
-                  { label: language === 'bn' ? 'ডায়ালাইসিস প্রতিরোধ' : 'Dialysis Prevented', value: result.dialysis_cases_prevented.toLocaleString(), color: 'bg-emerald-50 text-emerald-700' },
-                  { label: language === 'bn' ? 'বিনিয়োগে রিটার্ন' : 'ROI', value: `${result.roi_percent}%`, color: result.net_saving_bdt > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' },
+                  { label: language === 'bn' ? 'অনুমানিত সিকেডি রোগী' : 'Est. CKD Patients', value: result.estimated_ckd.toLocaleString(), bg: '#EFF8FB', color: '#1A6B8A' },
+                  { label: language === 'bn' ? 'স্ক্রিন হওয়া রোগী' : 'Screened Patients', value: result.screened_patients.toLocaleString(), bg: '#EFF8FB', color: '#1A6B8A' },
+                  { label: language === 'bn' ? 'ডায়ালাইসিস প্রতিরোধ' : 'Dialysis Prevented', value: result.dialysis_cases_prevented.toLocaleString(), bg: '#EAFAF1', color: '#1a7a44' },
+                  { label: language === 'bn' ? 'বিনিয়োগে রিটার্ন' : 'ROI', value: `${result.roi_percent}%`, bg: result.net_saving_bdt > 0 ? '#EAFAF1' : '#FDECEA', color: result.net_saving_bdt > 0 ? '#1a7a44' : '#7b1a1a' },
                 ].map(card => (
-                  <div key={card.label} className={`p-4 rounded-2xl ${card.color}`}>
+                  <div key={card.label} className="p-4 rounded-2xl" style={{ background: card.bg, color: card.color }}>
                     <p className="text-2xl font-black">{card.value}</p>
                     <p className="text-xs font-semibold mt-1 opacity-80">{card.label}</p>
                   </div>
@@ -160,25 +160,25 @@ export default function BudgetSimulator() {
                       <YAxis tickFormatter={v => formatBDT(v)} />
                       <Tooltip formatter={(v: number) => formatBDT(v)} />
                       <Legend />
-                      <Bar dataKey={language === 'bn' ? 'স্ক্রিনিং খরচ' : 'Screening Cost'} fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey={language === 'bn' ? 'ওষুধ খরচ' : 'Medication Cost'} fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey={language === 'bn' ? 'ডায়ালাইসিস সাশ্রয়' : 'Dialysis Savings'} fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={language === 'bn' ? 'স্ক্রিনিং খরচ' : 'Screening Cost'} fill="#1A6B8A" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={language === 'bn' ? 'ওষুধ খরচ' : 'Medication Cost'} fill="#F39C12" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey={language === 'bn' ? 'ডায়ালাইসিস সাশ্রয়' : 'Dialysis Savings'} fill="#2ECC71" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              <div className={`p-6 rounded-3xl border ${result.net_saving_bdt > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="p-6 rounded-3xl border" style={result.net_saving_bdt > 0 ? { background: '#EAFAF1', borderColor: '#2ECC71' } : { background: '#FEF5E7', borderColor: '#F39C12' }}>
                 <div className="flex items-center gap-3 mb-3">
-                  <TrendingDown className={`w-6 h-6 ${result.net_saving_bdt > 0 ? 'text-emerald-600' : 'text-amber-600'}`} />
-                  <h3 className={`font-bold text-lg ${result.net_saving_bdt > 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                  <TrendingDown className="w-6 h-6" style={{ color: result.net_saving_bdt > 0 ? '#2ECC71' : '#F39C12' }} />
+                  <h3 className="font-bold text-lg" style={{ color: result.net_saving_bdt > 0 ? '#1a7a44' : '#7d5100' }}>
                     {language === 'bn' ? 'নেট অর্থনৈতিক প্রভাব' : 'Net Economic Impact'}
                   </h3>
                 </div>
-                <p className={`text-3xl font-black ${result.net_saving_bdt > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <p className="text-3xl font-black" style={{ color: result.net_saving_bdt > 0 ? '#1a7a44' : '#7d5100' }}>
                   {result.net_saving_bdt > 0 ? '+' : ''}{formatBDT(result.net_saving_bdt)}
                 </p>
-                <p className={`text-sm mt-2 ${result.net_saving_bdt > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <p className="text-sm mt-2" style={{ color: result.net_saving_bdt > 0 ? '#1a7a44' : '#7d5100' }}>
                   {language === 'bn'
                     ? `${result.years} বছরে মোট খরচ ${formatBDT(result.total_intervention_cost_bdt)} এর বিপরীতে ${formatBDT(result.dialysis_cost_saved_bdt)} সাশ্রয়`
                     : `${formatBDT(result.dialysis_cost_saved_bdt)} saved over ${result.years} years vs. ${formatBDT(result.total_intervention_cost_bdt)} investment`}

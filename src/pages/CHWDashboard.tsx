@@ -80,14 +80,19 @@ function getUrgency(patient: any, lastVisitMap: Record<number, Date | null>): Ur
 }
 const urgencyOrder: Record<Urgency, number> = { overdue: 0, 'due-soon': 1, done: 2 };
 const urgencyStyle: Record<Urgency, string> = {
-  overdue: 'bg-red-100 text-red-700 border-red-200',
-  'due-soon': 'bg-amber-100 text-amber-700 border-amber-200',
-  done: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  overdue: 'border',
+  'due-soon': 'border',
+  done: 'border',
+};
+const urgencyStyleInline: Record<Urgency, { background: string; color: string; borderColor: string }> = {
+  overdue: { background: '#FDECEA', color: '#7b1a1a', borderColor: '#E74C3C' },
+  'due-soon': { background: '#FEF5E7', color: '#7d5100', borderColor: '#F39C12' },
+  done: { background: '#EAFAF1', color: '#1a7a44', borderColor: '#2ECC71' },
 };
 const urgencyDot: Record<Urgency, string> = {
-  overdue: 'bg-red-500',
-  'due-soon': 'bg-amber-400',
-  done: 'bg-emerald-500',
+  overdue: 'bg-[#E74C3C]',
+  'due-soon': 'bg-[#F39C12]',
+  done: 'bg-[#2ECC71]',
 };
 
 // ── Badges ───────────────────────────────────────────────────────────────────
@@ -271,11 +276,17 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     if (r.ok) { fetchData(); }
   };
 
-  const getRiskBadge = (score: number) => {
-    if (score > 75) return 'bg-red-100 text-red-700';
-    if (score > 50) return 'bg-orange-100 text-orange-700';
-    if (score > 25) return 'bg-amber-100 text-amber-700';
-    return 'bg-emerald-100 text-emerald-700';
+  const getRiskBadge = (score: number): string => {
+    if (score > 75) return 'bg-[#FDECEA] text-[#7b1a1a] border border-[#E74C3C]';
+    if (score > 50) return 'bg-[#FEF5E7] text-[#7d5100] border border-[#F39C12]';
+    if (score > 25) return 'bg-[#FEF5E7] text-[#7d5100] border border-[#F39C12]';
+    return 'bg-[#EAFAF1] text-[#1a7a44] border border-[#2ECC71]';
+  };
+  const getRiskScoreColor = (score: number): string => {
+    if (score > 75) return 'text-[#E74C3C]';
+    if (score > 50) return 'text-[#F39C12]';
+    if (score > 25) return 'text-[#F39C12]';
+    return 'text-[#2ECC71]';
   };
 
   const getRiskLabel = (score: number) => {
@@ -328,7 +339,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     const days = getDaysSince(p.id);
     const recentVisits = visits.filter(v => v.patient_id === p.id).slice(0, 5);
     return (
-      <div className="min-h-screen bg-[#F4F7FB]">
+      <div className="min-h-screen bg-[#F8FAFC]">
         <div className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
           <button onClick={() => setSelectedPatientDetail(null)} className="p-2 -ml-2 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors">
             <ChevronRight className="w-6 h-6 rotate-180" />
@@ -337,14 +348,14 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             <h2 className="font-bold text-slate-900 text-lg">{p.name}</h2>
             <p className="text-xs text-slate-500">{p.district} · Stage {p.ckd_stage || '--'}</p>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-bold ${urgencyStyle[urgency]}`}>
+          <span className={`px-3 py-1 rounded-full text-xs font-bold ${urgencyStyle[urgency]}`} style={urgencyStyleInline[urgency]}>
             {urgency === 'overdue' ? (bn ? 'মেয়াদ পেরিয়েছে' : 'Overdue') : urgency === 'due-soon' ? (bn ? 'শীঘ্রই দেখুন' : 'Due Soon') : (bn ? 'সম্পন্ন' : 'Done')}
           </span>
         </div>
         <div className="px-4 py-4 space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center">
-              <p className={`text-2xl font-black ${getRiskBadge(p.risk_score || 0).includes('red') ? 'text-red-600' : getRiskBadge(p.risk_score || 0).includes('orange') ? 'text-orange-600' : getRiskBadge(p.risk_score || 0).includes('amber') ? 'text-amber-600' : 'text-emerald-600'}`}>{p.risk_score || 0}</p>
+              <p className={`text-2xl font-black ${getRiskScoreColor(p.risk_score || 0)}`}>{p.risk_score || 0}</p>
               <p className="text-xs text-slate-500 mt-1">{bn ? 'ঝুঁকি স্কোর' : 'Risk Score'}</p>
             </div>
             <div className="bg-white rounded-2xl p-4 border border-slate-100 text-center">
@@ -369,7 +380,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                   <p className="text-sm font-semibold text-slate-800 capitalize">{v.visit_type}</p>
                   <p className="text-xs text-slate-500">{new Date(v.timestamp).toLocaleDateString(bn ? 'bn-BD' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                 </div>
-                {v.lat && <span className="text-xs text-emerald-600 flex items-center gap-1"><MapPin className="w-3 h-3" />GPS</span>}
+                {v.lat && <span className="text-xs flex items-center gap-1" style={{ color: '#2ECC71' }}><MapPin className="w-3 h-3" />GPS</span>}
               </div>
             ))}
           </div>
@@ -386,11 +397,11 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-2">
+    <div className="min-h-screen bg-[#F8FAFC] pb-2">
 
       {/* Sync / offline banner */}
       {(!isOnline || isSyncing || syncMsg || pendingCount > 0) && (
-        <div className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold ${!isOnline ? 'bg-amber-500 text-white' : 'bg-[#1A6B8A] text-white'}`}>
+        <div className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white" style={{ background: !isOnline ? '#F39C12' : '#1A6B8A' }}>
           {!isOnline ? <WifiOff className="w-4 h-4 flex-shrink-0" /> : isSyncing ? <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" /> : <Wifi className="w-4 h-4 flex-shrink-0" />}
           <span className="flex-1">
             {!isOnline
@@ -407,7 +418,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
 
       {/* Submit feedback */}
       {submitMsg && (
-        <div className="mx-4 mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 text-sm font-semibold flex items-center gap-2">
+        <div className="mx-4 mt-3 p-3 rounded-2xl text-sm font-semibold flex items-center gap-2" style={{ background: '#EAFAF1', border: '1px solid #2ECC71', color: '#1a7a44' }}>
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" /> {submitMsg}
         </div>
       )}
@@ -419,10 +430,10 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
           <div className="flex gap-3">
             <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
-                <Star className="w-4 h-4 text-amber-500" />
+                <Star className="w-4 h-4" style={{ color: '#F39C12' }} />
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{bn ? 'পয়েন্ট' : 'Points'}</span>
               </div>
-              <p className="text-3xl font-black text-amber-600">{profile?.points || 0}</p>
+              <p className="text-3xl font-black" style={{ color: '#F39C12' }}>{profile?.points || 0}</p>
               {myRank > 0 && <p className="text-xs text-slate-400 mt-0.5">#{myRank} {bn ? 'র‍্যাঙ্ক' : 'rank'}</p>}
             </div>
             <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
@@ -440,9 +451,9 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             const overdue = patients.filter(p => getUrgency(p, lastVisitMap) === 'overdue').length;
             const soon = patients.filter(p => getUrgency(p, lastVisitMap) === 'due-soon').length;
             return overdue + soon > 0 ? (
-              <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                <p className="text-sm font-semibold text-red-700">
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{ background: '#FDECEA', border: '1px solid #E74C3C' }}>
+                <AlertTriangle className="w-5 h-5 flex-shrink-0" style={{ color: '#E74C3C' }} />
+                <p className="text-sm font-semibold" style={{ color: '#7b1a1a' }}>
                   {overdue > 0 && `${overdue} ${bn ? 'জন মেয়াদ পেরিয়েছে' : 'overdue'}${soon > 0 ? ', ' : ''}`}
                   {soon > 0 && `${soon} ${bn ? 'জন শীঘ্রই দেখুন' : 'due soon'}`}
                 </p>
@@ -615,7 +626,8 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                 <button
                   type="button"
                   onClick={getGPS}
-                  className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border-2 transition-all active:scale-95 ${gpsState === 'got' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : gpsState === 'error' ? 'border-red-300 bg-red-50 text-red-600' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                  className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 border-2 transition-all active:scale-95"
+                  style={gpsState === 'got' ? { borderColor: '#2ECC71', background: '#EAFAF1', color: '#1a7a44' } : gpsState === 'error' ? { borderColor: '#E74C3C', background: '#FDECEA', color: '#7b1a1a' } : { borderColor: '#e2e8f0', background: '#f8fafc', color: '#64748b' }}
                 >
                   {gpsState === 'getting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
                   {gpsState === 'idle' && (bn ? 'অবস্থান নিন (স্বয়ংক্রিয়)' : 'Get Location (auto)')}
@@ -671,8 +683,8 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                   </div>
                   {/* Other vitals */}
                   {[
-                    { key: 'blood_sugar', icon: <Droplets className="w-3 h-3 text-blue-500" />, en: 'Blood Sugar (mmol/L)', bn: 'রক্তের শর্করা (mmol/L)', ph: '5.6' },
-                    { key: 'creatinine', icon: <Activity className="w-3 h-3 text-purple-500" />, en: 'Creatinine (mg/dL)', bn: 'ক্রিয়েটিনিন (mg/dL)', ph: '1.1' },
+                    { key: 'blood_sugar', icon: <Droplets className="w-3 h-3" style={{ color: '#F39C12' }} />, en: 'Blood Sugar (mmol/L)', bn: 'রক্তের শর্করা (mmol/L)', ph: '5.6' },
+                    { key: 'creatinine', icon: <Activity className="w-3 h-3 text-[#1A6B8A]" />, en: 'Creatinine (mg/dL)', bn: 'ক্রিয়েটিনিন (mg/dL)', ph: '1.1' },
                     { key: 'weight', icon: <UserCircle className="w-3 h-3 text-slate-500" />, en: 'Weight (kg)', bn: 'ওজন (কেজি)', ph: '65' },
                   ].map(f => (
                     <div key={f.key}>
@@ -728,7 +740,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
 
               {/* Offline indicator */}
               {!isOnline && (
-                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl text-amber-700 text-sm">
+                <div className="flex items-center gap-2 p-3 rounded-2xl text-sm" style={{ background: '#FEF5E7', border: '1px solid #F39C12', color: '#7d5100' }}>
                   <WifiOff className="w-4 h-4 flex-shrink-0" />
                   {bn ? 'অফলাইনে সংরক্ষিত হবে — পরে সিঙ্ক হবে' : 'Will save offline — syncs when connected'}
                 </div>
@@ -776,7 +788,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
               <p className="text-xs text-slate-500 mt-0.5">{bn ? 'স্ট্রিক' : 'Streak'}</p>
             </div>
             <div className="bg-white rounded-2xl p-3 border border-slate-100 text-center">
-              <p className="text-2xl font-black text-emerald-600">{earnedBadges.length}</p>
+              <p className="text-2xl font-black" style={{ color: '#2ECC71' }}>{earnedBadges.length}</p>
               <p className="text-xs text-slate-500 mt-0.5">{bn ? 'ব্যাজ' : 'Badges'}</p>
             </div>
           </div>
@@ -785,7 +797,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-500" />
+                <Award className="w-4 h-4" style={{ color: '#F39C12' }} />
                 {bn ? 'ব্যাজ ও পুরস্কার' : 'Badges & Rewards'}
               </h3>
             </div>
@@ -793,7 +805,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
               {BADGES.map(badge => {
                 const earned = badge.check(profile, visitCount, patientCount);
                 return (
-                  <div key={badge.id} className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all ${earned ? 'bg-amber-50' : 'bg-slate-50 opacity-40'}`}>
+                  <div key={badge.id} className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all ${earned ? '' : 'bg-slate-50 opacity-40'}`} style={earned ? { background: '#FEF5E7' } : {}}>
                     <span className="text-2xl">{badge.icon}</span>
                     <span className="text-[10px] font-bold text-center text-slate-600 leading-tight">{bn ? badge.bn : badge.en}</span>
                   </div>
@@ -818,14 +830,14 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                   const isMe = l.name === user?.name;
                   return (
                     <div key={i} className={`flex items-center gap-3 px-4 py-3 ${isMe ? 'bg-[#1A6B8A]/5' : ''}`}>
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i === 0 ? 'bg-amber-400 text-white' : i === 1 ? 'bg-slate-300 text-slate-700' : i === 2 ? 'bg-orange-300 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${i === 1 ? 'bg-slate-300 text-slate-700' : i >= 3 ? 'bg-slate-100 text-slate-500' : ''}`} style={i === 0 ? { background: '#F39C12', color: '#fff' } : i === 2 ? { background: '#E74C3C', color: '#fff' } : {}}>
                         {i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-bold truncate ${isMe ? 'text-[#1A6B8A]' : 'text-slate-800'}`}>{l.name} {isMe && '(আপনি)'}</p>
                         <p className="text-xs text-slate-400">{l.district} · {l.visit_count} {bn ? 'ভিজিট' : 'visits'}</p>
                       </div>
-                      <p className="font-black text-amber-600 text-sm">{l.points} {bn ? 'pts' : 'pts'}</p>
+                      <p className="font-black text-sm" style={{ color: '#F39C12' }}>{l.points} {bn ? 'pts' : 'pts'}</p>
                     </div>
                   );
                 })}
@@ -878,20 +890,20 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-100">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                {isOnline ? <Wifi className="w-4 h-4 text-emerald-500" /> : <WifiOff className="w-4 h-4 text-amber-500" />}
+                {isOnline ? <Wifi className="w-4 h-4" style={{ color: '#2ECC71' }} /> : <WifiOff className="w-4 h-4" style={{ color: '#F39C12' }} />}
                 {bn ? 'সিঙ্ক স্ট্যাটাস' : 'Sync Status'}
               </h3>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">{bn ? 'সংযোগ' : 'Connection'}</span>
-                <span className={`text-sm font-bold ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <span className="text-sm font-bold" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
                   {isOnline ? (bn ? 'অনলাইন' : 'Online') : (bn ? 'অফলাইন' : 'Offline')}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-600">{bn ? 'পেন্ডিং ভিজিট' : 'Pending visits'}</span>
-                <span className={`text-sm font-bold ${pendingCount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{pendingCount}</span>
+                <span className="text-sm font-bold" style={{ color: pendingCount > 0 ? '#F39C12' : '#2ECC71' }}>{pendingCount}</span>
               </div>
               {isOnline && pendingCount > 0 && (
                 <button
@@ -903,7 +915,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                   {bn ? 'এখনই সিঙ্ক করুন' : 'Sync Now'}
                 </button>
               )}
-              {syncMsg && <p className="text-sm text-emerald-600 font-semibold text-center">{syncMsg}</p>}
+              {syncMsg && <p className="text-sm font-semibold text-center" style={{ color: '#2ECC71' }}>{syncMsg}</p>}
             </div>
           </div>
 
@@ -912,10 +924,10 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             <h3 className="font-bold text-slate-800 mb-3">{bn ? 'আমার পরিসংখ্যান' : 'My Stats'}</h3>
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: bn ? 'মোট পয়েন্ট' : 'Total Points', value: profile?.points || 0, color: 'text-amber-600' },
+                { label: bn ? 'মোট পয়েন্ট' : 'Total Points', value: profile?.points || 0, color: 'text-[#F39C12]' },
                 { label: bn ? 'মোট ভিজিট' : 'Total Visits', value: visitCount, color: 'text-[#1A6B8A]' },
                 { label: bn ? 'রোগীর সংখ্যা' : 'Patients', value: `${patientCount}/30`, color: 'text-slate-800' },
-                { label: bn ? 'ব্যাজ অর্জিত' : 'Badges Earned', value: earnedBadges.length, color: 'text-emerald-600' },
+                { label: bn ? 'ব্যাজ অর্জিত' : 'Badges Earned', value: earnedBadges.length, color: 'text-[#2ECC71]' },
               ].map(s => (
                 <div key={s.label} className="bg-slate-50 rounded-2xl p-3 text-center">
                   <p className={`text-xl font-black ${s.color}`}>{s.value}</p>

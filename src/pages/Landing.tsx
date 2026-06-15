@@ -10,19 +10,19 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       badge: 'Undiagnosed Risk',
       value: '33%',
       desc: 'of rural Bangladeshis are at risk but unaware',
-      badgeClass: 'bg-orange-50 text-orange-600',
+      badgeClass: 'bg-[#FDECEA] text-[#E74C3C]',
     },
     {
       badge: 'Higher Female Risk',
       value: '25.3%',
       desc: 'prevalence in females vs 20.3% in males',
-      badgeClass: 'bg-pink-50 text-pink-600',
+      badgeClass: 'bg-[#FDECEA] text-[#E74C3C]',
     },
     {
       badge: 'Age Factor',
       value: '40+',
       desc: 'years dramatically increases CKD progression',
-      badgeClass: 'bg-blue-50 text-blue-600',
+      badgeClass: 'bg-[#EFF8FB] text-[#1A6B8A]',
     },
   ];
 
@@ -179,7 +179,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
                         <span>61%</span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                        <div className="h-full w-[61%] rounded-full bg-emerald-500" />
+                        <div className="h-full w-[61%] rounded-full" style={{ background: '#2ECC71' }} />
                       </div>
                     </div>
                     <div>
@@ -188,7 +188,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
                         <span>84%</span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-slate-200">
-                        <div className="h-full w-[84%] rounded-full bg-orange-400" />
+                        <div className="h-full w-[84%] rounded-full" style={{ background: '#F39C12' }} />
                       </div>
                     </div>
                   </div>

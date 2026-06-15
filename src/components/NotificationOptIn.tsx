@@ -104,8 +104,8 @@ export default function NotificationOptIn({ language }: Props) {
 
           {status === 'success' ? (
             <div className="flex items-center gap-3 pr-6">
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EAFAF1' }}>
+                <CheckCircle2 className="w-5 h-5" style={{ color: '#2ECC71' }} />
               </div>
               <div>
                 <p className="text-sm font-bold text-slate-900">

@@ -27,11 +27,11 @@ interface AdherenceDay {
 }
 
 function getRateColor(rate: number | null): string {
-  if (rate === null) return 'bg-slate-100';
-  if (rate >= 90) return 'bg-emerald-500';
-  if (rate >= 70) return 'bg-teal-400';
-  if (rate >= 50) return 'bg-amber-400';
-  return 'bg-red-400';
+  if (rate === null) return '#e2e8f0';
+  if (rate >= 90) return '#2ECC71';
+  if (rate >= 70) return '#2ECC71';
+  if (rate >= 50) return '#F39C12';
+  return '#E74C3C';
 }
 
 function getRateLabel(rate: number | null, bn: boolean): string {
@@ -215,9 +215,9 @@ export default function MedicationAdherence() {
           </div>
           <p className={`text-sm font-semibold mt-2 ${
             rate30d === null ? 'text-slate-400'
-            : rate30d >= 90 ? 'text-emerald-600'
-            : rate30d >= 70 ? 'text-teal-600'
-            : rate30d >= 50 ? 'text-amber-600'
+            : rate30d >= 90 ? 'text-[#2ECC71]'
+            : rate30d >= 70 ? 'text-[#2ECC71]'
+            : rate30d >= 50 ? 'text-[#F39C12]'
             : 'text-red-500'
           }`}>
             {getRateLabel(rate30d, bn)}
@@ -291,7 +291,7 @@ export default function MedicationAdherence() {
                         whileTap={{ scale: 0.97 }}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all text-left ${
                           isTaken
-                            ? 'bg-emerald-50 border-emerald-200'
+                            ? 'bg-[#EAFAF1] border-[#2ECC71]'
                             : 'bg-slate-50 border-slate-200 hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5'
                         }`}
                       >
@@ -302,7 +302,7 @@ export default function MedicationAdherence() {
                             </motion.div>
                           ) : isTaken ? (
                             <motion.div key="checked" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}>
-                              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                              <CheckCircle2 className="w-5 h-5 text-[#2ECC71] flex-shrink-0" />
                             </motion.div>
                           ) : (
                             <motion.div key="unchecked" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}>
@@ -311,7 +311,7 @@ export default function MedicationAdherence() {
                           )}
                         </AnimatePresence>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-semibold text-sm ${isTaken ? 'text-emerald-700 line-through decoration-emerald-400' : 'text-slate-800'}`}>
+                          <p className={`font-semibold text-sm ${isTaken ? 'line-through text-[#1a7a44] decoration-[#2ECC71]' : 'text-slate-800'}`}>
                             {med.name}
                           </p>
                           {(med.dose || med.frequency) && (
@@ -321,7 +321,7 @@ export default function MedicationAdherence() {
                           )}
                         </div>
                         {isTaken && (
-                          <span className="text-xs font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full flex-shrink-0">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ color: '#1a7a44', background: '#EAFAF1' }}>
                             {bn ? 'নেওয়া হয়েছে' : 'Taken'}
                           </span>
                         )}
@@ -361,12 +361,13 @@ export default function MedicationAdherence() {
         {/* Grid — 84 cells in 12 rows of 7 */}
         <div className="grid grid-cols-7 gap-1">
           {grid.map((cell, i) => {
-            const colorClass = getRateColor(cell.rate);
+            const hex = getRateColor(cell.rate);
             return (
               <div
                 key={cell.date}
                 title={`${cell.date}: ${cell.rate !== null ? cell.rate + '%' : (bn ? 'তথ্য নেই' : 'No data')}`}
-                className={`aspect-square rounded-sm ${colorClass} cursor-default transition-opacity hover:opacity-80`}
+                className="aspect-square rounded-sm cursor-default transition-opacity hover:opacity-80"
+                style={{ background: hex.startsWith('#') ? hex : undefined }}
               />
             );
           })}
@@ -375,9 +376,10 @@ export default function MedicationAdherence() {
         {/* Legend */}
         <div className="flex items-center gap-3 mt-4 flex-wrap">
           <span className="text-xs text-slate-400">{bn ? 'কম' : 'Less'}</span>
-          {[null, 40, 60, 80, 95].map((val, i) => (
-            <div key={i} className={`w-4 h-4 rounded-sm ${getRateColor(val)}`} />
-          ))}
+          {[null, 40, 60, 80, 95].map((val, i) => {
+            const hex = getRateColor(val);
+            return <div key={i} className="w-4 h-4 rounded-sm" style={{ background: hex.startsWith('#') ? hex : '#e2e8f0' }} />;
+          })}
           <span className="text-xs text-slate-400">{bn ? 'বেশি' : 'More'}</span>
           <span className="text-xs text-slate-300 ml-2">
             {bn ? '(প্রতিটি ঘর = ১ দিন)' : '(each cell = 1 day)'}

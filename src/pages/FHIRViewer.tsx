@@ -86,7 +86,7 @@ export default function FHIRViewer() {
           </p>
         </div>
         <button onClick={downloadDHIS2} disabled={!dhis2Data}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-50">
+          className="flex items-center gap-2 px-6 py-3 text-white rounded-xl font-bold disabled:opacity-50" style={{ background: '#2ECC71' }}>
           <Download className="w-5 h-5" />
           {language === 'bn' ? 'DHIS2 এক্সপোর্ট' : 'Export DHIS2 JSON'}
         </button>
@@ -149,8 +149,8 @@ export default function FHIRViewer() {
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <div className="w-3 h-3 rounded-full bg-amber-500" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <div className="w-3 h-3 rounded-full bg-[#F39C12]" />
+                    <div className="w-3 h-3 rounded-full bg-[#2ECC71]" />
                     <span className="text-slate-400 text-xs ml-2 font-mono">FHIR R4 JSON</span>
                   </div>
                   <button onClick={() => {
@@ -160,7 +160,7 @@ export default function FHIRViewer() {
                     <Download className="w-3 h-3" /> Download
                   </button>
                 </div>
-                <pre className="text-xs text-emerald-400 font-mono whitespace-pre-wrap overflow-auto">
+                <pre className="text-xs font-mono whitespace-pre-wrap overflow-auto" style={{ color: '#2ECC71' }}>
                   {JSON.stringify(
                     activeTab === 'patient' ? fhirPatient :
                     activeTab === 'observation' ? fhirObs :
@@ -171,13 +171,13 @@ export default function FHIRViewer() {
                 </pre>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+              <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: '#EFF8FB', border: '1px solid #1A6B8A' }}>
+                <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#1A6B8A' }} />
                 <div>
-                  <p className="text-sm font-bold text-blue-800">
+                  <p className="text-sm font-bold" style={{ color: '#1A6B8A' }}>
                     {language === 'bn' ? 'এফএইচআইআর R4 সামঞ্জস্যপূর্ণ' : 'FHIR R4 Compatible'}
                   </p>
-                  <p className="text-xs text-blue-600 mt-1">
+                  <p className="text-xs mt-1" style={{ color: '#1A6B8A' }}>
                     {language === 'bn'
                       ? 'এই ডেটা যেকোনো FHIR R4 সামঞ্জস্যপূর্ণ হাসপাতাল সিস্টেমে আমদানি করা যাবে।'
                       : 'This data can be imported into any FHIR R4 compatible hospital EMR or lab system.'}

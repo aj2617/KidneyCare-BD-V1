@@ -9,12 +9,12 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // ── CKD Staging Quick Reference ────────────────────────────────────────────
 const CKD_STAGES = [
-  { stage: '1', gfr: '≥ 90', label: 'Normal', color: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200', desc: 'Kidney damage with normal or high GFR' },
-  { stage: '2', gfr: '60–89', label: 'Mildly Reduced', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', desc: 'Kidney damage with mildly decreased GFR' },
-  { stage: '3a', gfr: '45–59', label: 'Mild–Moderate', color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-200', desc: 'Moderate CKD — monitor closely' },
-  { stage: '3b', gfr: '30–44', label: 'Moderate–Severe', color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-200', desc: 'Significant loss of kidney function' },
-  { stage: '4', gfr: '15–29', label: 'Severely Reduced', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-200', desc: 'Severe CKD — prepare for RRT' },
-  { stage: '5', gfr: '< 15', label: 'Kidney Failure', color: 'text-red-900', bg: 'bg-red-100', border: 'border-red-300', desc: 'Kidney failure — dialysis or transplant' },
+  { stage: '1', gfr: '≥ 90', label: 'Normal', color: '#1a7a44', bg: '#EAFAF1', border: '#2ECC71', desc: 'Kidney damage with normal or high GFR' },
+  { stage: '2', gfr: '60–89', label: 'Mildly Reduced', color: '#1A6B8A', bg: '#EFF8FB', border: '#1A6B8A', desc: 'Kidney damage with mildly decreased GFR' },
+  { stage: '3a', gfr: '45–59', label: 'Mild–Moderate', color: '#7d5100', bg: '#FEF5E7', border: '#F39C12', desc: 'Moderate CKD — monitor closely' },
+  { stage: '3b', gfr: '30–44', label: 'Moderate–Severe', color: '#7d5100', bg: '#FEF5E7', border: '#F39C12', desc: 'Significant loss of kidney function' },
+  { stage: '4', gfr: '15–29', label: 'Severely Reduced', color: '#7b1a1a', bg: '#FDECEA', border: '#E74C3C', desc: 'Severe CKD — prepare for RRT' },
+  { stage: '5', gfr: '< 15', label: 'Kidney Failure', color: '#7b1a1a', bg: '#FDECEA', border: '#E74C3C', desc: 'Kidney failure — dialysis or transplant' },
 ];
 
 function CKDStagingSheet({ bn, onClose }: { bn: boolean; onClose: () => void }) {
@@ -53,11 +53,11 @@ function CKDStagingSheet({ bn, onClose }: { bn: boolean; onClose: () => void }) 
             <p className="text-[10px] font-black text-slate-400 uppercase">Category</p>
           </div>
           {CKD_STAGES.map(s => (
-            <div key={s.stage} className={`rounded-xl border p-3 ${s.bg} ${s.border}`}>
+            <div key={s.stage} className="rounded-xl border p-3" style={{ background: s.bg, borderColor: s.border }}>
               <div className="grid grid-cols-3 gap-1 items-center">
-                <div className={`text-lg font-black ${s.color}`}>G{s.stage}</div>
-                <div className={`text-sm font-bold ${s.color}`}>{s.gfr}</div>
-                <div className={`text-xs font-bold ${s.color}`}>{s.label}</div>
+                <div className="text-lg font-black" style={{ color: s.color }}>G{s.stage}</div>
+                <div className="text-sm font-bold" style={{ color: s.color }}>{s.gfr}</div>
+                <div className="text-xs font-bold" style={{ color: s.color }}>{s.label}</div>
               </div>
               <p className="text-xs text-slate-500 mt-1 col-span-3">{s.desc}</p>
             </div>
@@ -98,8 +98,8 @@ const TOOLS: Tool[] = [
     subtitleEn: 'MDRD · CG · CKD-EPI',
     subtitleBn: 'MDRD · CG · CKD-EPI',
     Icon: Calculator,
-    cardCls: 'bg-teal-50 border-teal-200 text-teal-900',
-    iconCls: 'text-teal-600',
+    cardCls: 'bg-[#EFF8FB] border-[#1A6B8A] text-[#1A6B8A]',
+    iconCls: 'text-[#1A6B8A]',
     offline: true,
     navigate: 'gfr',
   },
@@ -110,8 +110,8 @@ const TOOLS: Tool[] = [
     subtitleEn: 'Bengali PDF + QR',
     subtitleBn: 'বাংলা PDF + QR',
     Icon: FileText,
-    cardCls: 'bg-blue-50 border-blue-200 text-blue-900',
-    iconCls: 'text-blue-600',
+    cardCls: 'bg-[#EFF8FB] border-[#1A6B8A] text-[#1A6B8A]',
+    iconCls: 'text-[#1A6B8A]',
     offline: false,
     navigate: 'prescriptions',
   },
@@ -122,8 +122,8 @@ const TOOLS: Tool[] = [
     subtitleEn: 'Start video call',
     subtitleBn: 'ভিডিও কল শুরু করুন',
     Icon: Video,
-    cardCls: 'bg-green-50 border-green-200 text-green-900',
-    iconCls: 'text-green-600',
+    cardCls: 'bg-[#EAFAF1] border-[#2ECC71] text-[#1a7a44]',
+    iconCls: 'text-[#2ECC71]',
     offline: false,
     navigate: 'teleconsult',
   },
@@ -134,8 +134,8 @@ const TOOLS: Tool[] = [
     subtitleEn: 'Side-by-side GFR',
     subtitleBn: 'পাশাপাশি GFR',
     Icon: BarChart2,
-    cardCls: 'bg-purple-50 border-purple-200 text-purple-900',
-    iconCls: 'text-purple-600',
+    cardCls: 'bg-[#EFF8FB] border-[#1A6B8A] text-[#1A6B8A]',
+    iconCls: 'text-[#1A6B8A]',
     offline: false,
     navigate: 'gfr',
   },
@@ -146,8 +146,8 @@ const TOOLS: Tool[] = [
     subtitleEn: 'Quick reference',
     subtitleBn: 'দ্রুত রেফারেন্স',
     Icon: ClipboardList,
-    cardCls: 'bg-amber-50 border-amber-200 text-amber-900',
-    iconCls: 'text-amber-600',
+    cardCls: 'bg-[#FEF5E7] border-[#F39C12] text-[#7d5100]',
+    iconCls: 'text-[#F39C12]',
     offline: true,
     action: 'staging-sheet',
   },
@@ -247,14 +247,15 @@ export default function DoctorTools() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
-        className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
+        className="rounded-2xl p-4 flex items-start gap-3 shadow-sm"
+        style={{ background: '#EAFAF1', border: '1px solid #2ECC71' }}
       >
-        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+        <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#2ECC71' }} />
         <div>
-          <h4 className="font-bold text-emerald-900 text-sm">
+          <h4 className="font-bold text-sm" style={{ color: '#1a7a44' }}>
             {bn ? 'অফলাইন মোড প্রস্তুত' : 'Offline mode ready'}
           </h4>
-          <p className="text-emerald-700 text-xs mt-0.5 leading-relaxed">
+          <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#1a7a44' }}>
             {bn
               ? '৪টি টুল সিগন্যাল ছাড়াই ব্যবহারযোগ্য। GFR ক্যালকুলেটর, সমীকরণ, স্টেজিং ও আংশিক প্রেসক্রিপশন ক্যাশড।'
               : '4 tools available without signal. GFR Calculator, Equations, Staging, and partial Prescriptions are cached.'}

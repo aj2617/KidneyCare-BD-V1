@@ -53,13 +53,13 @@ function getCKDInfo(riskScore: number, bn: boolean) {
   };
   if (riskScore > 30) return {
     label: bn ? 'সিকেডি স্টেজ ৩' : 'CKD Stage 3',
-    cls: 'text-orange-600 bg-orange-50',
-    avatarCls: 'bg-orange-100 text-orange-700',
+    cls: 'text-[#F39C12] bg-[#FEF5E7]',
+    avatarCls: 'bg-[#FEF5E7] text-[#7d5100]',
   };
   return {
     label: bn ? 'সিকেডি স্টেজ ২' : 'CKD Stage 2',
-    cls: 'text-blue-600 bg-blue-50',
-    avatarCls: 'bg-blue-100 text-blue-700',
+    cls: 'text-[#1A6B8A] bg-[#EFF8FB]',
+    avatarCls: 'bg-[#EFF8FB] text-[#1A6B8A]',
   };
 }
 
@@ -217,15 +217,16 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 text-center mb-6"
+          className="rounded-2xl p-6 text-center mb-6"
+          style={{ background: '#EAFAF1', border: '1px solid #2ECC71' }}
         >
           <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <Sparkles className="w-6 h-6 text-emerald-500" />
+            <Sparkles className="w-6 h-6" style={{ color: '#2ECC71' }} />
           </div>
-          <p className="font-black text-emerald-700 text-lg">
+          <p className="font-black text-lg" style={{ color: '#1a7a44' }}>
             {bn ? 'সব ঠিক আছে!' : 'All caught up!'}
           </p>
-          <p className="text-sm text-emerald-600 mt-1 font-medium">
+          <p className="text-sm mt-1 font-medium" style={{ color: '#1a7a44' }}>
             {bn ? 'আপনি সব দেখেছেন।' : 'আপনি সব দেখেছেন। Great job managing your patients today.'}
           </p>
         </motion.div>
@@ -309,12 +310,12 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
                       {getInitials(teleconsultPatient.name)}
                     </div>
                     {/* Online dot */}
                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-white rounded-full flex items-center justify-center">
-                      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#2ECC71' }} />
                     </div>
                   </div>
                   <div>
@@ -424,8 +425,8 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
       {/* ── ALWAYS-SHOWN BOTTOM "ALL CAUGHT UP" FOOTER ── */}
       {!allClear && (
         <div className="mt-4 mb-2 text-center flex flex-col items-center gap-2 opacity-60">
-          <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: '#EAFAF1' }}>
+            <CheckCircle2 className="w-5 h-5" style={{ color: '#2ECC71' }} />
           </div>
           <p className="text-sm font-medium text-slate-500">
             {bn ? 'আপনি সব দেখেছেন' : 'All caught up! আপনি সব দেখেছেন'}

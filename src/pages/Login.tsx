@@ -4,10 +4,10 @@ import { Activity, Mail, Lock, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Admin', email: 'admin@kidneycare.bd', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200' },
-  { label: 'Doctor', email: 'doctor@kidneycare.bd', color: 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200' },
-  { label: 'CHW', email: 'chw@kidneycare.bd', color: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-200' },
-  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200' },
+  { label: 'Admin', email: 'admin@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'Doctor', email: 'doctor@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'CHW', email: 'chw@kidneycare.bd', color: 'bg-[#EAFAF1] text-[#1a7a44] hover:bg-[#2ECC71]/10 border-[#2ECC71]/30' },
+  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
 ];
 
 export default function Login({ onRegister }: { onRegister: () => void }) {
@@ -73,10 +73,10 @@ export default function Login({ onRegister }: { onRegister: () => void }) {
         </div>
 
         {/* Demo Quick Login */}
-        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+        <div className="mb-6 p-4 rounded-2xl" style={{ background: '#FEF5E7', border: '1px solid #F39C12' }}>
           <div className="flex items-center gap-2 mb-3">
-            <Zap className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-bold text-amber-700">Demo — one-click login</span>
+            <Zap className="w-4 h-4" style={{ color: '#F39C12' }} />
+            <span className="text-sm font-bold" style={{ color: '#7d5100' }}>Demo — one-click login</span>
           </div>
           <div className="grid grid-cols-2 gap-2">
             {DEMO_ACCOUNTS.map(({ label, email: demoEmail, color }) => (
@@ -92,7 +92,7 @@ export default function Login({ onRegister }: { onRegister: () => void }) {
               </button>
             ))}
           </div>
-          <p className="text-xs text-amber-600 mt-2 text-center">Password for all accounts: <span className="font-mono font-bold">password123</span></p>
+          <p className="text-xs mt-2 text-center" style={{ color: '#7d5100' }}>Password for all accounts: <span className="font-mono font-bold">password123</span></p>
         </div>
 
         <div className="flex items-center gap-3 mb-6">

@@ -200,7 +200,7 @@ export default function DoctorProfile() {
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
                   <Globe className="w-4 h-4 text-[#1A6B8A]" />
                 </div>
                 <div>
@@ -243,7 +243,7 @@ export default function DoctorProfile() {
             {/* Sync Status */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
                   <RefreshCw className={`w-4 h-4 text-[#1A6B8A] ${syncing ? 'animate-spin' : ''}`} />
                 </div>
                 <div>
@@ -251,7 +251,7 @@ export default function DoctorProfile() {
                     <p className="text-sm font-semibold text-slate-900">
                       {bn ? 'সিঙ্ক স্ট্যাটাস' : 'Sync Status'}
                     </p>
-                    <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                    <span className="w-2 h-2 rounded-full" style={{ background: isOnline ? '#2ECC71' : '#F39C12' }} />
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {syncing
@@ -275,16 +275,16 @@ export default function DoctorProfile() {
             {/* Connection */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
                   {isOnline
                     ? <Wifi className="w-4 h-4 text-[#1A6B8A]" />
-                    : <WifiOff className="w-4 h-4 text-amber-500" />}
+                    : <WifiOff className="w-4 h-4" style={{ color: '#F39C12' }} />}
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-slate-900">
                     {bn ? 'সংযোগ' : 'Connection'}
                   </p>
-                  <p className={`text-xs font-medium mt-0.5 ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
                     {isOnline
                       ? (bn ? 'অনলাইন' : 'Online')
                       : (bn ? 'অফলাইন মোড' : 'Offline mode')}
@@ -296,7 +296,7 @@ export default function DoctorProfile() {
             {/* Offline Data */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
                   <Download className="w-4 h-4 text-[#1A6B8A]" />
                 </div>
                 <div>
@@ -316,7 +316,7 @@ export default function DoctorProfile() {
             {/* Pending Actions */}
             <div className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EFF8FB' }}>
                   <CheckCircle2 className="w-4 h-4 text-[#1A6B8A]" />
                 </div>
                 <div>

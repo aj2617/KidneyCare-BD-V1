@@ -76,22 +76,22 @@ export default function CostPlanner() {
 
         <div className="space-y-6">
           <div className="bg-slate-900 text-white p-8 rounded-3xl">
-            <TrendingUp className="w-10 h-10 text-emerald-400 mb-6" />
+            <TrendingUp className="w-10 h-10 mb-6" style={{ color: '#2ECC71' }} />
             <h3 className="text-xl font-bold mb-4">Financial Planning</h3>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
               Early diagnosis and management can reduce long-term costs by up to 60%. Following your treatment plan strictly is the best way to avoid expensive emergency procedures.
             </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-sm font-medium text-slate-300">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2ECC71' }} />
                 Save for ESRD preparation
               </div>
               <div className="flex items-center gap-3 text-sm font-medium text-slate-300">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2ECC71' }} />
                 Explore NGO assistance
               </div>
               <div className="flex items-center gap-3 text-sm font-medium text-slate-300">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#2ECC71' }} />
                 Health insurance schemes (HEFA)
               </div>
             </div>

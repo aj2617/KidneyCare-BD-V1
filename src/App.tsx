@@ -211,7 +211,7 @@ export default function App() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-amber-500 text-white text-sm font-semibold text-center py-2 flex items-center justify-center gap-2 z-[100]"
+            className="text-white text-sm font-semibold text-center py-2 flex items-center justify-center gap-2 z-[100]" style={{ background: '#F39C12' }}
           >
             <WifiOff className="w-4 h-4" />
             {t('offline.banner')}
@@ -267,7 +267,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3">
                 {/* Online/Offline indicator */}
-                <div className={`hidden sm:flex items-center gap-1 text-xs font-medium ${isOnline ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <div className="hidden sm:flex items-center gap-1 text-xs font-medium" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
                   {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                   <span className="hidden md:inline">{isOnline ? 'Online' : 'Offline'}</span>
                 </div>
@@ -360,7 +360,7 @@ export default function App() {
       )}
 
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'admin' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'chw' ? 'pb-24 px-0 sm:px-0 lg:px-0 py-0' : ''}`}>
-        <motion.div key={currentPage} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}>
+        <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
           {renderPage()}
         </motion.div>
       </main>

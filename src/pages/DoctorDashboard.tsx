@@ -47,10 +47,10 @@ function SkeletonCard() {
 }
 
 function getRiskConfig(score: number) {
-  if (score <= 25) return { label: 'Low', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' };
-  if (score <= 50) return { label: 'Moderate', cls: 'bg-amber-100 text-amber-700 border-amber-200', dot: 'bg-amber-500' };
-  if (score <= 75) return { label: 'High', cls: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500' };
-  return { label: 'Critical', cls: 'bg-red-100 text-red-700 border-red-200', dot: 'bg-red-500' };
+  if (score <= 25) return { label: 'Low', cls: 'border', dot: 'bg-[#2ECC71]', dotHex: '#2ECC71', bg: '#EAFAF1', color: '#1a7a44', borderColor: '#2ECC71' };
+  if (score <= 50) return { label: 'Moderate', cls: 'border', dot: 'bg-[#F39C12]', dotHex: '#F39C12', bg: '#FEF5E7', color: '#7d5100', borderColor: '#F39C12' };
+  if (score <= 75) return { label: 'High', cls: 'border', dot: 'bg-[#F39C12]', dotHex: '#F39C12', bg: '#FEF5E7', color: '#7d5100', borderColor: '#F39C12' };
+  return { label: 'Critical', cls: 'border', dot: 'bg-[#E74C3C]', dotHex: '#E74C3C', bg: '#FDECEA', color: '#7b1a1a', borderColor: '#E74C3C' };
 }
 
 function daysSince(dateStr: string | null) {
@@ -133,7 +133,7 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
       {/* ── TEAL HEADER ── */}
       <div
         className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-5"
-        style={{ background: 'linear-gradient(135deg,#1A6B8A 0%,#0e4d66 100%)', borderRadius: '0 0 1.5rem 1.5rem' }}
+        style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">
           <div>
@@ -177,7 +177,8 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
           </button>
           <button
             onClick={() => setShowAssign(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-400/90 text-white border border-emerald-300/30 hover:bg-emerald-400 transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white border border-white/20 hover:opacity-90 transition-all"
+            style={{ background: '#2ECC71' }}
           >
             <UserPlus className="w-3.5 h-3.5" />
             {bn ? 'রোগী যুক্ত করুন' : 'Find & Assign'}
@@ -189,8 +190,8 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
       <div className="grid grid-cols-3 gap-3">
         {[
           { label: bn ? 'মোট রোগী' : 'Total Patients', value: patients.length, icon: Users, color: 'text-[#1A6B8A] bg-[#1A6B8A]/10' },
-          { label: bn ? 'সংকটাপন্ন' : 'Critical', value: criticalPts, icon: AlertCircle, color: 'text-red-600 bg-red-50' },
-          { label: bn ? 'অপঠিত সতর্কতা' : 'Unread Alerts', value: unread.length, icon: Bell, color: 'text-amber-600 bg-amber-50' },
+          { label: bn ? 'সংকটাপন্ন' : 'Critical', value: criticalPts, icon: AlertCircle, color: 'bg-[#FDECEA] text-[#E74C3C]' },
+          { label: bn ? 'অপঠিত সতর্কতা' : 'Unread Alerts', value: unread.length, icon: Bell, color: 'bg-[#FEF5E7] text-[#F39C12]' },
         ].map(stat => (
           <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex items-center gap-3 shadow-sm">
             <div className={`p-2 rounded-xl shrink-0 ${stat.color}`}>
@@ -314,7 +315,7 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
                         <span className="text-slate-400 text-xs">eGFR</span>
                         <span className="text-sm font-bold">{gfr ?? '--'}</span>
                         {trend === 'down' && <span className="text-red-500 text-base leading-none">↓</span>}
-                        {trend === 'up'   && <span className="text-emerald-500 text-base leading-none">↑</span>}
+                        {trend === 'up'   && <span className="text-base leading-none" style={{ color: '#2ECC71' }}>↑</span>}
                         {trend === 'stable' && <span className="text-slate-400 text-base leading-none">–</span>}
                       </div>
                       <span className={`text-xs flex items-center gap-1 ${overdue ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
@@ -468,7 +469,7 @@ function AlertsPanel({ alerts, loading, onMarkRead, onMarkAllRead, onSelectPatie
 
         {warnings.length > 0 && (
           <div>
-            <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1.5 px-1 mt-2">
+            <p className="text-[10px] font-black uppercase tracking-widest mb-1.5 px-1 mt-2" style={{ color: '#F39C12' }}>
               {bn ? 'সতর্কতা' : 'Warning'}
             </p>
             {warnings.map(alert => (
@@ -567,7 +568,7 @@ function AssignPatientModal({ token, language, onClose, onAssigned }: {
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div className="flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-emerald-600" />
+            <UserPlus className="w-5 h-5" style={{ color: '#2ECC71' }} />
             <h2 className="font-black text-slate-900">
               {bn ? 'রোগী খুঁজুন ও যুক্ত করুন' : 'Find & Assign Patient'}
             </h2>
@@ -635,7 +636,10 @@ function AssignPatientModal({ token, language, onClose, onAssigned }: {
                 </div>
 
                 {/* Risk badge */}
-                <span className={`hidden sm:inline px-2 py-1 rounded-full text-[10px] font-black border ${risk.cls} shrink-0`}>
+                <span
+                  className="hidden sm:inline px-2 py-1 rounded-full text-xs font-black border shrink-0"
+                  style={{ background: risk.bg, color: risk.color, borderColor: risk.borderColor }}
+                >
                   {risk.label}
                 </span>
 
@@ -648,11 +652,11 @@ function AssignPatientModal({ token, language, onClose, onAssigned }: {
                 <button
                   onClick={() => assign(patient.id)}
                   disabled={isAssigning || wasAssigned}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[36px] shrink-0 ${
-                    wasAssigned
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm'
-                  } disabled:opacity-70`}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all min-h-[36px] shrink-0 disabled:opacity-70"
+                  style={wasAssigned
+                    ? { background: '#EAFAF1', color: '#1a7a44', border: '1px solid #2ECC71' }
+                    : { background: '#2ECC71', color: '#fff' }
+                  }
                 >
                   {isAssigning
                     ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -682,11 +686,15 @@ function AlertCard({ alert, onMarkRead, onSelectPatient, language }: {
 }) {
   const isCritical = alert.type === 'CRITICAL';
   return (
-    <div className={`relative rounded-xl p-3 mb-1.5 group ${
-      isCritical ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'
-    } ${alert.is_read ? 'opacity-60' : ''}`}>
+    <div
+      className={`relative rounded-xl p-3 mb-1.5 group ${alert.is_read ? 'opacity-60' : ''}`}
+      style={{
+        background: isCritical ? '#FDECEA' : '#FEF5E7',
+        border: `1px solid ${isCritical ? '#E74C3C' : '#F39C12'}`,
+      }}
+    >
       <div className="flex items-start gap-2.5">
-        <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${isCritical ? 'text-red-500' : 'text-amber-500'}`} />
+        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: isCritical ? '#E74C3C' : '#F39C12' }} />
         <div className="flex-1 min-w-0">
           <button
             className="font-bold text-xs text-slate-900 hover:text-[#1A6B8A] transition-colors text-left leading-snug"

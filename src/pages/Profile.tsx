@@ -85,7 +85,7 @@ export default function Profile() {
       <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
           {message && (
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-medium flex items-center gap-2">
+            <div className="p-4 rounded-xl text-sm font-medium flex items-center gap-2" style={{ background: '#EAFAF1', color: '#1a7a44' }}>
               <CheckCircle2 className="w-5 h-5" />
               {message}
             </div>

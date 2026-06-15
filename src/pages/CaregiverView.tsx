@@ -54,7 +54,7 @@ export default function CaregiverView() {
       </div>
 
       {message && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-700 font-medium text-sm flex items-center gap-2">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 rounded-2xl font-medium text-sm flex items-center gap-2" style={{ background: '#EAFAF1', border: '1px solid #2ECC71', color: '#1a7a44' }}>
           <CheckCircle2 className="w-5 h-5" /> {message}
         </motion.div>
       )}

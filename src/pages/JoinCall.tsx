@@ -272,13 +272,13 @@ export default function JoinCall({ joinToken }: { joinToken: string }) {
           </div>
           <div className="h-px bg-slate-700 mb-5" />
           <ul className="space-y-2 text-sm text-slate-300 mb-6">
-            <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> End-to-end encrypted video</li>
-            <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> No account required</li>
-            <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Camera & mic access needed</li>
+            <li className="flex items-center gap-2"><span style={{ color: '#2ECC71' }}>✓</span> End-to-end encrypted video</li>
+            <li className="flex items-center gap-2"><span style={{ color: '#2ECC71' }}>✓</span> No account required</li>
+            <li className="flex items-center gap-2"><span style={{ color: '#2ECC71' }}>✓</span> Camera & mic access needed</li>
           </ul>
           <button
             onClick={joinCall}
-            className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3.5 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2" style={{ background: '#2ECC71' }}
           >
             <Video className="w-5 h-5" />
             Join Call

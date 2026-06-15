@@ -31,10 +31,10 @@ const DISTRICTS_COORDS: Record<string, [number, number]> = {
 const DISTRICTS_SIM = ['Dhaka', 'Chittagong', 'Rajshahi', 'Khulna', 'Barisal', 'Sylhet', 'Rangpur', 'Mymensingh', 'Gazipur', 'Narayanganj', 'Comilla', 'Bogra', 'Dinajpur'];
 
 const ROLE_COLORS: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  doctor: 'bg-blue-100 text-blue-700',
-  patient: 'bg-teal-100 text-teal-700',
-  chw: 'bg-emerald-100 text-emerald-700',
+  admin: 'bg-[#1A6B8A]/10 text-[#1A6B8A]',
+  doctor: 'bg-[#1A6B8A]/10 text-[#1A6B8A]',
+  patient: 'bg-[#EAFAF1] text-[#1a7a44]',
+  chw: 'bg-[#EAFAF1] text-[#1a7a44]',
 };
 
 function downloadTextFile(content: string, filename: string, type = 'text/markdown;charset=utf-8;') {
@@ -66,7 +66,7 @@ function KpiCard({ label, value, sub, color, icon: Icon, sparkData, trend }:
           <Icon className="w-5 h-5" />
         </div>
         {trend && (
-          <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#EAFAF1', color: '#1a7a44' }}>
             <TrendingUp className="w-3 h-3" />{trend}
           </span>
         )}
@@ -356,7 +356,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
       </div>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 flex items-center gap-2">
+        <div className="rounded-xl px-4 py-3 text-sm font-medium flex items-center gap-2" style={{ background: '#FDECEA', border: '1px solid #E74C3C', color: '#7b1a1a' }}>
           <AlertCircle className="h-4 w-4 shrink-0" /> {error}
           <button onClick={() => setError('')} className="ml-auto"><X className="w-4 h-4" /></button>
         </div>
@@ -391,7 +391,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   label={language === 'bn' ? 'মোট রোগী' : 'Total Patients'}
                   value={totalPatients.toLocaleString()}
                   icon={Users}
-                  color="bg-blue-50 text-blue-600"
+                  color="bg-[#1A6B8A]/10 text-[#1A6B8A]"
                   sparkData={patientSparkData}
                   trend="+12%"
                 />
@@ -400,28 +400,28 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   value={`${highRiskPct}%`}
                   sub={`${highRiskCount.toLocaleString()} ${language === 'bn' ? 'রোগী' : 'patients'}`}
                   icon={AlertCircle}
-                  color="bg-red-50 text-red-500"
+                  color="bg-[#FDECEA] text-[#E74C3C]"
                   sparkData={riskSparkData}
                 />
                 <KpiCard
                   label={language === 'bn' ? 'গড় GFR স্তর' : 'Avg GFR Stage'}
                   value={stats?.stage_distribution?.length ? `Stage ${Math.round(stats.stage_distribution.reduce((s: number, d: any) => s + d.ckd_stage * d.count, 0) / (stats.stage_distribution.reduce((s: number, d: any) => s + d.count, 0) || 1))}` : 'N/A'}
                   icon={Activity}
-                  color="bg-amber-50 text-amber-600"
+                  color="bg-[#FEF5E7] text-[#F39C12]"
                 />
                 <KpiCard
                   label={language === 'bn' ? 'মহিলা রোগী %' : 'Female Patients %'}
                   value={femalePct !== null ? `${femalePct}%` : 'N/A'}
                   sub={stats?.female_count != null ? `${stats.female_count} ${language === 'bn' ? 'মহিলা' : 'female'}` : undefined}
                   icon={UserCheck}
-                  color="bg-pink-50 text-pink-600"
+                  color="bg-[#1A6B8A]/10 text-[#1A6B8A]"
                 />
                 <KpiCard
                   label={language === 'bn' ? 'জেলা কভার্ড' : 'Districts Covered'}
                   value={districtsCovered}
                   sub={`${language === 'bn' ? 'মোট' : 'of'} 64 ${language === 'bn' ? 'জেলার মধ্যে' : 'districts'}`}
                   icon={Globe2}
-                  color="bg-emerald-50 text-emerald-600"
+                  color="bg-[#EAFAF1] text-[#1a7a44]"
                   trend={`${Math.round((districtsCovered / 64) * 100)}%`}
                 />
               </div>
@@ -429,10 +429,10 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
-                    { label: language === 'bn' ? 'ডাক্তার' : 'Doctors', value: stats.total_doctors, color: 'bg-blue-600' },
-                    { label: language === 'bn' ? 'স্বাস্থ্যকর্মী' : 'CHW Workers', value: stats.total_chw, color: 'bg-emerald-600' },
-                    { label: language === 'bn' ? 'ভাইটালস রেকর্ড' : 'Vitals Records', value: stats.total_vitals_logs?.toLocaleString(), color: 'bg-purple-600' },
-                    { label: language === 'bn' ? 'ঝুঁকি প্রতিক্রিয়া' : 'Risk Feedback', value: stats.risk_feedback_count, color: 'bg-orange-500' },
+                    { label: language === 'bn' ? 'ডাক্তার' : 'Doctors', value: stats.total_doctors, color: 'bg-[#1A6B8A]' },
+                    { label: language === 'bn' ? 'স্বাস্থ্যকর্মী' : 'CHW Workers', value: stats.total_chw, color: 'bg-[#2ECC71]' },
+                    { label: language === 'bn' ? 'ভাইটালস রেকর্ড' : 'Vitals Records', value: stats.total_vitals_logs?.toLocaleString(), color: 'bg-[#F39C12]' },
+                    { label: language === 'bn' ? 'ঝুঁকি প্রতিক্রিয়া' : 'Risk Feedback', value: stats.risk_feedback_count, color: 'bg-[#E74C3C]' },
                   ].map(s => (
                     <div key={s.label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
                       <div className={`w-1.5 h-6 rounded-full ${s.color} mb-3`} />
@@ -499,7 +499,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                           }} />
                       </div>
                       <span className="text-sm font-bold text-slate-800 w-8 text-right">{d.count}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${(d.avg_risk ?? 0) > 50 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={(d.avg_risk ?? 0) > 50 ? { background: '#FDECEA', color: '#7b1a1a' } : { background: '#FEF5E7', color: '#7d5100' }}>
                         {Math.round(d.avg_risk ?? 0)}
                       </span>
                     </div>
@@ -554,7 +554,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                                   <p className="font-bold text-slate-900 mb-1">{district.district}</p>
                                   <p className="text-slate-600">{language === 'bn' ? 'রোগী:' : 'Patients:'} <strong>{district.count}</strong></p>
                                   <p className="text-slate-600">{language === 'bn' ? 'গড় ঝুঁকি:' : 'Avg Risk:'} <strong>{Math.round(district.avg_risk ?? 0)}</strong></p>
-                                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${isHighRisk ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                  <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold" style={isHighRisk ? { background: '#FDECEA', color: '#7b1a1a' } : { background: '#FEF5E7', color: '#7d5100' }}>
                                     {isHighRisk ? (language === 'bn' ? 'উচ্চ ঝুঁকি' : 'High Risk') : (language === 'bn' ? 'মধ্যম ঝুঁকি' : 'Moderate')}
                                   </span>
                                 </div>
@@ -566,7 +566,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                           <CircleMarker key={`chw-${i}`} center={[pt.lat, pt.lng]} radius={5}
                             fillColor="#10b981" color="#fff" weight={1} fillOpacity={0.9}>
                             <Popup>
-                              <p className="font-bold text-emerald-700 text-sm">CHW Visit</p>
+                              <p className="font-bold text-sm" style={{ color: '#2ECC71' }}>CHW Visit</p>
                               <p className="text-xs">{pt.patient_name}</p>
                             </Popup>
                           </CircleMarker>
@@ -605,7 +605,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                           className="w-full flex items-center gap-2 text-left hover:bg-slate-50 p-1 rounded-lg transition-colors">
                           <span className="text-xs text-slate-400 w-4">{i + 1}</span>
                           <span className="text-xs text-slate-700 flex-1 truncate">{d.district}</span>
-                          <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${(d.avg_risk ?? 0) > 50 ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{d.count}</span>
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={(d.avg_risk ?? 0) > 50 ? { background: '#FDECEA', color: '#E74C3C' } : { background: '#FEF5E7', color: '#F39C12' }}>{d.count}</span>
                           <ChevronRight className="w-3 h-3 text-slate-300" />
                         </button>
                       ))}
@@ -613,9 +613,9 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   </div>
 
                   {chwPoints.length > 0 && (
-                    <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4">
-                      <p className="text-xs font-bold text-emerald-700 uppercase">{language === 'bn' ? 'সিএইচডব্লিউ পরিদর্শন' : 'CHW Visits'}</p>
-                      <p className="text-2xl font-black text-emerald-700 mt-1">{chwPoints.length}</p>
+                    <div className="rounded-2xl p-4" style={{ background: '#EAFAF1', border: '1px solid #2ECC71' }}>
+                      <p className="text-xs font-bold uppercase" style={{ color: '#1a7a44' }}>{language === 'bn' ? 'সিএইচডব্লিউ পরিদর্শন' : 'CHW Visits'}</p>
+                      <p className="text-2xl font-black mt-1" style={{ color: '#1a7a44' }}>{chwPoints.length}</p>
                     </div>
                   )}
                 </div>
@@ -638,7 +638,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm flex flex-col">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center"><Download className="w-5 h-5" /></div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#EAFAF1', color: '#2ECC71' }}><Download className="w-5 h-5" /></div>
                     <div>
                       <h3 className="font-bold text-slate-900 text-sm">{language === 'bn' ? 'গবেষণা ডেটাসেট' : 'Research Dataset'}</h3>
                       <p className="text-xs text-slate-500">{language === 'bn' ? 'অনামী CSV রপ্তানি' : 'Anonymized CSV export'}</p>
@@ -648,7 +648,8 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                     {language === 'bn' ? 'অনুমোদিত গবেষকদের জন্য রোগীর পরিচয় ছাড়া ক্লিনিক্যাল ডেটা।' : 'Clinical data stripped of patient identifiers, approved for external researchers.'}
                   </p>
                   <button onClick={handleResearchExport} disabled={isResearchExporting}
-                    className="flex items-center gap-2 px-5 py-2 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition-all disabled:opacity-50">
+                    className="flex items-center gap-2 px-5 py-2 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50"
+                    style={{ background: '#2ECC71' }}>
                     {isResearchExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                     {isResearchExporting ? (language === 'bn' ? 'রপ্তানি হচ্ছে...' : 'Exporting...') : (language === 'bn' ? 'CSV ডাউনলোড' : 'Export CSV')}
                   </button>
@@ -662,7 +663,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                     {reports.map(report => (
                       <div key={report.id} className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
                         <div className="flex justify-between items-start mb-3">
-                          <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-[#1A6B8A] group-hover:text-white transition-colors">
+                          <div className="p-2.5 rounded-xl group-hover:bg-[#1A6B8A] group-hover:text-white transition-colors" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
                             <FileText className="w-5 h-5" />
                           </div>
                           <span className="text-xs font-semibold text-slate-400">{report.date}</span>
@@ -740,12 +741,12 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {[
-                          { label: language === 'bn' ? 'অনুমানিত সিকেডি' : 'Est. CKD', value: simResult.estimated_ckd?.toLocaleString(), color: 'bg-blue-50 text-blue-700' },
-                          { label: language === 'bn' ? 'স্ক্রিন হওয়া' : 'Screened', value: simResult.screened_patients?.toLocaleString(), color: 'bg-purple-50 text-purple-700' },
-                          { label: language === 'bn' ? 'ডায়ালাইসিস প্রতিরোধ' : 'Dialysis Prevented', value: simResult.dialysis_cases_prevented?.toLocaleString(), color: 'bg-emerald-50 text-emerald-700' },
-                          { label: 'ROI', value: `${simResult.roi_percent}%`, color: simResult.net_saving_bdt > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700' },
+                          { label: language === 'bn' ? 'অনুমানিত সিকেডি' : 'Est. CKD', value: simResult.estimated_ckd?.toLocaleString(), bg: '#EFF8FB', color: '#1A6B8A' },
+                          { label: language === 'bn' ? 'স্ক্রিন হওয়া' : 'Screened', value: simResult.screened_patients?.toLocaleString(), bg: '#EFF8FB', color: '#1A6B8A' },
+                          { label: language === 'bn' ? 'ডায়ালাইসিস প্রতিরোধ' : 'Dialysis Prevented', value: simResult.dialysis_cases_prevented?.toLocaleString(), bg: '#EAFAF1', color: '#1a7a44' },
+                          { label: 'ROI', value: `${simResult.roi_percent}%`, bg: simResult.net_saving_bdt > 0 ? '#EAFAF1' : '#FDECEA', color: simResult.net_saving_bdt > 0 ? '#1a7a44' : '#7b1a1a' },
                         ].map(c => (
-                          <div key={c.label} className={`p-4 rounded-2xl ${c.color}`}>
+                          <div key={c.label} className="p-4 rounded-2xl" style={{ background: c.bg, color: c.color }}>
                             <p className="text-xl font-black">{c.value}</p>
                             <p className="text-xs font-semibold mt-1 opacity-80">{c.label}</p>
                           </div>
@@ -766,19 +767,19 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                               <YAxis tickFormatter={v => formatBDT(v)} tick={{ fontSize: 11 }} />
                               <Tooltip formatter={(v: number) => formatBDT(v)} />
                               <Legend />
-                              <Bar dataKey={language === 'bn' ? 'স্ক্রিনিং' : 'Screening'} fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                              <Bar dataKey={language === 'bn' ? 'ওষুধ' : 'Medication'} fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                              <Bar dataKey={language === 'bn' ? 'সাশ্রয়' : 'Savings'} fill="#10b981" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey={language === 'bn' ? 'স্ক্রিনিং' : 'Screening'} fill="#1A6B8A" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey={language === 'bn' ? 'ওষুধ' : 'Medication'} fill="#F39C12" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey={language === 'bn' ? 'সাশ্রয়' : 'Savings'} fill="#2ECC71" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
                       </div>
-                      <div className={`p-5 rounded-2xl border ${simResult.net_saving_bdt > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                      <div className="p-5 rounded-2xl border" style={simResult.net_saving_bdt > 0 ? { background: '#EAFAF1', borderColor: '#2ECC71' } : { background: '#FEF5E7', borderColor: '#F39C12' }}>
                         <p className="text-xs font-bold uppercase opacity-60 mb-1">{language === 'bn' ? 'নেট অর্থনৈতিক প্রভাব' : 'Net Economic Impact'}</p>
-                        <p className={`text-3xl font-black ${simResult.net_saving_bdt > 0 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        <p className="text-3xl font-black" style={{ color: simResult.net_saving_bdt > 0 ? '#1a7a44' : '#7d5100' }}>
                           {simResult.net_saving_bdt > 0 ? '+' : ''}{formatBDT(simResult.net_saving_bdt)}
                         </p>
-                        <p className={`text-sm mt-1 ${simResult.net_saving_bdt > 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        <p className="text-sm mt-1" style={{ color: simResult.net_saving_bdt > 0 ? '#1a7a44' : '#7d5100' }}>
                           {formatBDT(simResult.dialysis_cost_saved_bdt)} {language === 'bn' ? 'সাশ্রয়' : 'saved'} vs. {formatBDT(simResult.total_intervention_cost_bdt)} {language === 'bn' ? 'বিনিয়োগ' : 'investment'} · {simResult.years} {language === 'bn' ? 'বছর' : 'yrs'}
                         </p>
                       </div>
@@ -810,7 +811,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
               </div>
 
               {cohortMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm flex items-center gap-2">
+                <div className="p-3 rounded-xl text-sm flex items-center gap-2" style={{ background: '#EAFAF1', border: '1px solid #2ECC71', color: '#1a7a44' }}>
                   <CheckCircle2 className="w-4 h-4" /> {cohortMessage}
                 </div>
               )}
@@ -1022,7 +1023,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                             </td>
                             <td className="px-4 py-3.5">
                               {u.active ? (
-                                <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                                <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#2ECC71' }}>
                                   <CheckCircle2 className="w-3.5 h-3.5" />{language === 'bn' ? 'সক্রিয়' : 'Active'}
                                 </span>
                               ) : (
@@ -1035,10 +1036,8 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                               <button
                                 onClick={() => toggleUserStatus(u.id)}
                                 disabled={togglingUser === u.id}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${u.active
-                                  ? 'bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50'
-                                  : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 disabled:opacity-50'
-                                }`}>
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                                style={u.active ? { background: '#FDECEA', color: '#E74C3C' } : { background: '#EAFAF1', color: '#2ECC71' }}>
                                 {togglingUser === u.id ? <Loader2 className="w-3 h-3 animate-spin" /> :
                                   u.active ? <UserX className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
                                 {u.active
