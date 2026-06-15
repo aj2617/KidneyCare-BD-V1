@@ -289,6 +289,12 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
   const highRiskCount = useMemo(() => heatmapData.filter(r => (r.avg_risk ?? 0) > 50).reduce((s, r) => s + r.count, 0), [heatmapData]);
   const highRiskPct = totalPatients > 0 ? Math.round((highRiskCount / totalPatients) * 100) : 0;
   const districtsCovered = heatmapData.filter(r => r.count > 0).length;
+  const femalePct = (stats?.female_count != null && totalPatients > 0)
+    ? Math.round((stats.female_count / totalPatients) * 100)
+    : null;
+  const top3HighRisk = useMemo(() =>
+    [...heatmapData].sort((a, b) => (b.avg_risk ?? 0) - (a.avg_risk ?? 0)).slice(0, 3),
+    [heatmapData]);
 
   const patientSparkData = useMemo(() => generateSparkline(totalPatients), [totalPatients]);
   const riskSparkData = useMemo(() => generateSparkline(highRiskPct, 30).map(d => ({ ...d, value: Math.min(100, d.value) })), [highRiskPct]);
@@ -380,7 +386,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <KpiCard
                   label={language === 'bn' ? 'মোট রোগী' : 'Total Patients'}
                   value={totalPatients.toLocaleString()}
@@ -402,6 +408,13 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   value={stats?.stage_distribution?.length ? `Stage ${Math.round(stats.stage_distribution.reduce((s: number, d: any) => s + d.ckd_stage * d.count, 0) / (stats.stage_distribution.reduce((s: number, d: any) => s + d.count, 0) || 1))}` : 'N/A'}
                   icon={Activity}
                   color="bg-amber-50 text-amber-600"
+                />
+                <KpiCard
+                  label={language === 'bn' ? 'মহিলা রোগী %' : 'Female Patients %'}
+                  value={femalePct !== null ? `${femalePct}%` : 'N/A'}
+                  sub={stats?.female_count != null ? `${stats.female_count} ${language === 'bn' ? 'মহিলা' : 'female'}` : undefined}
+                  icon={UserCheck}
+                  color="bg-pink-50 text-pink-600"
                 />
                 <KpiCard
                   label={language === 'bn' ? 'জেলা কভার্ড' : 'Districts Covered'}
@@ -444,6 +457,26 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                           label={{ position: 'top', fontSize: 11, fill: '#64748b' }} />
                       </BarChart>
                     </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {top3HighRisk.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                  <h3 className="font-bold text-red-900 mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {language === 'bn' ? 'শীর্ষ ৩ উচ্চ-ঝুঁকি জেলা' : 'Top 3 Highest-Risk Districts'}
+                  </h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {top3HighRisk.map((d, i) => (
+                      <div key={d.district} className="bg-white rounded-xl p-4 border border-red-100 text-center">
+                        <p className="text-xs font-bold text-red-400 uppercase mb-1">#{i + 1}</p>
+                        <p className="text-sm font-bold text-slate-900 leading-snug">{d.district}</p>
+                        <p className="text-xl font-black text-red-600 mt-1">{Math.round(d.avg_risk ?? 0)}</p>
+                        <p className="text-xs text-slate-400">{language === 'bn' ? 'গড় ঝুঁকি' : 'avg risk'}</p>
+                        <p className="text-xs font-semibold text-slate-600 mt-1">{d.count} {language === 'bn' ? 'রোগী' : 'patients'}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}

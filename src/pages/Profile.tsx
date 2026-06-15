@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { User, Scale, Calendar, Activity, Shield, Loader2, CheckCircle2 } from 'lucide-react';
+import { User, Scale, Calendar, Shield, Loader2, CheckCircle2, Phone } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export default function Profile() {
@@ -13,7 +13,8 @@ export default function Profile() {
     weight: '',
     diabetes: false,
     hypertension: false,
-    family_history: false
+    family_history: false,
+    caregiver_phone: '',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,7 +33,8 @@ export default function Profile() {
             weight: data.weight || '',
             diabetes: !!data.diabetes,
             hypertension: !!data.hypertension,
-            family_history: !!data.family_history
+            family_history: !!data.family_history,
+            caregiver_phone: data.caregiver_phone || '',
           });
         }
         setIsLoading(false);
@@ -46,7 +48,7 @@ export default function Profile() {
     try {
       const res = await fetch('/api/patient/profile', {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
@@ -149,7 +151,7 @@ export default function Profile() {
             <h3 className="font-bold text-slate-900 flex items-center gap-2">
               <Shield className="w-5 h-5 text-[#1A6B8A]" /> Health Conditions
             </h3>
-            
+
             <div className="space-y-3">
               <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
                 <input
@@ -181,6 +183,21 @@ export default function Profile() {
                 <span className="text-sm font-medium text-slate-700">Any family history of Kidney Disease?</span>
               </label>
             </div>
+          </div>
+
+          <div className="space-y-2 pt-4 border-t border-slate-100">
+            <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-3">
+              <Phone className="w-5 h-5 text-[#1A6B8A]" /> Caregiver Contact
+            </h3>
+            <label className="text-sm font-semibold text-slate-700">Caregiver Phone Number</label>
+            <input
+              type="tel"
+              value={formData.caregiver_phone}
+              onChange={(e) => setFormData({ ...formData, caregiver_phone: e.target.value })}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#1A6B8A]/20"
+              placeholder="+880 1700-000000"
+            />
+            <p className="text-xs text-slate-400">Your caregiver will be notified if you miss logging for 3+ days.</p>
           </div>
 
           <button

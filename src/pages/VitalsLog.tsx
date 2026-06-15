@@ -495,10 +495,10 @@ export default function VitalsLog() {
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                  {bn ? `ক্লান্তির মাত্রা: ${formData.fatigue}/10` : `Fatigue Level: ${formData.fatigue}/10`}
+                  {bn ? `ক্লান্তির মাত্রা: ${formData.fatigue}/5` : `Fatigue Level: ${formData.fatigue}/5`}
                 </label>
                 <input
-                  type="range" min="1" max="10"
+                  type="range" min="1" max="5"
                   value={formData.fatigue}
                   onChange={e => setFormData({ ...formData, fatigue: parseInt(e.target.value) })}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1A6B8A]"

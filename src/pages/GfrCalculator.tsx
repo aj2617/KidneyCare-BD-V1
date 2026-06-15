@@ -4,11 +4,23 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { Calculator, Info, CheckCircle2, AlertTriangle, Loader2, Upload, Zap, Camera, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+function calcOfflineCkdEpi(creatinine: number, age: number, sex: string): number {
+  const kappa = sex === 'female' ? 0.7 : 0.9;
+  const alpha = sex === 'female' ? -0.241 : -0.302;
+  const ratio = creatinine / kappa;
+  const base = ratio <= 1
+    ? Math.pow(ratio, alpha)
+    : Math.pow(ratio, -1.200);
+  const femaleMultiplier = sex === 'female' ? 1.012 : 1.0;
+  return Math.round(142 * base * Math.pow(0.9938, age) * femaleMultiplier);
+}
+
 export default function GfrCalculator() {
   const { token } = useAuth();
   const { t, language } = useLanguage();
   const [formData, setFormData] = useState({ creatinine: '', age: '', sex: 'male', weight: '', uacr: '' });
   const [result, setResult] = useState<any>(null);
+  const [history, setHistory] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [ocrText, setOcrText] = useState('');
   const [isOcrProcessing, setIsOcrProcessing] = useState(false);
@@ -24,6 +36,10 @@ export default function GfrCalculator() {
       .then(data => {
         if (data) setFormData(prev => ({ ...prev, age: data.age?.toString() || '', sex: data.sex || 'male', weight: data.weight?.toString() || '' }));
       });
+    fetch('/api/patient/gfr-history', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setHistory(data.slice(-3).reverse()); })
+      .catch(() => {});
   }, [token]);
 
   const runExtraction = async (text: string) => {
@@ -83,6 +99,8 @@ export default function GfrCalculator() {
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault();
     const cr = parseFloat(formData.creatinine);
+    const age = parseInt(formData.age);
+    const weight = parseFloat(formData.weight);
     if (cr < 0.1 || cr > 30) {
       alert(language === 'bn' ? 'ক্রিয়েটিনিনের মান ০.১–৩০ mg/dL এর মধ্যে হতে হবে।' : 'Creatinine must be between 0.1–30 mg/dL.');
       return;
@@ -93,16 +111,26 @@ export default function GfrCalculator() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          creatinine: cr,
-          age: parseInt(formData.age),
-          sex: formData.sex,
-          weight: parseFloat(formData.weight),
+          creatinine: cr, age, sex: formData.sex, weight,
           uacr: formData.uacr ? parseFloat(formData.uacr) : undefined,
         }),
       });
-      setResult(await res.json());
-    } catch { /* offline */ }
-    finally { setIsLoading(false); }
+      const data = await res.json();
+      setResult(data);
+      setHistory(prev => [data, ...prev].slice(0, 3));
+    } catch {
+      const offlineEpi = calcOfflineCkdEpi(cr, age, formData.sex);
+      const stage = offlineEpi >= 90 ? 1 : offlineEpi >= 60 ? 2 : offlineEpi >= 45 ? 3 : offlineEpi >= 30 ? 4 : 5;
+      const offlineResult = {
+        ckdEpi: offlineEpi, mdrd: offlineEpi, cg: offlineEpi,
+        avgGfr: offlineEpi, stage,
+        recommendation: language === 'bn'
+          ? 'অফলাইন গণনা (শুধুমাত্র CKD-EPI 2021)। সংযোগ পুনরুদ্ধার হলে পুনরায় সংরক্ষণ করুন।'
+          : 'Offline calculation (CKD-EPI 2021 only). Reconnect to save to your record.',
+        offline: true,
+      };
+      setResult(offlineResult);
+    } finally { setIsLoading(false); }
   };
 
   const stageColors = ['', 'bg-emerald-50 border-emerald-200 text-emerald-700', 'bg-blue-50 border-blue-200 text-blue-700',
@@ -251,10 +279,40 @@ export default function GfrCalculator() {
         </div>
 
         <div className="space-y-6">
+          {history.length > 0 && (
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <h4 className="text-sm font-bold text-slate-600 uppercase tracking-wide mb-3">
+                {language === 'bn' ? 'সর্বশেষ ৩টি ফলাফল' : 'Last 3 Results'}
+              </h4>
+              <div className="space-y-2">
+                {history.map((h, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                        h.stage >= 4 ? 'bg-red-100 text-red-700' : h.stage === 3 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                      }`}>Stage {h.stage}</span>
+                      <span className="text-sm font-black text-slate-900">{Math.round(h.ckdEpi ?? h.avgGfr ?? 0)} <span className="text-xs font-normal text-slate-400">mL/min</span></span>
+                    </div>
+                    {h.created_at && (
+                      <span className="text-xs text-slate-400">{new Date(h.created_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {result ? (
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
-              <h3 className="text-xl font-bold text-slate-900">{language === 'bn' ? 'ফলাফল' : 'Calculation Results'}</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-slate-900">{language === 'bn' ? 'ফলাফল' : 'Calculation Results'}</h3>
+                {result?.offline && (
+                  <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded-lg">
+                    {language === 'bn' ? 'অফলাইন' : 'Offline'}
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[

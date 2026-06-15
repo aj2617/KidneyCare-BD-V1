@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, AlertCircle, Flame, Utensils, Heart,
-  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign
+  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
@@ -17,6 +17,7 @@ export default function PatientDashboard() {
   const [gfrHistory, setGfrHistory] = useState<any[]>([]);
   const [riskData, setRiskData] = useState<{ score: number; factors: string[] }>({ score: 0, factors: [] });
   const [streak, setStreak] = useState(0);
+  const [lastBP, setLastBP] = useState<{ systolic: number; diastolic: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const isProfileIncomplete = Boolean(profile && (!profile.age || !profile.weight || !profile.sex));
@@ -28,17 +29,25 @@ export default function PatientDashboard() {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [pRes, gRes, rRes, sRes] = await Promise.all([
+      const [pRes, gRes, rRes, sRes, vRes] = await Promise.all([
         fetch('/api/patient/profile', { headers }),
         fetch('/api/patient/gfr-history', { headers }),
         fetch('/api/patient/risk-score', { headers }),
         fetch('/api/patient/streak', { headers }),
+        fetch('/api/patient/vitals', { headers }),
       ]);
       setProfile(await pRes.json());
       setGfrHistory(await gRes.json());
       setRiskData(await rRes.json());
       const sd = await sRes.json();
       setStreak(sd.streak || 0);
+      const vitals: any[] = await vRes.json();
+      if (Array.isArray(vitals) && vitals.length > 0) {
+        const latest = vitals[0];
+        if (latest.systolic && latest.diastolic) {
+          setLastBP({ systolic: latest.systolic, diastolic: latest.diastolic, date: latest.date });
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -171,6 +180,42 @@ export default function PatientDashboard() {
 
       {/* ── MINI STATS ROW ── */}
       <div className="grid grid-cols-2 gap-4">
+
+        {/* Last BP card */}
+        {lastBP && (
+          <motion.button
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.03 }}
+            onClick={() => nav('vitals')}
+            className={`col-span-2 text-left p-4 rounded-2xl border shadow-sm active:scale-95 transition-transform flex items-center justify-between ${
+              lastBP.systolic >= 140 || lastBP.diastolic >= 90
+                ? 'bg-red-50 border-red-200'
+                : 'bg-white border-slate-100'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl ${lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? 'bg-red-100 text-red-600' : 'bg-sky-50 text-sky-600'}`}>
+                <Droplets className="w-5 h-5" />
+              </div>
+              <div>
+                <p className={`text-2xl font-black leading-none ${lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? 'text-red-700' : 'text-slate-900'}`}>
+                  {lastBP.systolic}/{lastBP.diastolic}
+                  <span className="text-sm font-semibold text-slate-400 ml-1">mmHg</span>
+                </p>
+                <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                  {bn ? 'সর্বশেষ রক্তচাপ' : 'Last Blood Pressure'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right shrink-0">
+              <p className={`text-xs font-bold px-2 py-1 rounded-lg ${lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? 'bg-red-100 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                {lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? (bn ? 'উচ্চ' : 'High') : (bn ? 'স্বাভাবিক' : 'Normal')}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">{new Date(lastBP.date).toLocaleDateString()}</p>
+            </div>
+          </motion.button>
+        )}
 
         {/* GFR Sparkline card */}
         <motion.button

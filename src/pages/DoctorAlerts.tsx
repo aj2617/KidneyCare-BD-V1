@@ -53,9 +53,8 @@ function SwipeableAlertCard({
     <div className="relative overflow-hidden rounded-xl">
       {/* Swipe-to-dismiss background */}
       <motion.div
-        style={{ opacity: dismissOpacity }}
-        className="absolute inset-0 flex items-center justify-end pr-5 rounded-xl"
         style={{ backgroundColor: '#fee2e2', opacity: dismissOpacity } as any}
+        className="absolute inset-0 flex items-center justify-end pr-5 rounded-xl"
       >
         <CheckCircle2 className="w-5 h-5 text-red-400" />
       </motion.div>

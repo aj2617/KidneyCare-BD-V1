@@ -1789,6 +1789,7 @@ async function startServer() {
     const totalVitalsLogs = (db.prepare('SELECT COUNT(*) as c FROM vitals_log').get() as any).c;
     const stageStats = db.prepare('SELECT ckd_stage, COUNT(*) as count FROM patients WHERE ckd_stage IS NOT NULL GROUP BY ckd_stage').all();
     const feedback = db.prepare('SELECT COUNT(*) as c FROM risk_feedback').get() as any;
+    const femaleCount = (db.prepare("SELECT COUNT(*) as c FROM patients WHERE sex = 'female'").get() as any).c;
 
     res.json({
       total_patients: totalPatients,
@@ -1798,6 +1799,7 @@ async function startServer() {
       total_vitals_logs: totalVitalsLogs,
       stage_distribution: stageStats,
       risk_feedback_count: feedback.c,
+      female_count: femaleCount,
     });
   });
 

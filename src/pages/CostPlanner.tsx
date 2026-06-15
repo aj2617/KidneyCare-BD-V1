@@ -23,6 +23,15 @@ export default function CostPlanner() {
     { stage: 5, label: 'Kidney Transplant', cost: '5,00,000 - 15,00,000', items: ['Surgery', 'Donor costs', 'Post-op meds'], per: 'one-time' }
   ];
 
+  const hospitals = [
+    { name: 'BSMMU (PG Hospital)', location: 'Shahbag, Dhaka', phone: '02-9661065' },
+    { name: 'National Institute of Kidney Diseases & Urology', location: 'Sher-e-Bangla Nagar, Dhaka', phone: '02-9128614' },
+    { name: 'Kidney Foundation Hospital & Research Institute', location: 'Mirpur-2, Dhaka', phone: '02-9005982' },
+    { name: 'Shaheed Suhrawardy Medical College Hospital', location: 'Sher-e-Bangla Nagar, Dhaka', phone: '02-9137942' },
+    { name: 'MAG Osmani Medical College Hospital', location: 'Sylhet', phone: '0821-716476' },
+    { name: 'Rajshahi Medical College Hospital', location: 'Rajshahi', phone: '0721-772150' },
+  ];
+
   return (
     <div className="space-y-8">
       <div className="text-center max-w-2xl mx-auto">
@@ -36,7 +45,7 @@ export default function CostPlanner() {
             <h3 className="text-xl font-bold text-slate-900 mb-6">Estimated Monthly Costs (BDT)</h3>
             <div className="space-y-4">
               {costData.map((item, i) => (
-                <div 
+                <div
                   key={i}
                   className={`p-6 rounded-2xl border transition-all ${
                     profile?.ckd_stage === item.stage ? 'bg-[#1A6B8A]/5 border-[#1A6B8A] ring-1 ring-[#1A6B8A]' : 'bg-slate-50 border-slate-100'
@@ -81,31 +90,32 @@ export default function CostPlanner() {
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 Explore NGO assistance
               </div>
+              <div className="flex items-center gap-3 text-sm font-medium text-slate-300">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Health insurance schemes (HEFA)
+              </div>
             </div>
           </div>
 
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-xl font-bold text-slate-900 mb-6">Subsidized Centers</h3>
-            <div className="space-y-4">
-              {[
-                { name: 'BSMMU (PG Hospital)', location: 'Dhaka' },
-                { name: 'National Institute of Kidney Diseases', location: 'Dhaka' },
-                { name: 'Kidney Foundation', location: 'Mirpur, Dhaka' }
-              ].map((h, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
-                  <Hospital className="w-5 h-5 text-[#1A6B8A]" />
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">{h.name}</p>
-                    <p className="text-xs text-slate-500">{h.location}</p>
+            <div className="space-y-3">
+              {hospitals.map((h, i) => (
+                <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                  <Hospital className="w-5 h-5 text-[#1A6B8A] mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-900 leading-snug">{h.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{h.location}</p>
+                    <p className="text-xs text-[#1A6B8A] font-medium mt-0.5">{h.phone}</p>
                   </div>
                 </div>
               ))}
             </div>
-            <button 
+            <button
               onClick={() => window.open('https://www.google.com/maps/search/kidney+centers+in+bangladesh', '_blank')}
               className="w-full mt-6 py-3 text-[#1A6B8A] font-bold text-sm flex items-center justify-center gap-2 hover:underline"
             >
-              View All Centers
+              View All Centers on Map
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
