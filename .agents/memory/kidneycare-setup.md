@@ -5,14 +5,15 @@ description: Native dependency and blocked package issues specific to this proje
 
 ## better-sqlite3 native binary not compiled on first install
 
-**Rule:** After any fresh `npm install`, `better-sqlite3` may be missing its `.node` binary at `node_modules/better-sqlite3/build/Release/better_sqlite3.node`. The install script (`prebuild-install || node-gyp rebuild`) silently fails if Python is not yet installed.
+**Rule:** `better-sqlite3 v12.11.1` has NO prebuilt binary for Node 20 (ABI 115). Compiling from source via `node-gyp rebuild` also fails — the `sqlite3.c` compile step gets OOM-killed (the process is Terminated by the OS before it finishes).
 
-**Why:** Python is required by node-gyp to compile the native binding. Replit's NixOS environment doesn't include Python by default; it must be explicitly installed first.
+**Why:** better-sqlite3 v12.11.1 only ships prebuilt binaries for Node 22+ (ABI 127+). Node 20 has no prebuilt and the environment can't compile it from source.
 
-**How to apply:**
-1. Install Python first: `installProgrammingLanguage({ language: "python-3.11" })`
-2. Then reinstall the package: `npm install better-sqlite3 --build-from-source`
-3. Verify: `ls node_modules/better-sqlite3/build/Release/*.node`
+**How to apply (the working fix):**
+1. Upgrade Node: `installProgrammingLanguage({ language: "nodejs-22" })` — this switches to Node 22 (ABI 127)
+2. Download the prebuilt binary: `curl -L "https://github.com/WiseLibs/better-sqlite3/releases/download/v12.11.1/better-sqlite3-v12.11.1-node-v127-linux-x64.tar.gz" -o /tmp/bsql3.tar.gz`
+3. Extract and copy: `cd /tmp && tar -xzf bsql3.tar.gz && cp build/Release/better_sqlite3.node node_modules/better-sqlite3/build/Release/`
+4. Restart the workflow.
 
 ## `concurrently` is blocked by security firewall
 
