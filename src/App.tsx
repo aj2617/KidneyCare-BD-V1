@@ -15,6 +15,7 @@ import OnboardingTour from './components/OnboardingTour';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import RegisterRoleSelect from './pages/RegisterRoleSelect';
 import PatientDashboard from './pages/PatientDashboard';
 import GfrCalculator from './pages/GfrCalculator';
 import VitalsLog from './pages/VitalsLog';
@@ -152,10 +153,10 @@ export default function App() {
   const renderPage = () => {
     if (currentPage === 'landing') return <Landing onStart={() => setCurrentPage('register')} onLogin={() => setCurrentPage('login')} />;
     if (currentPage === 'login') return <Login onRegister={() => setCurrentPage('register')} registeredSuccess={registeredSuccess} onClearSuccess={() => setRegisteredSuccess(false)} />;
-    if (currentPage === 'register') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="patient" />;
-    if (currentPage === 'register-patient') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="patient" />;
-    if (currentPage === 'register-doctor') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="doctor" />;
-    if (currentPage === 'register-chw') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="chw" />;
+    if (currentPage === 'register') return <RegisterRoleSelect onSelect={(page) => setCurrentPage(page)} onLogin={() => setCurrentPage('login')} />;
+    if (currentPage === 'register-patient') return <Register role="patient" onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} onBack={() => setCurrentPage('register')} />;
+    if (currentPage === 'register-doctor') return <Register role="doctor" onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} onBack={() => setCurrentPage('register')} />;
+    if (currentPage === 'register-chw') return <Register role="chw" onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} onBack={() => setCurrentPage('register')} />;
 
     if (user?.role === 'patient') {
       switch (currentPage) {

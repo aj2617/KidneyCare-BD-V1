@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
-  Activity, Mail, Lock, User, MapPin, ArrowRight, Loader2,
+  Activity, Mail, Lock, User, MapPin, ArrowLeft, Loader2,
   Phone, Eye, EyeOff, ShieldCheck, Stethoscope, Users, Heart,
   Building2, Calendar, FileText, Home,
 } from 'lucide-react';
@@ -19,36 +19,6 @@ const DISTRICTS_BY_DIVISION: Record<string, string[]> = {
 };
 const DIVISIONS = Object.keys(DISTRICTS_BY_DIVISION);
 
-const ROLES = [
-  {
-    value: 'patient',
-    label: 'Patient',
-    labelBn: 'রোগী',
-    desc: 'Track your CKD health journey',
-    descBn: 'আপনার সিকেডি স্বাস্থ্য যাত্রা ট্র্যাক করুন',
-    icon: Heart,
-    color: '#1A6B8A',
-  },
-  {
-    value: 'doctor',
-    label: 'Doctor',
-    labelBn: 'ডাক্তার',
-    desc: 'Manage and monitor patients',
-    descBn: 'রোগীদের পরিচালনা ও পর্যবেক্ষণ করুন',
-    icon: Stethoscope,
-    color: '#1A6B8A',
-  },
-  {
-    value: 'chw',
-    label: 'Community Health Worker',
-    labelBn: 'কমিউনিটি স্বাস্থ্যকর্মী',
-    desc: 'Register and visit patients in rural areas',
-    descBn: 'গ্রামাঞ্চলে রোগীদের নিবন্ধন ও পরিদর্শন করুন',
-    icon: Users,
-    color: '#1A6B8A',
-  },
-];
-
 const SPECIALTIES = [
   { value: 'nephrologist', label: 'Nephrologist', labelBn: 'নেফ্রোলজিস্ট' },
   { value: 'general', label: 'General Physician', labelBn: 'সাধারণ চিকিৎসক' },
@@ -56,18 +26,35 @@ const SPECIALTIES = [
   { value: 'other', label: 'Other', labelBn: 'অন্যান্য' },
 ];
 
+const ROLE_META: Record<string, { label: string; labelBn: string; icon: React.ElementType; color: string }> = {
+  patient: { label: 'Patient', labelBn: 'রোগী', icon: Heart, color: '#1A6B8A' },
+  doctor: { label: 'Doctor', labelBn: 'ডাক্তার', icon: Stethoscope, color: '#155E75' },
+  chw: { label: 'Community Health Worker', labelBn: 'কমিউনিটি স্বাস্থ্যকর্মী', icon: Users, color: '#166534' },
+};
+
 const T = {
   en: {
-    heading: { patient: 'Create a Patient Account', doctor: 'Create a Doctor Account', chw: 'Create a CHW Account' },
-    subheading: { patient: 'Start tracking your kidney health today', doctor: 'Join the clinical network', chw: 'Register to support rural communities' },
+    heading: {
+      patient: 'Create a Patient Account',
+      doctor: 'Create a Doctor Account',
+      chw: 'Create a CHW Account',
+    },
+    subheading: {
+      patient: 'Start tracking your kidney health today',
+      doctor: 'Join the clinical network',
+      chw: 'Register to support rural communities',
+    },
+    back: 'Change role',
     alreadyHave: 'Already have an account?',
     signIn: 'Sign in',
+    basicInfo: 'Basic Information',
     name: 'Full Name', namePh: 'Enter your full name',
     nameBn: 'Name in Bengali (optional)', nameBnPh: 'আপনার বাংলা নাম',
     email: 'Email Address', emailPh: 'name@example.com',
     phone: 'Phone Number', phonePh: '01XXXXXXXXX',
     password: 'Password', passwordPh: '••••••••',
     confirmPassword: 'Confirm Password', confirmPasswordPh: '••••••••',
+    location: 'Location',
     division: 'Division', divisionPh: 'Select Division',
     district: 'District', districtPh: 'Select District', districtDisabled: 'Select Division First',
     createAccount: 'Create Account',
@@ -90,6 +77,8 @@ const T = {
     workingArea: 'Assigned Working Area', workingAreaPh: 'e.g. Rangpur Sadar Union',
     encrypted: 'Your data is encrypted and secure',
     required: 'required',
+    patientDetails: 'Health Details',
+    professionalDetails: 'Professional Details',
     errors: {
       nameRequired: 'Full name is required',
       emailRequired: 'Valid email is required',
@@ -110,16 +99,27 @@ const T = {
     },
   },
   bn: {
-    heading: { patient: 'রোগী অ্যাকাউন্ট তৈরি করুন', doctor: 'ডাক্তার অ্যাকাউন্ট তৈরি করুন', chw: 'স্বাস্থ্যকর্মী অ্যাকাউন্ট তৈরি করুন' },
-    subheading: { patient: 'আজই আপনার কিডনি স্বাস্থ্য ট্র্যাক করা শুরু করুন', doctor: 'ক্লিনিকাল নেটওয়ার্কে যোগ দিন', chw: 'গ্রামীণ সম্প্রদায় সহায়তায় নিবন্ধন করুন' },
+    heading: {
+      patient: 'রোগী অ্যাকাউন্ট তৈরি করুন',
+      doctor: 'ডাক্তার অ্যাকাউন্ট তৈরি করুন',
+      chw: 'স্বাস্থ্যকর্মী অ্যাকাউন্ট তৈরি করুন',
+    },
+    subheading: {
+      patient: 'আজই আপনার কিডনি স্বাস্থ্য ট্র্যাক করা শুরু করুন',
+      doctor: 'ক্লিনিকাল নেটওয়ার্কে যোগ দিন',
+      chw: 'গ্রামীণ সম্প্রদায় সহায়তায় নিবন্ধন করুন',
+    },
+    back: 'ভূমিকা পরিবর্তন করুন',
     alreadyHave: 'আগে থেকে অ্যাকাউন্ট আছে?',
     signIn: 'সাইন ইন করুন',
+    basicInfo: 'মৌলিক তথ্য',
     name: 'পূর্ণ নাম', namePh: 'আপনার পূর্ণ নাম লিখুন',
     nameBn: 'বাংলায় নাম (ঐচ্ছিক)', nameBnPh: 'আপনার বাংলা নাম',
     email: 'ইমেইল ঠিকানা', emailPh: 'name@example.com',
     phone: 'ফোন নম্বর', phonePh: '01XXXXXXXXX',
     password: 'পাসওয়ার্ড', passwordPh: '••••••••',
     confirmPassword: 'পাসওয়ার্ড নিশ্চিত করুন', confirmPasswordPh: '••••••••',
+    location: 'অবস্থান',
     division: 'বিভাগ', divisionPh: 'বিভাগ নির্বাচন করুন',
     district: 'জেলা', districtPh: 'জেলা নির্বাচন করুন', districtDisabled: 'আগে বিভাগ নির্বাচন করুন',
     createAccount: 'অ্যাকাউন্ট তৈরি করুন',
@@ -142,6 +142,8 @@ const T = {
     workingArea: 'নির্ধারিত কাজের এলাকা', workingAreaPh: 'যেমন রংপুর সদর ইউনিয়ন',
     encrypted: 'আপনার ডেটা এনক্রিপ্টেড এবং সুরক্ষিত',
     required: 'আবশ্যক',
+    patientDetails: 'স্বাস্থ্য বিবরণ',
+    professionalDetails: 'পেশাদার বিবরণ',
     errors: {
       nameRequired: 'পূর্ণ নাম আবশ্যক',
       emailRequired: 'সঠিক ইমেইল আবশ্যক',
@@ -171,7 +173,6 @@ function getPasswordStrength(pw: string): 'weak' | 'medium' | 'strong' | null {
   if (pw.length < 6) return 'weak';
   if (pw.length >= 10 && hasLetter && hasNumber && hasSpecial) return 'strong';
   if (pw.length >= 8 && hasLetter && hasNumber) return 'medium';
-  if (pw.length >= 8) return 'medium';
   return 'weak';
 }
 
@@ -183,7 +184,7 @@ type TriBool = 'yes' | 'no' | 'unknown' | '';
 interface FormData {
   name: string; nameBn: string; email: string; phone: string;
   password: string; confirmPassword: string;
-  role: string; division: string; district: string;
+  division: string; district: string;
   age: string; sex: string; weight: string;
   diabetes: TriBool; hypertension: TriBool; familyHistory: TriBool; area: string;
   bmdcNumber: string; specialty: string; hospital: string; experience: string;
@@ -208,11 +209,19 @@ function FieldError({ msg }: { msg: string }) {
   );
 }
 
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest pt-2">
+      {children}
+    </p>
+  );
+}
+
+function Label({ children, required: req }: { children: React.ReactNode; required?: boolean }) {
   return (
     <label className="block text-sm font-semibold text-slate-700 mb-1.5">
       {children}
-      {required && <span className="ml-1 text-red-500">*</span>}
+      {req && <span className="ml-1 text-red-500">*</span>}
     </label>
   );
 }
@@ -261,16 +270,15 @@ function TriSelect({
 
 export default function Register({
   onLogin,
-  initialRole = 'patient',
-  successMessage = '',
+  onBack,
+  role = 'patient',
 }: {
   onLogin: (success?: boolean) => void;
-  initialRole?: string;
-  successMessage?: string;
+  onBack: () => void;
+  role?: string;
 }) {
   const { language } = useLanguage();
   const tx = T[language as 'en' | 'bn'];
-  const [role, setRole] = useState(initialRole);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -280,7 +288,7 @@ export default function Register({
   const [form, setForm] = useState<FormData>({
     name: '', nameBn: '', email: '', phone: '',
     password: '', confirmPassword: '',
-    role: initialRole, division: '', district: '',
+    division: '', district: '',
     age: '', sex: '', weight: '',
     diabetes: '', hypertension: '', familyHistory: '', area: '',
     bmdcNumber: '', specialty: '', hospital: '', experience: '',
@@ -386,53 +394,41 @@ export default function Register({
     }
   };
 
-  const roleObj = ROLES.find(r => r.value === role)!;
+  const meta = ROLE_META[role] || ROLE_META.patient;
+  const RoleIcon = meta.icon;
   const headingKey = role as 'patient' | 'doctor' | 'chw';
 
   return (
-    <div className="min-h-[80vh] flex items-start justify-center py-10 px-4">
+    <div className="min-h-[80vh] flex items-start justify-center py-8 px-4">
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         className="w-full max-w-[480px]"
       >
-        {/* Role Tabs */}
-        <div className="flex rounded-2xl bg-white border border-slate-200 p-1 mb-6 shadow-sm">
-          {ROLES.map(r => {
-            const Icon = r.icon;
-            const active = role === r.value;
-            return (
-              <button
-                key={r.value}
-                type="button"
-                onClick={() => { setRole(r.value); setForm(f => ({ ...f, role: r.value })); setTouched({}); setServerError(''); }}
-                className={`flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl text-xs font-bold transition-all ${
-                  active
-                    ? 'bg-[#1A6B8A] text-white shadow-md shadow-[#1A6B8A]/20'
-                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{language === 'bn' ? r.labelBn : r.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Back to role selection */}
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-800 mb-5 transition-colors group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          {tx.back}
+        </button>
 
         {/* Card */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden">
           {/* Header stripe */}
-          <div className="h-1.5 w-full" style={{ background: 'linear-gradient(90deg, #1A6B8A, #2ECC71)' }} />
+          <div className="h-1.5 w-full" style={{ background: `linear-gradient(90deg, ${meta.color}, #2ECC71)` }} />
 
           <div className="p-6 sm:p-8">
             {/* Heading */}
             <div className="text-center mb-6">
               <div
-                className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 text-white"
-                style={{ background: '#1A6B8A' }}
+                className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4 text-white shadow-md"
+                style={{ background: meta.color }}
               >
-                <Activity className="w-7 h-7" />
+                <RoleIcon className="w-7 h-7" />
               </div>
               <h1 className="text-2xl font-black text-slate-900">
                 {tx.heading[headingKey]}
@@ -444,7 +440,7 @@ export default function Register({
                   type="button"
                   onClick={() => onLogin(false)}
                   className="font-bold hover:underline"
-                  style={{ color: '#1A6B8A' }}
+                  style={{ color: meta.color }}
                 >
                   {tx.signIn}
                 </button>
@@ -463,17 +459,16 @@ export default function Register({
             )}
 
             <form onSubmit={handleSubmit} noValidate>
-              {/* ── COMMON FIELDS ── */}
               <div className="space-y-4">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                  {language === 'bn' ? 'সাধারণ তথ্য' : 'Basic Information'}
-                </p>
+
+                {/* ── SECTION: Basic Info ── */}
+                <SectionLabel>{tx.basicInfo}</SectionLabel>
 
                 {/* Name */}
                 <div>
                   <Label required>{tx.name}</Label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 w-[18px] h-[18px]" />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
                     <input
                       type="text"
                       value={form.name}
@@ -485,6 +480,18 @@ export default function Register({
                     />
                   </div>
                   <FieldError msg={touched.name ? errors.name || '' : ''} />
+                </div>
+
+                {/* Name in Bengali */}
+                <div>
+                  <Label>{tx.nameBn}</Label>
+                  <input
+                    type="text"
+                    value={form.nameBn}
+                    onChange={e => set('nameBn', e.target.value)}
+                    placeholder={tx.nameBnPh}
+                    className={inputCls()}
+                  />
                 </div>
 
                 {/* Email */}
@@ -552,7 +559,7 @@ export default function Register({
                       <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
                         <motion.div
                           animate={{ width: STRENGTH_WIDTH[strength] }}
-                          className="h-full rounded-full transition-all"
+                          className="h-full rounded-full"
                           style={{ background: STRENGTH_COLORS[strength] }}
                         />
                       </div>
@@ -589,193 +596,184 @@ export default function Register({
                   <FieldError msg={touched.confirmPassword ? errors.confirmPassword || '' : ''} />
                 </div>
 
-                {/* Division + District */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label required>{tx.division}</Label>
+                {/* ── SECTION: Location ── */}
+                <SectionLabel>{tx.location}</SectionLabel>
+
+                {/* Division */}
+                <div>
+                  <Label required>{tx.division}</Label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px] pointer-events-none" />
                     <select
                       value={form.division}
                       onChange={e => { set('division', e.target.value); set('district', ''); }}
                       onBlur={() => touch('division')}
-                      className={inputCls(touched.division ? errors.division : '')}
+                      className={`${iconInputCls(touched.division ? errors.division : '')} appearance-none`}
                     >
                       <option value="">{tx.divisionPh}</option>
                       {DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
-                    <FieldError msg={touched.division ? errors.division || '' : ''} />
                   </div>
-                  <div>
-                    <Label required>{tx.district}</Label>
-                    <div className="relative">
-                      <select
-                        value={form.district}
-                        onChange={e => set('district', e.target.value)}
-                        onBlur={() => touch('district')}
-                        disabled={!form.division}
-                        className={`${inputCls(touched.district ? errors.district : '')} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`}
-                      >
-                        <option value="">{form.division ? tx.districtPh : tx.districtDisabled}</option>
-                        {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                    </div>
-                    <FieldError msg={touched.district ? errors.district || '' : ''} />
-                  </div>
+                  <FieldError msg={touched.division ? errors.division || '' : ''} />
                 </div>
-              </div>
 
-              {/* ── ROLE-SPECIFIC FIELDS ── */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={role}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {role === 'patient' && (
-                    <div className="mt-6 space-y-4">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        {language === 'bn' ? 'স্বাস্থ্য তথ্য' : 'Health Information'}
-                      </p>
+                {/* District */}
+                <div>
+                  <Label required>{tx.district}</Label>
+                  <select
+                    value={form.district}
+                    onChange={e => set('district', e.target.value)}
+                    onBlur={() => touch('district')}
+                    disabled={!form.division}
+                    className={`${inputCls(touched.district ? errors.district : '')} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    <option value="">{form.division ? tx.districtPh : tx.districtDisabled}</option>
+                    {availableDistricts.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                  <FieldError msg={touched.district ? errors.district || '' : ''} />
+                </div>
 
-                      {/* Age + Sex */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label required>{tx.age}</Label>
-                          <div className="relative">
-                            <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                            <input
-                              type="number"
-                              value={form.age}
-                              onChange={e => set('age', e.target.value)}
-                              onBlur={() => touch('age')}
-                              placeholder={tx.agePh}
-                              min={1} max={120}
-                              className={iconInputCls(touched.age ? errors.age : '')}
-                              inputMode="numeric"
-                            />
-                          </div>
-                          <FieldError msg={touched.age ? errors.age || '' : ''} />
-                        </div>
-                        <div>
-                          <Label required>{tx.sex}</Label>
-                          <div className="flex gap-2 h-[48px]">
-                            {[{ v: 'male', l: tx.male }, { v: 'female', l: tx.female }].map(o => (
-                              <button
-                                key={o.v}
-                                type="button"
-                                onClick={() => { set('sex', o.v); touch('sex'); }}
-                                className={`flex-1 rounded-xl text-sm font-semibold border transition-all ${
-                                  form.sex === o.v
-                                    ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6B8A]/40'
-                                }`}
-                              >{o.l}</button>
-                            ))}
-                          </div>
-                          <FieldError msg={touched.sex ? errors.sex || '' : ''} />
-                        </div>
-                      </div>
+                {/* ── ROLE-SPECIFIC FIELDS ── */}
 
-                      {/* Weight */}
+                {/* PATIENT */}
+                {role === 'patient' && (
+                  <>
+                    <SectionLabel>{tx.patientDetails}</SectionLabel>
+
+                    {/* Age + Sex row */}
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <Label required>{tx.weight}</Label>
+                        <Label required>{tx.age}</Label>
                         <input
                           type="number"
-                          value={form.weight}
-                          onChange={e => set('weight', e.target.value)}
-                          onBlur={() => touch('weight')}
-                          placeholder={tx.weightPh}
-                          min={30} max={300}
-                          className={inputCls(touched.weight ? errors.weight : '')}
-                          inputMode="decimal"
+                          value={form.age}
+                          onChange={e => set('age', e.target.value)}
+                          onBlur={() => touch('age')}
+                          placeholder={tx.agePh}
+                          min={1} max={120}
+                          inputMode="numeric"
+                          className={inputCls(touched.age ? errors.age : '')}
                         />
-                        <FieldError msg={touched.weight ? errors.weight || '' : ''} />
+                        <FieldError msg={touched.age ? errors.age || '' : ''} />
                       </div>
-
-                      {/* Living Area */}
                       <div>
-                        <Label>{tx.area}</Label>
-                        <div className="flex gap-2">
-                          {[{ v: 'urban', l: tx.urban }, { v: 'rural', l: tx.rural }].map(o => (
-                            <button
-                              key={o.v}
-                              type="button"
-                              onClick={() => set('area', o.v)}
-                              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-all flex items-center justify-center gap-1.5 ${
-                                form.area === o.v
-                                  ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6B8A]/40'
-                              }`}
-                            >
-                              {o.v === 'urban' ? <Building2 className="w-3.5 h-3.5" /> : <Home className="w-3.5 h-3.5" />}
-                              {o.l}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Diabetes */}
-                      <div>
-                        <Label>{tx.diabetes}</Label>
-                        <TriSelect
-                          value={form.diabetes}
-                          onChange={v => set('diabetes', v)}
-                          yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
-                        />
-                      </div>
-
-                      {/* Hypertension */}
-                      <div>
-                        <Label>{tx.hypertension}</Label>
-                        <TriSelect
-                          value={form.hypertension}
-                          onChange={v => set('hypertension', v)}
-                          yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
-                        />
-                      </div>
-
-                      {/* Family History */}
-                      <div>
-                        <Label>{tx.familyHistory}</Label>
-                        <TriSelect
-                          value={form.familyHistory}
-                          onChange={v => set('familyHistory', v)}
-                          yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
-                        />
+                        <Label required>{tx.sex}</Label>
+                        <select
+                          value={form.sex}
+                          onChange={e => set('sex', e.target.value)}
+                          onBlur={() => touch('sex')}
+                          className={`${inputCls(touched.sex ? errors.sex : '')} appearance-none`}
+                        >
+                          <option value="">—</option>
+                          <option value="male">{tx.male}</option>
+                          <option value="female">{tx.female}</option>
+                        </select>
+                        <FieldError msg={touched.sex ? errors.sex || '' : ''} />
                       </div>
                     </div>
-                  )}
 
-                  {role === 'doctor' && (
-                    <div className="mt-6 space-y-4">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        {language === 'bn' ? 'পেশাদার তথ্য' : 'Professional Details'}
-                      </p>
+                    {/* Weight */}
+                    <div>
+                      <Label required>{tx.weight}</Label>
+                      <input
+                        type="number"
+                        value={form.weight}
+                        onChange={e => set('weight', e.target.value)}
+                        onBlur={() => touch('weight')}
+                        placeholder={tx.weightPh}
+                        min={30} max={300}
+                        inputMode="decimal"
+                        className={inputCls(touched.weight ? errors.weight : '')}
+                      />
+                      <FieldError msg={touched.weight ? errors.weight || '' : ''} />
+                    </div>
 
-                      <div>
-                        <Label required>{tx.bmdcNumber}</Label>
-                        <div className="relative">
-                          <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                          <input
-                            type="text"
-                            value={form.bmdcNumber}
-                            onChange={e => set('bmdcNumber', e.target.value)}
-                            onBlur={() => touch('bmdcNumber')}
-                            placeholder={tx.bmdcPh}
-                            className={iconInputCls(touched.bmdcNumber ? errors.bmdcNumber : '')}
-                          />
-                        </div>
-                        <FieldError msg={touched.bmdcNumber ? errors.bmdcNumber || '' : ''} />
+                    {/* Living area */}
+                    <div>
+                      <Label>{tx.area}</Label>
+                      <div className="flex gap-2">
+                        {[{ v: 'urban', label: tx.urban }, { v: 'rural', label: tx.rural }].map(opt => (
+                          <button
+                            key={opt.v}
+                            type="button"
+                            onClick={() => set('area', opt.v)}
+                            className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-all ${
+                              form.area === opt.v
+                                ? 'text-white border-[#1A6B8A]'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-[#1A6B8A]/40'
+                            }`}
+                            style={form.area === opt.v ? { background: meta.color } : {}}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
+                    </div>
 
-                      <div>
-                        <Label required>{tx.specialty}</Label>
+                    {/* Diabetes */}
+                    <div>
+                      <Label>{tx.diabetes}</Label>
+                      <TriSelect
+                        value={form.diabetes}
+                        onChange={v => set('diabetes', v)}
+                        yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
+                      />
+                    </div>
+
+                    {/* Hypertension */}
+                    <div>
+                      <Label>{tx.hypertension}</Label>
+                      <TriSelect
+                        value={form.hypertension}
+                        onChange={v => set('hypertension', v)}
+                        yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
+                      />
+                    </div>
+
+                    {/* Family history */}
+                    <div>
+                      <Label>{tx.familyHistory}</Label>
+                      <TriSelect
+                        value={form.familyHistory}
+                        onChange={v => set('familyHistory', v)}
+                        yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* DOCTOR */}
+                {role === 'doctor' && (
+                  <>
+                    <SectionLabel>{tx.professionalDetails}</SectionLabel>
+
+                    {/* BMDC */}
+                    <div>
+                      <Label required>{tx.bmdcNumber}</Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+                        <input
+                          type="text"
+                          value={form.bmdcNumber}
+                          onChange={e => set('bmdcNumber', e.target.value)}
+                          onBlur={() => touch('bmdcNumber')}
+                          placeholder={tx.bmdcPh}
+                          className={iconInputCls(touched.bmdcNumber ? errors.bmdcNumber : '')}
+                        />
+                      </div>
+                      <FieldError msg={touched.bmdcNumber ? errors.bmdcNumber || '' : ''} />
+                    </div>
+
+                    {/* Specialty */}
+                    <div>
+                      <Label required>{tx.specialty}</Label>
+                      <div className="relative">
+                        <Stethoscope className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px] pointer-events-none" />
                         <select
                           value={form.specialty}
                           onChange={e => set('specialty', e.target.value)}
                           onBlur={() => touch('specialty')}
-                          className={inputCls(touched.specialty ? errors.specialty : '')}
+                          className={`${iconInputCls(touched.specialty ? errors.specialty : '')} appearance-none`}
                         >
                           <option value="">{tx.specialtyPh}</option>
                           {SPECIALTIES.map(s => (
@@ -784,120 +782,130 @@ export default function Register({
                             </option>
                           ))}
                         </select>
-                        <FieldError msg={touched.specialty ? errors.specialty || '' : ''} />
                       </div>
+                      <FieldError msg={touched.specialty ? errors.specialty || '' : ''} />
+                    </div>
 
-                      <div>
-                        <Label required>{tx.hospital}</Label>
-                        <div className="relative">
-                          <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                          <input
-                            type="text"
-                            value={form.hospital}
-                            onChange={e => set('hospital', e.target.value)}
-                            onBlur={() => touch('hospital')}
-                            placeholder={tx.hospitalPh}
-                            className={iconInputCls(touched.hospital ? errors.hospital : '')}
-                          />
-                        </div>
-                        <FieldError msg={touched.hospital ? errors.hospital || '' : ''} />
+                    {/* Hospital */}
+                    <div>
+                      <Label required>{tx.hospital}</Label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+                        <input
+                          type="text"
+                          value={form.hospital}
+                          onChange={e => set('hospital', e.target.value)}
+                          onBlur={() => touch('hospital')}
+                          placeholder={tx.hospitalPh}
+                          className={iconInputCls(touched.hospital ? errors.hospital : '')}
+                        />
                       </div>
+                      <FieldError msg={touched.hospital ? errors.hospital || '' : ''} />
+                    </div>
 
-                      <div>
-                        <Label>{tx.experience}</Label>
+                    {/* Experience */}
+                    <div>
+                      <Label>{tx.experience}</Label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
                         <input
                           type="number"
                           value={form.experience}
                           onChange={e => set('experience', e.target.value)}
                           placeholder={tx.experiencePh}
                           min={0} max={60}
-                          className={inputCls()}
                           inputMode="numeric"
+                          className={iconInputCls()}
                         />
                       </div>
                     </div>
-                  )}
+                  </>
+                )}
 
-                  {role === 'chw' && (
-                    <div className="mt-6 space-y-4">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        {language === 'bn' ? 'কর্মীর তথ্য' : 'Worker Details'}
-                      </p>
+                {/* CHW */}
+                {role === 'chw' && (
+                  <>
+                    <SectionLabel>{tx.professionalDetails}</SectionLabel>
 
-                      <div>
-                        <Label required>{tx.nationalId}</Label>
-                        <div className="relative">
-                          <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                          <input
-                            type="text"
-                            value={form.nationalId}
-                            onChange={e => set('nationalId', e.target.value)}
-                            onBlur={() => touch('nationalId')}
-                            placeholder={tx.nationalIdPh}
-                            className={iconInputCls(touched.nationalId ? errors.nationalId : '')}
-                          />
-                        </div>
-                        <FieldError msg={touched.nationalId ? errors.nationalId || '' : ''} />
+                    {/* National ID */}
+                    <div>
+                      <Label required>{tx.nationalId}</Label>
+                      <div className="relative">
+                        <FileText className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+                        <input
+                          type="text"
+                          value={form.nationalId}
+                          onChange={e => set('nationalId', e.target.value)}
+                          onBlur={() => touch('nationalId')}
+                          placeholder={tx.nationalIdPh}
+                          inputMode="numeric"
+                          className={iconInputCls(touched.nationalId ? errors.nationalId : '')}
+                        />
                       </div>
+                      <FieldError msg={touched.nationalId ? errors.nationalId || '' : ''} />
+                    </div>
 
-                      <div>
-                        <Label>{tx.organization}</Label>
-                        <div className="relative">
-                          <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                          <input
-                            type="text"
-                            value={form.organization}
-                            onChange={e => set('organization', e.target.value)}
-                            placeholder={tx.organizationPh}
-                            className={iconInputCls()}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label required>{tx.workingArea}</Label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
-                          <input
-                            type="text"
-                            value={form.workingArea}
-                            onChange={e => set('workingArea', e.target.value)}
-                            onBlur={() => touch('workingArea')}
-                            placeholder={tx.workingAreaPh}
-                            className={iconInputCls(touched.workingArea ? errors.workingArea : '')}
-                          />
-                        </div>
-                        <FieldError msg={touched.workingArea ? errors.workingArea || '' : ''} />
+                    {/* Organization */}
+                    <div>
+                      <Label>{tx.organization}</Label>
+                      <div className="relative">
+                        <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+                        <input
+                          type="text"
+                          value={form.organization}
+                          onChange={e => set('organization', e.target.value)}
+                          placeholder={tx.organizationPh}
+                          className={iconInputCls()}
+                        />
                       </div>
                     </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
 
-              {/* Submit */}
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="mt-8 w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 transition-all text-[15px] disabled:opacity-60 active:scale-[0.98]"
-                style={{ background: isLoading ? '#1A6B8A' : 'linear-gradient(135deg, #1A6B8A 0%, #14556e 100%)', boxShadow: '0 4px 20px rgba(26,107,138,0.3)' }}
-              >
-                {isLoading
-                  ? <Loader2 className="w-5 h-5 animate-spin" />
-                  : (
-                    <>
-                      {tx.createAccount}
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )
-                }
-              </button>
+                    {/* Working area */}
+                    <div>
+                      <Label required>{tx.workingArea}</Label>
+                      <div className="relative">
+                        <Home className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+                        <input
+                          type="text"
+                          value={form.workingArea}
+                          onChange={e => set('workingArea', e.target.value)}
+                          onBlur={() => touch('workingArea')}
+                          placeholder={tx.workingAreaPh}
+                          className={iconInputCls(touched.workingArea ? errors.workingArea : '')}
+                        />
+                      </div>
+                      <FieldError msg={touched.workingArea ? errors.workingArea || '' : ''} />
+                    </div>
+                  </>
+                )}
+
+                {/* Submit */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-4 rounded-2xl font-bold text-white text-base flex items-center justify-center gap-2 transition-all disabled:opacity-70 active:scale-[0.98]"
+                    style={{
+                      background: isValid
+                        ? `linear-gradient(135deg, ${meta.color} 0%, ${meta.color}cc 100%)`
+                        : '#94a3b8',
+                      boxShadow: isValid ? `0 4px 18px ${meta.color}40` : 'none',
+                    }}
+                  >
+                    {isLoading
+                      ? <><Loader2 className="w-5 h-5 animate-spin" /> {language === 'bn' ? 'অপেক্ষা করুন…' : 'Please wait…'}</>
+                      : <><Activity className="w-5 h-5" /> {tx.createAccount}</>
+                    }
+                  </button>
+                </div>
+              </div>
             </form>
+          </div>
 
-            {/* Trust footer */}
-            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-400">
-              <ShieldCheck className="w-4 h-4 text-[#2ECC71]" />
-              <span>{tx.encrypted}</span>
-            </div>
+          {/* Trust footer */}
+          <div className="flex items-center justify-center gap-2 py-4 border-t border-slate-100 bg-slate-50">
+            <ShieldCheck className="w-4 h-4 text-[#2ECC71]" />
+            <span className="text-xs font-medium text-slate-500">{tx.encrypted}</span>
           </div>
         </div>
       </motion.div>
