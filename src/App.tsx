@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import VitalsReminder from './components/VitalsReminder';
+import OnboardingTour from './components/OnboardingTour';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -517,6 +518,16 @@ export default function App() {
             })}
           </div>
         </nav>
+      )}
+
+      {/* Onboarding tour — shown once after first login */}
+      {user && ['patient', 'doctor', 'chw'].includes(user.role) && (
+        <OnboardingTour
+          userId={user.id}
+          role={user.role}
+          language={language}
+          onNavigate={(page) => setCurrentPage(page)}
+        />
       )}
 
       {/* PWA install prompt — all authenticated users */}
