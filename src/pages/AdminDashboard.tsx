@@ -136,6 +136,12 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [togglingUser, setTogglingUser] = useState<number | null>(null);
 
+  const [showResearchModal, setShowResearchModal] = useState(false);
+  const [exportDistrict, setExportDistrict] = useState('');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
+  const [exportError, setExportError] = useState('');
+
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
@@ -205,16 +211,27 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
   const handleResearchExport = async () => {
     setIsResearchExporting(true);
+    setExportError('');
     try {
-      const res = await fetch('/api/admin/export-research-data', { headers: { Authorization: `Bearer ${token}` } });
+      const params = new URLSearchParams();
+      if (exportDistrict) params.set('district', exportDistrict);
+      if (exportStartDate) params.set('start_date', exportStartDate);
+      if (exportEndDate) params.set('end_date', exportEndDate);
+      const res = await fetch(`/api/admin/research-export?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error('Export failed.');
-      const data = await res.json();
-      if (!Array.isArray(data) || data.length === 0) throw new Error('No patient data available.');
-      const headers = Object.keys(data[0]);
-      const csv = [headers.join(','), ...data.map((row: any) => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
-      downloadTextFile(csv, `KidneyCareBD_Research_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
-    } catch (err) { setError(err instanceof Error ? err.message : 'Export failed.'); }
-    finally { setIsResearchExporting(false); }
+      const blob = await res.blob();
+      const filename = `KidneyCareBD_Research_${new Date().toISOString().split('T')[0]}${exportDistrict ? '_' + exportDistrict : ''}.csv`;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = filename;
+      document.body.appendChild(link); link.click();
+      document.body.removeChild(link); URL.revokeObjectURL(url);
+      setShowResearchModal(false);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed.');
+    } finally { setIsResearchExporting(false); }
   };
 
   const runSimulation = async (e: React.FormEvent) => {
@@ -340,10 +357,10 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={handleResearchExport} disabled={isResearchExporting}
-            className="p-2 sm:px-4 sm:py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all disabled:opacity-50 text-sm"
+          <button onClick={() => { setShowResearchModal(true); setExportError(''); }}
+            className="p-2 sm:px-4 sm:py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all text-sm"
             title={language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}>
-            {isResearchExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            <Download className="w-4 h-4" />
             <span className="hidden sm:inline">{language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}</span>
           </button>
           <button onClick={handleExport} disabled={isExporting}
@@ -641,17 +658,17 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#EAFAF1', color: '#2ECC71' }}><Download className="w-5 h-5" /></div>
                     <div>
                       <h3 className="font-bold text-slate-900 text-sm">{language === 'bn' ? 'গবেষণা ডেটাসেট' : 'Research Dataset'}</h3>
-                      <p className="text-xs text-slate-500">{language === 'bn' ? 'অনামী CSV রপ্তানি' : 'Anonymized CSV export'}</p>
+                      <p className="text-xs text-slate-500">{language === 'bn' ? 'জরিপ + ক্লিনিকাল CSV' : 'Survey + Clinical CSV'}</p>
                     </div>
                   </div>
                   <p className="text-xs text-slate-500 flex-1 mb-4">
-                    {language === 'bn' ? 'অনুমোদিত গবেষকদের জন্য রোগীর পরিচয় ছাড়া ক্লিনিক্যাল ডেটা।' : 'Clinical data stripped of patient identifiers, approved for external researchers.'}
+                    {language === 'bn' ? 'জরিপ সম্পূর্ণকারী রোগীদের বেনামী ক্লিনিক্যাল ও জনতাত্ত্বিক ডেটা। জেলা ও তারিখ ফিল্টার সহ।' : 'Anonymized survey + clinical data for patients who completed the mandatory questionnaire. Filter by district and date.'}
                   </p>
-                  <button onClick={handleResearchExport} disabled={isResearchExporting}
-                    className="flex items-center gap-2 px-5 py-2 text-white rounded-xl font-semibold text-sm transition-all disabled:opacity-50"
+                  <button onClick={() => { setShowResearchModal(true); setExportError(''); }}
+                    className="flex items-center gap-2 px-5 py-2 text-white rounded-xl font-semibold text-sm transition-all"
                     style={{ background: '#2ECC71' }}>
-                    {isResearchExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                    {isResearchExporting ? (language === 'bn' ? 'রপ্তানি হচ্ছে...' : 'Exporting...') : (language === 'bn' ? 'CSV ডাউনলোড' : 'Export CSV')}
+                    <Download className="w-4 h-4" />
+                    {language === 'bn' ? 'রপ্তানি সেট আপ করুন' : 'Configure Export'}
                   </button>
                 </div>
               </div>
@@ -1067,6 +1084,107 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
           )}
 
         </motion.div>
+      </AnimatePresence>
+
+      {/* Research Export Modal */}
+      <AnimatePresence>
+        {showResearchModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowResearchModal(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    {language === 'bn' ? 'গবেষণা ডেটা রপ্তানি' : 'Research Data Export'}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {language === 'bn' ? 'জরিপ ও ক্লিনিকাল ডেটা — বেনামী CSV' : 'Survey + Clinical data — Anonymized CSV'}
+                  </p>
+                </div>
+                <button onClick={() => setShowResearchModal(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:bg-slate-100">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-5">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 block mb-1.5">
+                    {language === 'bn' ? 'জেলা (ঐচ্ছিক)' : 'District (optional)'}
+                  </label>
+                  <select
+                    value={exportDistrict}
+                    onChange={e => setExportDistrict(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A]"
+                  >
+                    <option value="">{language === 'bn' ? '— সব জেলা —' : '— All districts —'}</option>
+                    {['Dhaka','Chittagong','Rajshahi','Khulna','Barisal','Sylhet','Rangpur',
+                      'Mymensingh','Gazipur','Narayanganj','Comilla','Chapainawabganj','Noakhali',
+                      'Faridpur','Rajbari','Bogra','Dinajpur','Jessore','Tangail','Pabna'].map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 block mb-1.5">
+                      {language === 'bn' ? 'শুরুর তারিখ' : 'Start date'}
+                    </label>
+                    <input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A]" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-slate-700 block mb-1.5">
+                      {language === 'bn' ? 'শেষ তারিখ' : 'End date'}
+                    </label>
+                    <input type="date" value={exportEndDate} onChange={e => setExportEndDate(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/20 focus:border-[#1A6B8A]" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#EFF8FB] rounded-2xl p-3 mb-5 flex gap-2.5">
+                <Shield className="w-4 h-4 text-[#1A6B8A] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#1A6B8A]">
+                  {language === 'bn'
+                    ? 'সমস্ত ডেটা বেনামী — কোনো নাম, ফোন বা সনাক্তযোগ্য তথ্য নেই।'
+                    : 'All data is anonymized — no names, phones, or identifiable info included.'}
+                </p>
+              </div>
+
+              {exportError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-4">
+                  {exportError}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setShowResearchModal(false)}
+                  className="flex-1 py-3 rounded-2xl font-bold text-slate-600 border border-slate-200 hover:bg-slate-50 transition-colors text-sm">
+                  {language === 'bn' ? 'বাতিল করুন' : 'Cancel'}
+                </button>
+                <button onClick={handleResearchExport} disabled={isResearchExporting}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-white transition-all disabled:opacity-60 text-sm"
+                  style={{ background: isResearchExporting ? '#94a3b8' : 'linear-gradient(135deg, #2ECC71, #1a9e54)' }}>
+                  {isResearchExporting
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> {language === 'bn' ? 'রপ্তানি হচ্ছে...' : 'Exporting…'}</>
+                    : <><Download className="w-4 h-4" /> {language === 'bn' ? 'CSV ডাউনলোড' : 'Download CSV'}</>
+                  }
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

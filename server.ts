@@ -212,6 +212,15 @@ db.exec(`
     FOREIGN KEY(requested_by) REFERENCES users(id)
   );
 
+  CREATE TABLE IF NOT EXISTS patient_surveys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER UNIQUE,
+    responses TEXT NOT NULL,
+    completed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(patient_id) REFERENCES patients(id)
+  );
+
   CREATE TABLE IF NOT EXISTS risk_feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     doctor_id INTEGER,
@@ -419,6 +428,8 @@ addColumnIfMissing('patients', 'streak_days', 'INTEGER DEFAULT 0');
 addColumnIfMissing('patients', 'last_log_date', 'TEXT');
 addColumnIfMissing('gfr_records', 'uacr', 'REAL');
 addColumnIfMissing('vitals_log', 'logged_by', 'TEXT DEFAULT "patient"');
+addColumnIfMissing('patients', 'survey_completed', 'INTEGER DEFAULT 0');
+addColumnIfMissing('users', 'anon_id', 'TEXT');
 
 // ─── Bangladesh arsenic-prone districts ──────────────────────────────────────
 const ARSENIC_DISTRICTS = new Set([
@@ -2107,6 +2118,134 @@ async function startServer() {
   app.delete('/api/push/unsubscribe', authenticateToken, (req: any, res) => {
     db.prepare('DELETE FROM push_subscriptions WHERE user_id = ?').run(req.user.id);
     res.json({ ok: true });
+  });
+
+  // ─── Patient Survey Endpoints ─────────────────────────────────────────────
+
+  app.get('/api/patient/survey/status', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'patient') return res.sendStatus(403);
+    const patient = db.prepare('SELECT id, survey_completed FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.json({ completed: false });
+    res.json({ completed: !!patient.survey_completed });
+  });
+
+  app.get('/api/patient/survey', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'patient') return res.sendStatus(403);
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.json(null);
+    const survey = db.prepare('SELECT responses FROM patient_surveys WHERE patient_id = ?').get(patient.id) as any;
+    if (!survey) return res.json(null);
+    try { res.json(JSON.parse(survey.responses)); } catch { res.json(null); }
+  });
+
+  app.post('/api/patient/survey', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'patient') return res.sendStatus(403);
+    const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    const responses = JSON.stringify(req.body);
+    const existing = db.prepare('SELECT id FROM patient_surveys WHERE patient_id = ?').get(patient.id);
+
+    if (existing) {
+      db.prepare('UPDATE patient_surveys SET responses = ?, updated_at = CURRENT_TIMESTAMP WHERE patient_id = ?')
+        .run(responses, patient.id);
+    } else {
+      db.prepare('INSERT INTO patient_surveys (patient_id, responses) VALUES (?, ?)').run(patient.id, responses);
+    }
+    db.prepare('UPDATE patients SET survey_completed = 1 WHERE id = ?').run(patient.id);
+    res.json({ success: true });
+  });
+
+  // ─── Admin: Research Export (Survey + Clinical CSV) ───────────────────────
+
+  app.get('/api/admin/research-export', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    const { district, start_date, end_date } = req.query as any;
+
+    let whereClause = "WHERE u.role = 'patient' AND p.survey_completed = 1";
+    const params: any[] = [];
+
+    if (district) { whereClause += ' AND u.district = ?'; params.push(district); }
+    if (start_date) { whereClause += ' AND ps.completed_at >= ?'; params.push(start_date); }
+    if (end_date) { whereClause += ' AND ps.completed_at <= ?'; params.push(end_date + ' 23:59:59'); }
+
+    const rows = db.prepare(`
+      SELECT
+        COALESCE(u.anon_id, 'P' || CAST(p.id AS TEXT)) as anon_id,
+        u.district,
+        ps.responses,
+        g.mdrd as egfr_mdrd, g.cg as egfr_cg, g.ckd_epi as egfr_ckdepi, g.stage as ckd_stage,
+        p.risk_score,
+        v.systolic as bp_systolic, v.diastolic as bp_diastolic,
+        v.blood_sugar, v.creatinine as latest_creatinine, v.weight as latest_weight,
+        (SELECT COUNT(*) FROM vitals_log vl WHERE vl.patient_id = p.id) as total_vitals_logs,
+        (SELECT MIN(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as first_vitals_date,
+        (SELECT MAX(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as last_vitals_date,
+        ps.completed_at as survey_completed_at
+      FROM users u
+      JOIN patients p ON u.id = p.user_id
+      JOIN patient_surveys ps ON p.id = ps.patient_id
+      LEFT JOIN (SELECT * FROM gfr_records WHERE id IN (SELECT MAX(id) FROM gfr_records GROUP BY patient_id)) g ON p.id = g.patient_id
+      LEFT JOIN (SELECT * FROM vitals_log WHERE id IN (SELECT MAX(id) FROM vitals_log GROUP BY patient_id)) v ON p.id = v.patient_id
+      ${whereClause}
+      ORDER BY ps.completed_at DESC
+    `).all(...params) as any[];
+
+    if (rows.length === 0) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=kidneycare_research_export.csv');
+      return res.send('No data available');
+    }
+
+    const surveyKeys = [
+      'age','gender','education','occupation','residential_area','monthly_income',
+      'hypertension_dx','diabetes_dx','family_kidney','kidney_stones','kidney_disease_prior',
+      'kidney_disease_type','bp_medication','diabetes_medication','dialysis',
+      'urine_changes','foamy_urine','leg_swelling','fatigue','nausea','appetite_loss',
+      'weight_loss','shortness_breath',
+      'smoker','alcohol','water_intake','salty_food','exercise','sleep_hours',
+      'bp_systolic_survey','bp_diastolic_survey','creatinine_survey','urine_test','kidney_function_test',
+      'aware_risk_factors','health_checkup_freq','received_advice','dietary_restrictions',
+      'tested_creatinine','knows_htn_dm_damage','painkillers',
+    ];
+
+    const csvHeaders = [
+      'anon_id','district',
+      ...surveyKeys,
+      'egfr_mdrd','egfr_cg','egfr_ckdepi','ckd_stage','risk_score',
+      'bp_systolic','bp_diastolic','blood_sugar','latest_creatinine','latest_weight',
+      'total_vitals_logs','first_vitals_date','last_vitals_date','survey_completed_at',
+    ];
+
+    const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const csvRows = rows.map(row => {
+      let survey: any = {};
+      try { survey = JSON.parse(row.responses || '{}'); } catch { /* */ }
+      const vals = [
+        row.anon_id, row.district,
+        ...surveyKeys.map(k => {
+          if (k === 'bp_systolic_survey') return survey.bp_systolic ?? '';
+          if (k === 'bp_diastolic_survey') return survey.bp_diastolic ?? '';
+          if (k === 'creatinine_survey') return survey.creatinine ?? '';
+          return survey[k] ?? '';
+        }),
+        row.egfr_mdrd ?? '', row.egfr_cg ?? '', row.egfr_ckdepi ?? '',
+        row.ckd_stage ?? '', row.risk_score ?? '',
+        row.bp_systolic ?? '', row.bp_diastolic ?? '',
+        row.blood_sugar ?? '', row.latest_creatinine ?? '', row.latest_weight ?? '',
+        row.total_vitals_logs ?? 0,
+        row.first_vitals_date ?? '', row.last_vitals_date ?? '',
+        row.survey_completed_at ?? '',
+      ];
+      return vals.map(escape).join(',');
+    });
+
+    const csv = [csvHeaders.join(','), ...csvRows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=kidneycare_research_export_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
   });
 
   // ─── Vite / Static ────────────────────────────────────────────────────────

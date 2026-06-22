@@ -9,6 +9,7 @@ import {
   LineChart, Line, ResponsiveContainer, Tooltip
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
+import ForcedSurveyOverlay from '../components/ForcedSurveyOverlay';
 
 export default function PatientDashboard() {
   const { token, user } = useAuth();
@@ -19,11 +20,31 @@ export default function PatientDashboard() {
   const [streak, setStreak] = useState(0);
   const [lastBP, setLastBP] = useState<{ systolic: number; diastolic: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [surveyCompleted, setSurveyCompleted] = useState<boolean | null>(null);
 
   const isProfileIncomplete = Boolean(profile && (!profile.age || !profile.weight || !profile.sex));
   const nav = (page: string) => window.dispatchEvent(new CustomEvent('navigate', { detail: page }));
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    checkSurveyStatus();
+  }, []);
+
+  const checkSurveyStatus = async () => {
+    try {
+      const res = await fetch('/api/patient/survey/status', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSurveyCompleted(data.completed);
+      } else {
+        setSurveyCompleted(true);
+      }
+    } catch {
+      setSurveyCompleted(true);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -108,6 +129,15 @@ export default function PatientDashboard() {
 
   return (
     <div className="space-y-4 pb-6">
+
+      {/* Forced survey overlay — blocks dashboard until complete */}
+      {surveyCompleted === false && (
+        <ForcedSurveyOverlay
+          token={token!}
+          patientName={user?.name || ''}
+          onComplete={() => setSurveyCompleted(true)}
+        />
+      )}
 
       {/* Profile incomplete banner */}
       <AnimatePresence>
