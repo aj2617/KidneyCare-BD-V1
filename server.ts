@@ -956,19 +956,41 @@ async function startServer() {
   // AUTH ROUTES
   // ════════════════════════════════════════════════════════════════════════════
   app.post('/api/auth/register', async (req, res) => {
-    const { name, email, password, role, division, district } = req.body;
+    const {
+      name, email, password, role, division, district,
+      phone,
+      age, sex, weight, diabetes, hypertension, family_history, area,
+      bmdc_number, specialty, hospital, experience,
+      national_id, organization, working_area,
+    } = req.body;
+    if (!name || !email || !password || !role) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
     try {
-      const result = db.prepare('INSERT INTO users (name, email, password, role, division, district) VALUES (?, ?, ?, ?, ?, ?)').run(name, email, hashedPassword, role, division, district);
+      const result = db.prepare(
+        'INSERT INTO users (name, email, password, role, division, district) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(name, email, hashedPassword, role, division || '', district || '');
       const userId = result.lastInsertRowid;
+
       if (role === 'patient') {
-        db.prepare('INSERT INTO patients (user_id) VALUES (?)').run(userId);
+        const diabetesVal = diabetes === 'yes' ? 1 : diabetes === 'no' ? 0 : null;
+        const hypertensionVal = hypertension === 'yes' ? 1 : hypertension === 'no' ? 0 : null;
+        const familyHistoryVal = family_history === 'yes' ? 1 : family_history === 'no' ? 0 : null;
+        db.prepare(
+          'INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, family_history) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).run(userId, age || null, sex || null, weight || null, diabetesVal, hypertensionVal, familyHistoryVal);
       } else if (role === 'chw') {
-        db.prepare('INSERT INTO chw_workers (user_id, region) VALUES (?, ?)').run(userId, district || '');
+        db.prepare('INSERT INTO chw_workers (user_id, region) VALUES (?, ?)').run(userId, working_area || district || '');
       }
+
       res.status(201).json({ message: 'User registered successfully' });
-    } catch {
-      res.status(400).json({ error: 'Email already exists' });
+    } catch (err: any) {
+      if (err?.message?.includes('UNIQUE')) {
+        res.status(400).json({ error: 'Email already exists' });
+      } else {
+        res.status(400).json({ error: 'Registration failed' });
+      }
     }
   });
 

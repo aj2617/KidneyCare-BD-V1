@@ -45,6 +45,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [teleconsultPatient, setTeleconsultPatient] = useState<{ id: number; name: string } | null>(null);
+  const [registeredSuccess, setRegisteredSuccess] = useState(false);
 
   // Detect ?join=TOKEN in URL — show public join page immediately
   const joinToken = new URLSearchParams(window.location.search).get('join');
@@ -149,8 +150,11 @@ export default function App() {
 
   const renderPage = () => {
     if (currentPage === 'landing') return <Landing onStart={() => setCurrentPage('register')} onLogin={() => setCurrentPage('login')} />;
-    if (currentPage === 'login') return <Login onRegister={() => setCurrentPage('register')} />;
-    if (currentPage === 'register') return <Register onLogin={() => setCurrentPage('login')} />;
+    if (currentPage === 'login') return <Login onRegister={() => setCurrentPage('register')} registeredSuccess={registeredSuccess} onClearSuccess={() => setRegisteredSuccess(false)} />;
+    if (currentPage === 'register') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="patient" />;
+    if (currentPage === 'register-patient') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="patient" />;
+    if (currentPage === 'register-doctor') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="doctor" />;
+    if (currentPage === 'register-chw') return <Register onLogin={(ok) => { if (ok) setRegisteredSuccess(true); setCurrentPage('login'); }} initialRole="chw" />;
 
     if (user?.role === 'patient') {
       switch (currentPage) {

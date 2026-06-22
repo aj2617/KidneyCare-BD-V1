@@ -1,0 +1,88 @@
+Build the registration flow for “KidneyCare BD” with separate pages for **Patient**, **Doctor**, and **Community Health Worker (CHW)**. Keep the design minimal, functional, and fully aligned with the project's mobile‑first, bilingual PWA style.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GLOBAL REQUIREMENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- All pages must be responsive (mobile‑first), with max‑width 480px centered on larger screens.
+- Use the project color palette: primary #1A6B8A, error #E74C3C, success #2ECC71, white cards with subtle shadow.
+- All labels, placeholders, validation messages, and buttons must be **bilingual** (English / বাংলা) and switch instantly via the language toggle (use i18n).
+- Touch targets ≥48px, proper mobile input keyboards (inputmode).
+- Forms must work inside the PWA (service worker caches the registration page shell; actual submission requires online).
+- After successful registration, redirect to login page with a success message.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMMON FIELDS (ALL ROLES)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Full Name (in English, optional Bengali)
+- Email (unique, used for login)
+- Phone Number (Bangladesh format, 01XXXXXXXXX)
+- Password (with confirm password, min 8 chars, must contain letter and number)
+- Division (dropdown: all 8 Bangladesh divisions)
+- District (dependent dropdown, populated based on selected division)
+- Role (auto‑selected based on the registration page they came from)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROLE‑SPECIFIC FIELDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+### Patient Registration
+- Age (numeric, 1‑120)
+- Sex (radio: Male / Female)
+- Weight in kg (numeric, 30‑300)
+- Do you have diabetes? (Yes/No/Don't Know)
+- Do you have hypertension? (Yes/No/Don't Know)
+- Family history of kidney disease? (Yes/No/Don't Know)
+- Which area do you live in? (Urban / Rural) — directly feeds risk scoring
+
+### Doctor Registration
+- Medical Registration Number (BMDC number, text field)
+- Specialty (dropdown: Nephrologist, General Physician, Diabetologist, Other)
+- Hospital/Clinic Name (text)
+- Years of Experience (numeric)
+
+### CHW Registration
+- National ID or CHW ID (text)
+- Organization/NGO Name (text, optional)
+- Assigned Working Area (free text, e.g., "Rangpur Sadar Union")
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FORM BEHAVIOUR & VALIDATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Client‑side validation with clear Bengali/English error messages next to each field.
+- Show password strength (weak/medium/strong) as a subtle indicator.
+- District dropdown must be disabled until a division is selected; load districts from a static JSON or API.
+- Required fields marked with an asterisk.
+- A single “Create Account” button at the bottom, disabled until all required fields are valid.
+- Show a subtle loading spinner on the button during API call.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UI / UX (MINIMAL)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Top: “Create a [Patient/Doctor/CHW] Account” heading (bilingual).
+- Below the heading, a short line: “Already have an account? Sign in” (links to /login).
+- The form should be a single scrolling card, no multi‑step.
+- Use simple, bordered input fields (no floating labels). Placeholders appear only in the selected language.
+- Role selection is already done (via the route), so no role toggle on the form itself.
+- Footer: a small lock icon with “Your data is encrypted” text (trust signal).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROUTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- /register/patient
+- /register/doctor
+- /register/chw
+
+(Admin accounts are created manually by existing admins; no public registration for admin.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BACKEND EXPECTATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Endpoint: POST /api/auth/register
+- Payload: { name, email, phone, password, role, ...roleSpecificFields }
+- Server validates, hashes password (bcrypt), creates user + role‑specific profile, returns JWT or success message.
+- On success, frontend redirects to /login?registered=true
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DELIVERABLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Provide the complete React component(s) for all three registration pages, using Tailwind CSS, with i18n hooks and React Router integration. Keep the code clean, no placeholders. The forms must be visually identical in structure and only differ in the role‑specific fields and headings.

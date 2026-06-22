@@ -10,7 +10,7 @@ const DEMO_ACCOUNTS = [
   { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
 ];
 
-export default function Login({ onRegister }: { onRegister: () => void }) {
+export default function Login({ onRegister, registeredSuccess, onClearSuccess }: { onRegister: () => void; registeredSuccess?: boolean; onClearSuccess?: () => void }) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -71,6 +71,22 @@ export default function Login({ onRegister }: { onRegister: () => void }) {
           <h2 className="text-3xl font-bold text-slate-900">Welcome Back</h2>
           <p className="text-slate-500 mt-2">Sign in to your KidneyCare account</p>
         </div>
+
+        {/* Registration success banner */}
+        {registeredSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 p-3.5 rounded-xl text-sm font-semibold flex items-center gap-2"
+            style={{ background: '#EAFAF1', color: '#1a7a44', border: '1px solid #A9DFBF' }}
+          >
+            <span className="text-lg">✓</span>
+            <span>Account created! Sign in to continue.</span>
+            {onClearSuccess && (
+              <button onClick={onClearSuccess} className="ml-auto text-xs opacity-60 hover:opacity-100">✕</button>
+            )}
+          </motion.div>
+        )}
 
         {/* Demo Quick Login */}
         <div className="mb-6 p-4 rounded-2xl" style={{ background: '#FEF5E7', border: '1px solid #F39C12' }}>
