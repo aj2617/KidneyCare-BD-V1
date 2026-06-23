@@ -247,96 +247,126 @@ export default function App() {
 
       {user ? (
         <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 flex items-center gap-2 text-[#1A6B8A] font-bold text-xl">
-                  <Activity className="w-8 h-8" />
-                  <span className="hidden sm:block">{t('app.name')}</span>
+          <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+            <div className="flex items-center justify-between h-14 gap-2 min-w-0">
+
+              {/* LEFT: Logo + desktop nav links */}
+              <div className="flex items-center min-w-0 shrink-0">
+                <div className="flex items-center gap-2 text-[#1A6B8A] font-bold text-xl shrink-0">
+                  <Activity className="w-6 h-6 sm:w-7 sm:h-7" />
+                  <span className="hidden sm:block text-base font-black">{t('app.name')}</span>
                 </div>
-                <div className="hidden lg:ml-6 lg:flex lg:space-x-1">
+                <div className="hidden lg:flex lg:ml-5 lg:space-x-0.5">
                   {currentNavItems.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => setCurrentPage(item.id)}
-                      className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                      className={`px-2.5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
                         currentPage === item.id || currentPage.startsWith(item.id + '-')
                           ? 'bg-[#1A6B8A]/10 text-[#1A6B8A]'
                           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                     >
-                      <item.icon className="w-4 h-4" />
-                      <span className="hidden xl:inline">{item.label}</span>
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      <span className="hidden xl:inline whitespace-nowrap">{item.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Online/Offline indicator — icon only on sm, text on lg+ */}
-                <div className="hidden sm:flex items-center gap-1 text-xs font-medium" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
+
+              {/* RIGHT: actions */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {/* Online/Offline — icon always, text at xl+ */}
+                <div className="hidden sm:flex items-center gap-1 text-xs font-medium px-1" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
                   {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                  <span className="hidden lg:inline">{isOnline ? 'Online' : 'Offline'}</span>
+                  <span className="hidden xl:inline">{isOnline ? 'Online' : 'Offline'}</span>
                 </div>
+
                 {/* Vitals reminder bell — patients only */}
                 {user?.role === 'patient' && (
                   <VitalsReminder language={language as 'en' | 'bn'} token={token} />
                 )}
+
+                {/* Language toggle — globe icon always, text at sm+ */}
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
-                  className="p-1.5 text-slate-500 hover:text-[#1A6B8A] transition-colors flex items-center gap-1 text-xs font-medium"
+                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-500 hover:text-[#1A6B8A] hover:bg-slate-50 transition-colors text-xs font-semibold"
                 >
-                  <Globe className="w-3.5 h-3.5" />
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
                   <span className="hidden sm:inline">{language === 'en' ? 'বাংলা' : 'EN'}</span>
                 </button>
-                <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200">
-                  <div className="flex flex-col items-end min-w-0">
-                    <span className="text-xs font-semibold text-slate-700 leading-none truncate max-w-[90px]">{user.name.split(' ')[0]}</span>
-                    {user.name.split(' ').length > 1 && (
-                      <span className="text-xs font-semibold text-slate-700 leading-none truncate max-w-[90px]">{user.name.split(' ').slice(1).join(' ')}</span>
-                    )}
+
+                {/* User identity — desktop lg+ only */}
+                <div className="hidden lg:flex items-center gap-2 pl-2 border-l border-slate-200">
+                  <div className="text-right min-w-0">
+                    <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[100px]">
+                      {user.name.split(' ')[0]}{user.name.split(' ').length > 1 ? ' ' + user.name.split(' ').slice(1).join(' ') : ''}
+                    </p>
+                    <p className="text-[10px] text-slate-400 uppercase font-semibold leading-tight">{user.role}</p>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase font-bold whitespace-nowrap shrink-0">{user.role}</span>
-                  <button onClick={logout} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors shrink-0" title="Logout">
+                  <button onClick={logout} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 shrink-0" title="Logout">
                     <LogOut className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="lg:hidden flex items-center">
-                  <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-500">
-                    {isMobileMenuOpen ? <X /> : <Menu />}
+
+                {/* Mobile: compact user avatar + hamburger */}
+                <div className="lg:hidden flex items-center gap-1.5">
+                  <div className="w-7 h-7 rounded-full bg-[#1A6B8A]/10 border border-[#1A6B8A]/20 flex items-center justify-center text-[#1A6B8A] text-[10px] font-black shrink-0">
+                    {user.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
+                  </div>
+                  <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Mobile dropdown menu */}
           <AnimatePresence>
             {isMobileMenuOpen && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="lg:hidden bg-white border-t border-slate-100"
+                transition={{ duration: 0.18 }}
+                className="lg:hidden bg-white border-t border-slate-100 overflow-hidden"
               >
-                <div className="px-2 pt-2 pb-3 space-y-1">
+                <div className="px-3 pt-2 pb-3 space-y-0.5">
+                  {/* User info row at top of menu */}
+                  <div className="flex items-center gap-3 px-3 py-2.5 mb-1 rounded-xl bg-slate-50">
+                    <div className="w-9 h-9 rounded-full bg-[#1A6B8A] flex items-center justify-center text-white text-sm font-black shrink-0">
+                      {user.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{user.name}</p>
+                      <p className="text-xs text-slate-500 uppercase font-semibold">{user.role}</p>
+                    </div>
+                  </div>
                   {currentNavItems.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => { setCurrentPage(item.id); setIsMobileMenuOpen(false); }}
-                      className={`flex items-center gap-3 w-full text-left px-3 py-3 rounded-md text-base font-medium ${
+                      className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         currentPage === item.id ? 'bg-[#1A6B8A]/10 text-[#1A6B8A]' : 'text-slate-700 hover:bg-slate-50'
                       }`}
                     >
-                      <item.icon className="w-5 h-5" />
+                      <item.icon className="w-4 h-4 shrink-0" />
                       {item.label}
                     </button>
                   ))}
-                  <button
-                    onClick={logout}
-                    className="flex items-center gap-3 w-full text-left px-3 py-3 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
-                  >
-                    <LogOut className="w-5 h-5" />
-                    Logout
-                  </button>
+                  <div className="pt-1 border-t border-slate-100 mt-1">
+                    <button
+                      onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                      className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4 shrink-0" />
+                      Logout
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -370,7 +400,17 @@ export default function App() {
         </nav>
       )}
 
-      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${user?.role === 'patient' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'doctor' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'admin' ? 'pb-24 md:pb-8' : ''} ${user?.role === 'chw' ? 'pb-24 px-0 sm:px-0 lg:px-0 py-0' : ''}`}>
+      <main className={`max-w-7xl mx-auto ${
+        user?.role === 'chw'
+          ? 'px-0 py-0 pb-24'
+          : user?.role === 'patient'
+          ? 'px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8'
+          : user?.role === 'doctor'
+          ? 'px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8'
+          : user?.role === 'admin'
+          ? 'px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 md:pb-8'
+          : 'px-4 sm:px-6 lg:px-8 py-6 sm:py-8'
+      }`}>
         <motion.div key={currentPage} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.15 }}>
           {renderPage()}
         </motion.div>

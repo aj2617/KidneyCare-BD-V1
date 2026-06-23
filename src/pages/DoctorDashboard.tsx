@@ -196,19 +196,19 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
       </div>
 
       {/* ── STATS ROW ── */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
           { label: bn ? 'মোট রোগী' : 'Total Patients', value: patients.length, icon: Users, color: 'text-[#1A6B8A] bg-[#1A6B8A]/10' },
           { label: bn ? 'সংকটাপন্ন' : 'Critical', value: criticalPts, icon: AlertCircle, color: 'bg-[#FDECEA] text-[#E74C3C]' },
-          { label: bn ? 'অপঠিত সতর্কতা' : 'Unread Alerts', value: unread.length, icon: Bell, color: 'bg-[#FEF5E7] text-[#F39C12]' },
+          { label: bn ? 'অপঠিত' : 'Unread', value: unread.length, icon: Bell, color: 'bg-[#FEF5E7] text-[#F39C12]' },
         ].map(stat => (
-          <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-3 sm:p-4 flex items-center gap-3 shadow-sm">
-            <div className={`p-2 rounded-xl shrink-0 ${stat.color}`}>
-              <stat.icon className="w-4 h-4" />
+          <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-1.5 shadow-sm">
+            <div className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center ${stat.color}`}>
+              <stat.icon className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-black text-slate-900 leading-none">{isLoading ? '—' : stat.value}</p>
-              <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">{stat.label}</p>
+              <p className="text-lg sm:text-xl font-black text-slate-900 leading-none">{isLoading ? '—' : stat.value}</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 font-medium truncate mt-0.5">{stat.label}</p>
             </div>
           </div>
         ))}
