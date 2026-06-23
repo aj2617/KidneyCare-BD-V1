@@ -271,11 +271,11 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                {/* Online/Offline indicator */}
+              <div className="flex items-center gap-2">
+                {/* Online/Offline indicator — icon only on sm, text on lg+ */}
                 <div className="hidden sm:flex items-center gap-1 text-xs font-medium" style={{ color: isOnline ? '#2ECC71' : '#F39C12' }}>
                   {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                  <span className="hidden md:inline">{isOnline ? 'Online' : 'Offline'}</span>
+                  <span className="hidden lg:inline">{isOnline ? 'Online' : 'Offline'}</span>
                 </div>
                 {/* Vitals reminder bell — patients only */}
                 {user?.role === 'patient' && (
@@ -283,16 +283,21 @@ export default function App() {
                 )}
                 <button
                   onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
-                  className="p-2 text-slate-500 hover:text-[#1A6B8A] transition-colors flex items-center gap-1 text-sm font-medium"
+                  className="p-1.5 text-slate-500 hover:text-[#1A6B8A] transition-colors flex items-center gap-1 text-xs font-medium"
                 >
-                  <Globe className="w-4 h-4" />
-                  {language === 'en' ? 'বাংলা' : 'English'}
+                  <Globe className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{language === 'en' ? 'বাংলা' : 'EN'}</span>
                 </button>
-                <div className="hidden md:flex items-center gap-3 pl-3 border-l border-slate-200">
-                  <span className="text-sm font-medium text-slate-700">{user.name}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase font-bold">{user.role}</span>
-                  <button onClick={logout} className="p-2 text-slate-400 hover:text-red-500 transition-colors" title="Logout">
-                    <LogOut className="w-5 h-5" />
+                <div className="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200">
+                  <div className="flex flex-col items-end min-w-0">
+                    <span className="text-xs font-semibold text-slate-700 leading-none truncate max-w-[90px]">{user.name.split(' ')[0]}</span>
+                    {user.name.split(' ').length > 1 && (
+                      <span className="text-xs font-semibold text-slate-700 leading-none truncate max-w-[90px]">{user.name.split(' ').slice(1).join(' ')}</span>
+                    )}
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase font-bold whitespace-nowrap shrink-0">{user.role}</span>
+                  <button onClick={logout} className="p-1.5 text-slate-400 hover:text-red-500 transition-colors shrink-0" title="Logout">
+                    <LogOut className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="lg:hidden flex items-center">
