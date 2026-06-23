@@ -1216,6 +1216,26 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                 </button>
               </div>
 
+              {/* Column coverage chips */}
+              <div className="flex flex-wrap gap-1.5 mb-5">
+                {[
+                  { label: language === 'bn' ? 'জনসংখ্যাতত্ত্ব' : 'Demographics', count: 6 },
+                  { label: language === 'bn' ? 'চিকিৎসা ইতিহাস' : 'Medical history', count: 11 },
+                  { label: language === 'bn' ? 'লক্ষণ' : 'Symptoms', count: 8 },
+                  { label: language === 'bn' ? 'জীবনধারা' : 'Lifestyle', count: 6 },
+                  { label: language === 'bn' ? 'eGFR / CKD' : 'eGFR / CKD', count: 4 },
+                  { label: language === 'bn' ? 'ভাইটালস' : 'Vitals', count: 9 },
+                  { label: language === 'bn' ? 'ঝুঁকি সংকেত' : 'Risk signals', count: 4 },
+                ].map(c => (
+                  <span key={c.label} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-semibold">
+                    {c.label} <span className="text-[10px] font-black text-[#1A6B8A]">×{c.count}</span>
+                  </span>
+                ))}
+                <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#1A6B8A]/10 text-[#1A6B8A] text-[11px] font-black">
+                  {language === 'bn' ? 'মোট ৫২টি কলাম' : '52 columns total'}
+                </span>
+              </div>
+
               <div className="space-y-4 mb-5">
                 <div>
                   <label className="text-sm font-semibold text-slate-700 block mb-1.5">
@@ -1252,12 +1272,19 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                 </div>
               </div>
 
-              <div className="bg-[#EFF8FB] rounded-2xl p-3 mb-5 flex gap-2.5">
-                <Shield className="w-4 h-4 text-[#1A6B8A] shrink-0 mt-0.5" />
-                <p className="text-xs text-[#1A6B8A]">
+              <div className="bg-[#EFF8FB] rounded-2xl p-3 mb-5 space-y-1.5">
+                <div className="flex gap-2.5">
+                  <Shield className="w-4 h-4 text-[#1A6B8A] shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#1A6B8A] font-semibold">
+                    {language === 'bn'
+                      ? 'সমস্ত ডেটা বেনামী — কোনো নাম, ফোন বা সনাক্তযোগ্য তথ্য নেই।'
+                      : 'All data is anonymized — no names, phones, or identifiable info included.'}
+                  </p>
+                </div>
+                <p className="text-xs text-[#1A6B8A]/70 pl-6">
                   {language === 'bn'
-                    ? 'সমস্ত ডেটা বেনামী — কোনো নাম, ফোন বা সনাক্তযোগ্য তথ্য নেই।'
-                    : 'All data is anonymized — no names, phones, or identifiable info included.'}
+                    ? 'সার্ভে পূর্ণ না করা রোগীরাও অন্তর্ভুক্ত — survey_completed কলামে চিহ্নিত।'
+                    : 'All registered patients included — survey_completed column flags who has finished.'}
                 </p>
               </div>
 

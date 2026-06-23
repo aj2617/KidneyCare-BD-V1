@@ -1253,7 +1253,7 @@ async function startServer() {
     }
 
     // 4. GFR declining trend (last 2 readings)
-    const gfrHistory = db.prepare('SELECT mdrd FROM gfr_logs WHERE patient_id = ? ORDER BY created_at DESC LIMIT 2').all(patient.id) as any[];
+    const gfrHistory = db.prepare('SELECT mdrd FROM gfr_records WHERE patient_id = ? ORDER BY date DESC LIMIT 2').all(patient.id) as any[];
     if (gfrHistory.length === 2 && gfrHistory[0].mdrd < gfrHistory[1].mdrd - 5) {
       alerts.push({ id: 'gfr-decline', type: 'warning', title: 'eGFR Declining', message: `Your kidney function score dropped from ${Math.round(gfrHistory[1].mdrd)} to ${Math.round(gfrHistory[0].mdrd)} mL/min. Schedule a check-up.` });
     }
@@ -2430,39 +2430,45 @@ async function startServer() {
 
     const { district, start_date, end_date } = req.query as any;
 
-    let whereClause = "WHERE u.role = 'patient' AND p.survey_completed = 1";
+    let whereClause = "WHERE u.role = 'patient'";
     const params: any[] = [];
 
     if (district) { whereClause += ' AND u.district = ?'; params.push(district); }
-    if (start_date) { whereClause += ' AND ps.completed_at >= ?'; params.push(start_date); }
-    if (end_date) { whereClause += ' AND ps.completed_at <= ?'; params.push(end_date + ' 23:59:59'); }
+    if (start_date) { whereClause += ' AND (ps.completed_at >= ? OR ps.completed_at IS NULL)'; params.push(start_date); }
+    if (end_date) { whereClause += ' AND (ps.completed_at <= ? OR ps.completed_at IS NULL)'; params.push(end_date + ' 23:59:59'); }
 
     const rows = db.prepare(`
       SELECT
-        COALESCE(u.anon_id, 'P' || CAST(p.id AS TEXT)) as anon_id,
+        'P' || CAST(p.id AS TEXT) as anon_id,
         u.district,
+        u.division,
         ps.responses,
-        g.mdrd as egfr_mdrd, g.cg as egfr_cg, g.ckd_epi as egfr_ckdepi, g.stage as ckd_stage,
+        ps.completed_at as survey_completed_at,
+        p.survey_completed,
+        g.mdrd as egfr_mdrd, g.cg as egfr_cg, g.ckd_epi as egfr_ckdepi,
+        COALESCE(g.stage, p.ckd_stage) as ckd_stage,
         p.risk_score,
+        p.arsenic_prone_area, p.herbal_remedy_use, p.nsaid_use, p.uacr as patient_uacr,
         v.systolic as bp_systolic, v.diastolic as bp_diastolic,
         v.blood_sugar, v.creatinine as latest_creatinine, v.weight as latest_weight,
+        v.urine_protein, v.edema, v.fatigue as vitals_fatigue,
         (SELECT COUNT(*) FROM vitals_log vl WHERE vl.patient_id = p.id) as total_vitals_logs,
         (SELECT MIN(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as first_vitals_date,
         (SELECT MAX(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as last_vitals_date,
-        ps.completed_at as survey_completed_at
+        (SELECT COUNT(*) FROM gfr_records gr WHERE gr.patient_id = p.id) as total_gfr_records
       FROM users u
       JOIN patients p ON u.id = p.user_id
-      JOIN patient_surveys ps ON p.id = ps.patient_id
+      LEFT JOIN patient_surveys ps ON p.id = ps.patient_id
       LEFT JOIN (SELECT * FROM gfr_records WHERE id IN (SELECT MAX(id) FROM gfr_records GROUP BY patient_id)) g ON p.id = g.patient_id
       LEFT JOIN (SELECT * FROM vitals_log WHERE id IN (SELECT MAX(id) FROM vitals_log GROUP BY patient_id)) v ON p.id = v.patient_id
       ${whereClause}
-      ORDER BY ps.completed_at DESC
+      ORDER BY COALESCE(ps.completed_at, '1970-01-01') DESC
     `).all(...params) as any[];
 
     if (rows.length === 0) {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=kidneycare_research_export.csv');
-      return res.send('No data available');
+      return res.send('anon_id,district\n(no patients found)');
     }
 
     const surveyKeys = [
@@ -2478,11 +2484,15 @@ async function startServer() {
     ];
 
     const csvHeaders = [
-      'anon_id','district',
+      'anon_id','district','division',
+      'survey_completed',
       ...surveyKeys,
       'egfr_mdrd','egfr_cg','egfr_ckdepi','ckd_stage','risk_score',
+      'arsenic_prone_area','herbal_remedy_use','nsaid_use','patient_uacr',
       'bp_systolic','bp_diastolic','blood_sugar','latest_creatinine','latest_weight',
-      'total_vitals_logs','first_vitals_date','last_vitals_date','survey_completed_at',
+      'urine_protein','edema','vitals_fatigue',
+      'total_vitals_logs','total_gfr_records',
+      'first_vitals_date','last_vitals_date','survey_completed_at',
     ];
 
     const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -2491,7 +2501,8 @@ async function startServer() {
       let survey: any = {};
       try { survey = JSON.parse(row.responses || '{}'); } catch { /* */ }
       const vals = [
-        row.anon_id, row.district,
+        row.anon_id, row.district, row.division ?? '',
+        row.survey_completed ? 'yes' : 'no',
         ...surveyKeys.map(k => {
           if (k === 'bp_systolic_survey') return survey.bp_systolic ?? '';
           if (k === 'bp_diastolic_survey') return survey.bp_diastolic ?? '';
@@ -2500,9 +2511,11 @@ async function startServer() {
         }),
         row.egfr_mdrd ?? '', row.egfr_cg ?? '', row.egfr_ckdepi ?? '',
         row.ckd_stage ?? '', row.risk_score ?? '',
+        row.arsenic_prone_area ?? '', row.herbal_remedy_use ?? '', row.nsaid_use ?? '', row.patient_uacr ?? '',
         row.bp_systolic ?? '', row.bp_diastolic ?? '',
         row.blood_sugar ?? '', row.latest_creatinine ?? '', row.latest_weight ?? '',
-        row.total_vitals_logs ?? 0,
+        row.urine_protein ?? '', row.edema ?? '', row.vitals_fatigue ?? '',
+        row.total_vitals_logs ?? 0, row.total_gfr_records ?? 0,
         row.first_vitals_date ?? '', row.last_vitals_date ?? '',
         row.survey_completed_at ?? '',
       ];
