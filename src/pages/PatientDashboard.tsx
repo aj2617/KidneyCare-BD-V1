@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, AlertCircle, Flame, Utensils, Heart,
-  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets, Loader2
+  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets, Loader2,
+  Bell, X, Info, TriangleAlert
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
@@ -21,9 +22,26 @@ export default function PatientDashboard() {
   const [lastBP, setLastBP] = useState<{ systolic: number; diastolic: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [surveyCompleted, setSurveyCompleted] = useState<boolean | null>(null);
+  const [alerts, setAlerts] = useState<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }[]>([]);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('kc-dismissed-alerts') || '[]')); }
+    catch { return new Set(); }
+  });
 
   const isProfileIncomplete = Boolean(profile && (!profile.age || !profile.weight || !profile.sex));
   const nav = (page: string) => window.dispatchEvent(new CustomEvent('navigate', { detail: page }));
+
+  const visibleAlerts = alerts.filter(a => !dismissedAlerts.has(a.id));
+  const criticalCount = visibleAlerts.filter(a => a.type === 'critical').length;
+  const unreadCount = visibleAlerts.length;
+
+  const dismissAlert = (id: string) => {
+    const next = new Set(dismissedAlerts);
+    next.add(id);
+    setDismissedAlerts(next);
+    localStorage.setItem('kc-dismissed-alerts', JSON.stringify([...next]));
+  };
 
   useEffect(() => {
     fetchData();
@@ -50,12 +68,13 @@ export default function PatientDashboard() {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [pRes, gRes, rRes, sRes, vRes] = await Promise.all([
+      const [pRes, gRes, rRes, sRes, vRes, aRes] = await Promise.all([
         fetch('/api/patient/profile', { headers }),
         fetch('/api/patient/gfr-history', { headers }),
         fetch('/api/patient/risk-score', { headers }),
         fetch('/api/patient/streak', { headers }),
         fetch('/api/patient/vitals', { headers }),
+        fetch('/api/patient/alerts', { headers }),
       ]);
       setProfile(await pRes.json());
       setGfrHistory(await gRes.json());
@@ -69,6 +88,7 @@ export default function PatientDashboard() {
           setLastBP({ systolic: latest.systolic, diastolic: latest.diastolic, date: latest.date });
         }
       }
+      if (aRes.ok) setAlerts(await aRes.json());
     } finally {
       setLoading(false);
     }
@@ -130,7 +150,7 @@ export default function PatientDashboard() {
 
       {/* ── GREETING HEADER ── */}
       <div
-        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-1"
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4"
         style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">
@@ -142,10 +162,94 @@ export default function PatientDashboard() {
               {bn ? 'হ্যালো, ' : 'Hello, '}{user?.name?.split(' ')[0] || (bn ? 'রোগী' : 'Patient')}
             </h1>
           </div>
-          <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-sm font-black">
-            {patientInitials}
+          <div className="flex items-center gap-2">
+            {/* Alert Bell */}
+            <button
+              onClick={() => setShowAlerts(v => !v)}
+              className="relative p-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all active:scale-95"
+              aria-label={bn ? 'সতর্কতা' : 'Alerts'}
+            >
+              <Bell className="w-5 h-5 text-white" />
+              {unreadCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full text-[10px] font-black text-white border-2 border-[#1A6B8A]"
+                  style={{ background: criticalCount > 0 ? '#E74C3C' : '#F39C12' }}
+                >
+                  {unreadCount}
+                </motion.span>
+              )}
+              {/* Pulsing ring when critical */}
+              {criticalCount > 0 && (
+                <motion.span
+                  animate={{ scale: [1, 1.6, 1], opacity: [0.7, 0, 0.7] }}
+                  transition={{ duration: 1.8, repeat: Infinity }}
+                  className="absolute inset-0 rounded-xl"
+                  style={{ background: '#E74C3C', zIndex: -1 }}
+                />
+              )}
+            </button>
+            <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-sm font-black">
+              {patientInitials}
+            </div>
           </div>
         </div>
+
+        {/* ── ALERTS SLIDE-DOWN PANEL ── */}
+        <AnimatePresence>
+          {showAlerts && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="mt-4 space-y-2">
+                {visibleAlerts.length === 0 ? (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 border border-white/20">
+                    <Bell className="w-4 h-4 text-white/60" />
+                    <p className="text-sm text-white/80 font-medium">
+                      {bn ? 'কোনো নতুন সতর্কতা নেই' : 'No new alerts — all clear!'}
+                    </p>
+                  </div>
+                ) : (
+                  visibleAlerts.map(alert => {
+                    const colors = {
+                      critical: { bg: 'rgba(231,76,60,0.18)', border: 'rgba(231,76,60,0.5)', icon: '#E74C3C' },
+                      warning:  { bg: 'rgba(243,156,18,0.18)', border: 'rgba(243,156,18,0.5)', icon: '#F39C12' },
+                      info:     { bg: 'rgba(255,255,255,0.12)', border: 'rgba(255,255,255,0.2)', icon: '#ffffff' },
+                    }[alert.type];
+                    const Icon = alert.type === 'info' ? Info : TriangleAlert;
+                    return (
+                      <motion.div
+                        key={alert.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        className="flex items-start gap-3 px-3 py-2.5 rounded-xl"
+                        style={{ background: colors.bg, border: `1px solid ${colors.border}` }}
+                      >
+                        <Icon className="w-4 h-4 mt-0.5 shrink-0" style={{ color: colors.icon }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-white leading-snug">{alert.title}</p>
+                          <p className="text-xs text-white/70 mt-0.5 leading-relaxed">{alert.message}</p>
+                        </div>
+                        <button
+                          onClick={() => dismissAlert(alert.id)}
+                          className="shrink-0 p-1 rounded-lg hover:bg-white/10 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5 text-white/60" />
+                        </button>
+                      </motion.div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Forced survey overlay — blocks dashboard until complete */}

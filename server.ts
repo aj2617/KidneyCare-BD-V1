@@ -1222,6 +1222,50 @@ async function startServer() {
     res.json({ streak: patient?.streak_days || 0, last_log_date: patient?.last_log_date });
   });
 
+  app.get('/api/patient/alerts', authenticateToken, (req: any, res) => {
+    const patient = db.prepare('SELECT * FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    const user = db.prepare('SELECT district FROM users WHERE id = ?').get(req.user.id) as any;
+    if (!patient) return res.json([]);
+
+    const alerts: { id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }[] = [];
+
+    // 1. High risk score
+    const score = patient.risk_score || 0;
+    if (score > 75) {
+      alerts.push({ id: 'risk-critical', type: 'critical', title: 'Critical Risk Score', message: `Your risk score is ${score}/100. Please contact your doctor immediately.` });
+    } else if (score > 50) {
+      alerts.push({ id: 'risk-high', type: 'warning', title: 'Elevated Risk Score', message: `Your risk score is ${score}/100. Follow up with your care team soon.` });
+    }
+
+    // 2. Latest BP check
+    const latestVitals = db.prepare('SELECT * FROM vitals_log WHERE patient_id = ? ORDER BY date DESC LIMIT 1').get(patient.id) as any;
+    if (latestVitals && latestVitals.systolic >= 140) {
+      alerts.push({ id: 'bp-high', type: 'critical', title: 'High Blood Pressure Detected', message: `Last reading: ${latestVitals.systolic}/${latestVitals.diastolic} mmHg. Reduce salt intake and consult your doctor.` });
+    } else if (latestVitals && latestVitals.systolic >= 130) {
+      alerts.push({ id: 'bp-elevated', type: 'warning', title: 'Blood Pressure Elevated', message: `Last reading: ${latestVitals.systolic}/${latestVitals.diastolic} mmHg. Monitor closely and stay hydrated.` });
+    }
+
+    // 3. Vitals not logged in 3+ days
+    const lastLog = patient.last_log_date ? new Date(patient.last_log_date) : null;
+    const daysSinceLog = lastLog ? Math.floor((Date.now() - lastLog.getTime()) / 86400000) : 999;
+    if (daysSinceLog >= 3) {
+      alerts.push({ id: 'log-missing', type: 'warning', title: 'Vitals Not Logged', message: `You haven't logged vitals in ${daysSinceLog === 999 ? 'a while' : `${daysSinceLog} days`}. Log today to keep your streak going.` });
+    }
+
+    // 4. GFR declining trend (last 2 readings)
+    const gfrHistory = db.prepare('SELECT mdrd FROM gfr_logs WHERE patient_id = ? ORDER BY created_at DESC LIMIT 2').all(patient.id) as any[];
+    if (gfrHistory.length === 2 && gfrHistory[0].mdrd < gfrHistory[1].mdrd - 5) {
+      alerts.push({ id: 'gfr-decline', type: 'warning', title: 'eGFR Declining', message: `Your kidney function score dropped from ${Math.round(gfrHistory[1].mdrd)} to ${Math.round(gfrHistory[0].mdrd)} mL/min. Schedule a check-up.` });
+    }
+
+    // 5. Profile incomplete
+    if (!patient.age || !patient.weight || !patient.sex) {
+      alerts.push({ id: 'profile-incomplete', type: 'info', title: 'Complete Your Profile', message: 'Add your age, weight, and sex for a more accurate risk score.' });
+    }
+
+    res.json(alerts);
+  });
+
   app.post('/api/patient/set-pin', authenticateToken, async (req: any, res) => {
     const { pin } = req.body;
     if (!pin || pin.length < 4) return res.status(400).json({ error: 'PIN must be at least 4 digits' });
