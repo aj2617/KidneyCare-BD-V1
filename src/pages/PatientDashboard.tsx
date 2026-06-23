@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, AlertCircle, Flame, Utensils, Heart,
   ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets, Loader2,
-  Bell, X, Info, TriangleAlert
+  Bell, X, Info, TriangleAlert, ClipboardList
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
@@ -22,6 +22,7 @@ export default function PatientDashboard() {
   const [lastBP, setLastBP] = useState<{ systolic: number; diastolic: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [surveyCompleted, setSurveyCompleted] = useState<boolean | null>(null);
+  const [showSurvey, setShowSurvey] = useState(false);
   const [alerts, setAlerts] = useState<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
@@ -252,14 +253,53 @@ export default function PatientDashboard() {
         </AnimatePresence>
       </div>
 
-      {/* Forced survey overlay — blocks dashboard until complete */}
-      {surveyCompleted === false && (
+      {/* Survey overlay — shown only when patient clicks the notification */}
+      {showSurvey && (
         <ForcedSurveyOverlay
           token={token!}
           patientName={user?.name || ''}
-          onComplete={() => setSurveyCompleted(true)}
+          onComplete={() => { setSurveyCompleted(true); setShowSurvey(false); }}
         />
       )}
+
+      {/* Survey notification banner */}
+      <AnimatePresence>
+        {surveyCompleted === false && !showSurvey && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            className="flex items-center justify-between gap-3 p-4 rounded-2xl shadow-sm"
+            style={{ background: '#EFF8FB', border: '1px solid #1A6B8A' }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <motion.div
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ duration: 1.6, repeat: Infinity }}
+                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: '#1A6B8A' }}
+              >
+                <ClipboardList className="w-5 h-5 text-white" />
+              </motion.div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold leading-snug" style={{ color: '#0f4560' }}>
+                  {bn ? 'স্বাস্থ্য জরিপ সম্পূর্ণ করুন' : 'Complete your Health Survey'}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: '#1A6B8A' }}>
+                  {bn ? 'আপনার যত্নের মান উন্নত করতে সাহায্য করে' : 'Helps us personalise your care and risk score'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSurvey(true)}
+              className="shrink-0 px-4 py-2 text-white text-xs font-bold rounded-xl transition-colors min-h-[44px] flex items-center"
+              style={{ background: '#1A6B8A' }}
+            >
+              {bn ? 'শুরু করুন' : 'Start'}
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Profile incomplete banner */}
       <AnimatePresence>
