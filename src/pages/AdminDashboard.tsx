@@ -60,10 +60,10 @@ function generateSparkline(total: number, days = 30): { day: string; value: numb
 function KpiCard({ label, value, sub, color, icon: Icon, sparkData, trend }:
   { label: string; value: string | number; sub?: string; color: string; icon: any; sparkData?: any[]; trend?: string }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col gap-2 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-          <Icon className="w-5 h-5" />
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
+          <Icon className="w-4 h-4" />
         </div>
         {trend && (
           <span className="text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1" style={{ background: '#EAFAF1', color: '#1a7a44' }}>
@@ -72,9 +72,9 @@ function KpiCard({ label, value, sub, color, icon: Icon, sparkData, trend }:
         )}
       </div>
       <div>
-        <p className="text-2xl font-black text-slate-900">{value}</p>
+        <p className="text-xl font-black text-slate-900">{value}</p>
         <p className="text-xs font-semibold text-slate-400 uppercase mt-0.5">{label}</p>
-        {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+        {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
       </div>
       {sparkData && (
         <div className="h-10 -mx-1">
@@ -439,7 +439,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
       {/* ── TEAL HEADER ── */}
       <div
-        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-1"
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-5 pb-3 mb-1"
         style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">
@@ -501,8 +501,8 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
         <motion.div key={activeTab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
 
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 <KpiCard
                   label={language === 'bn' ? 'মোট রোগী' : 'Total Patients'}
                   value={totalPatients.toLocaleString()}

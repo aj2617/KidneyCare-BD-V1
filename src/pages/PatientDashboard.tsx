@@ -147,11 +147,11 @@ export default function PatientDashboard() {
     .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-3 pb-6">
 
       {/* ── GREETING HEADER ── */}
       <div
-        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4"
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-5 pb-3"
         style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">
@@ -269,30 +269,30 @@ export default function PatientDashboard() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="flex items-center justify-between gap-3 p-4 rounded-2xl shadow-sm"
+            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl shadow-sm"
             style={{ background: '#EFF8FB', border: '1px solid #1A6B8A' }}
           >
             <div className="flex items-center gap-3 min-w-0">
               <motion.div
                 animate={{ scale: [1, 1.15, 1] }}
                 transition={{ duration: 1.6, repeat: Infinity }}
-                className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center"
+                className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
                 style={{ background: '#1A6B8A' }}
               >
-                <ClipboardList className="w-5 h-5 text-white" />
+                <ClipboardList className="w-4 h-4 text-white" />
               </motion.div>
               <div className="min-w-0">
                 <p className="text-sm font-bold leading-snug" style={{ color: '#0f4560' }}>
                   {bn ? 'স্বাস্থ্য জরিপ সম্পূর্ণ করুন' : 'Complete your Health Survey'}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: '#1A6B8A' }}>
-                  {bn ? 'আপনার যত্নের মান উন্নত করতে সাহায্য করে' : 'Helps us personalise your care and risk score'}
+                <p className="text-xs mt-0.5 leading-snug" style={{ color: '#1A6B8A' }}>
+                  {bn ? 'ঝুঁকির স্কোর উন্নত করতে সাহায্য করে' : 'Helps personalise your risk score'}
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowSurvey(true)}
-              className="shrink-0 px-4 py-2 text-white text-xs font-bold rounded-xl transition-colors min-h-[44px] flex items-center"
+              className="shrink-0 px-3 py-1.5 text-white text-xs font-bold rounded-xl transition-colors"
               style={{ background: '#1A6B8A' }}
             >
               {bn ? 'শুরু করুন' : 'Start'}
@@ -308,14 +308,14 @@ export default function PatientDashboard() {
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            className="flex items-center justify-between gap-3 p-4 rounded-2xl shadow-sm"
+            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl shadow-sm"
             style={{ background: '#FEF5E7', border: '1px solid #F39C12' }}
           >
             <div className="flex items-center gap-3 min-w-0">
               <motion.div
                 animate={{ opacity: [1, 0.3, 1] }}
                 transition={{ duration: 1.2, repeat: Infinity }}
-                className="shrink-0 w-2.5 h-2.5 rounded-full"
+                className="shrink-0 w-2 h-2 rounded-full"
                 style={{ background: '#F39C12' }}
               />
               <p className="text-sm font-semibold leading-snug" style={{ color: '#7d5100' }}>
@@ -324,7 +324,7 @@ export default function PatientDashboard() {
             </div>
             <button
               onClick={() => nav('profile')}
-              className="shrink-0 px-3 py-1.5 text-white text-xs font-bold rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center"
+              className="shrink-0 px-3 py-1.5 text-white text-xs font-bold rounded-xl transition-colors"
               style={{ background: '#F39C12' }}
             >
               {bn ? 'আপডেট' : 'Update'}
@@ -374,7 +374,7 @@ export default function PatientDashboard() {
       </motion.div>
 
       {/* ── MINI STATS ROW ── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
 
         {/* Last BP card */}
         {lastBP && (
@@ -383,17 +383,17 @@ export default function PatientDashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.03 }}
             onClick={() => nav('vitals')}
-            className="col-span-2 text-left p-4 rounded-2xl border shadow-sm active:scale-95 transition-transform flex items-center justify-between"
+            className="col-span-2 text-left px-3 py-2.5 rounded-2xl border shadow-sm active:scale-95 transition-transform flex items-center justify-between"
             style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', borderColor: '#E74C3C' } : { background: '#fff', borderColor: '#f1f5f9' }}
           >
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', color: '#E74C3C' } : { background: '#EFF8FB', color: '#1A6B8A' }}>
-                <Droplets className="w-5 h-5" />
+              <div className="p-1.5 rounded-xl" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', color: '#E74C3C' } : { background: '#EFF8FB', color: '#1A6B8A' }}>
+                <Droplets className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-2xl font-black leading-none" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { color: '#7b1a1a' } : { color: '#0f172a' }}>
+                <p className="text-xl font-black leading-none" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { color: '#7b1a1a' } : { color: '#0f172a' }}>
                   {lastBP.systolic}/{lastBP.diastolic}
-                  <span className="text-sm font-semibold text-slate-400 ml-1">mmHg</span>
+                  <span className="text-xs font-semibold text-slate-400 ml-1">mmHg</span>
                 </p>
                 <p className="text-xs font-semibold text-slate-400 mt-0.5">
                   {bn ? 'সর্বশেষ রক্তচাপ' : 'Last Blood Pressure'}
@@ -415,16 +415,16 @@ export default function PatientDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
           onClick={() => nav('gfr')}
-          className="text-left p-4 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-95 transition-transform min-h-[140px] flex flex-col justify-between"
+          className="text-left p-3 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-95 transition-transform flex flex-col justify-between gap-2"
         >
           <div className="flex justify-between items-center">
-            <div className="p-2 rounded-xl" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
-              <Activity className="w-5 h-5" />
+            <div className="p-1.5 rounded-xl" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
+              <Activity className="w-4 h-4" />
             </div>
             <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
           <div>
-            <p className="text-3xl font-black text-slate-900 leading-none">
+            <p className="text-2xl font-black text-slate-900 leading-none">
               {latestGfr ?? '--'}
             </p>
             <p className="text-xs font-semibold text-slate-400 mt-0.5">
@@ -461,17 +461,17 @@ export default function PatientDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
           onClick={() => nav('vitals')}
-          className="text-left p-4 rounded-2xl border shadow-sm active:scale-95 transition-transform min-h-[140px] flex flex-col justify-between"
+          className="text-left p-3 rounded-2xl border shadow-sm active:scale-95 transition-transform flex flex-col justify-between gap-2"
           style={streak >= 5 ? { background: '#FEF5E7', borderColor: '#F39C12' } : { background: '#fff', borderColor: '#f1f5f9' }}
         >
           <div className="flex justify-between items-center">
-            <div className="p-2 rounded-xl" style={streak >= 5 ? { background: '#FDE9C3', color: '#F39C12' } : { background: '#f1f5f9', color: '#94a3b8' }}>
-              <Flame className="w-5 h-5" />
+            <div className="p-1.5 rounded-xl" style={streak >= 5 ? { background: '#FDE9C3', color: '#F39C12' } : { background: '#f1f5f9', color: '#94a3b8' }}>
+              <Flame className="w-4 h-4" />
             </div>
             <ChevronRight className="w-4 h-4 text-slate-300" />
           </div>
           <div>
-            <p className="text-3xl font-black leading-none" style={streak >= 5 ? { color: '#F39C12' } : { color: '#0f172a' }}>
+            <p className="text-2xl font-black leading-none" style={streak >= 5 ? { color: '#F39C12' } : { color: '#0f172a' }}>
               {streak}
             </p>
             <p className="text-xs font-semibold text-slate-400 mt-0.5">
@@ -521,15 +521,15 @@ export default function PatientDashboard() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-slate-900 text-white p-5 rounded-2xl shadow-sm"
+          className="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-sm"
         >
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">
             {bn ? 'ক্লিনিকাল পরামর্শ' : 'Clinical Recommendation'}
           </p>
-          <p className="text-sm leading-relaxed text-slate-200 mb-4">{latestRec}</p>
+          <p className="text-sm leading-relaxed text-slate-200 mb-3">{latestRec}</p>
           <button
             onClick={() => nav('education')}
-            className="flex items-center gap-2 text-sm font-bold text-white bg-white/10 hover:bg-white/20 transition-colors rounded-xl px-4 py-2.5 min-h-[44px]"
+            className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 transition-colors rounded-xl px-3 py-2"
           >
             {bn ? 'অ্যাকশন প্ল্যান দেখুন' : 'View Action Plan'}
             <ArrowUpRight className="w-4 h-4" />
@@ -544,45 +544,21 @@ export default function PatientDashboard() {
         transition={{ delay: 0.25 }}
         className="grid grid-cols-2 gap-3"
       >
-        <button
-          onClick={() => nav('diet')}
-          className="flex flex-col items-center gap-2.5 p-4 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all min-h-[80px] justify-center shadow-sm"
-        >
-          <Utensils className="w-7 h-7 text-[#2ECC71]" />
-          <span className="text-sm font-bold text-slate-700 text-center leading-tight">
-            {bn ? 'ডায়েট সহকারী' : 'Diet Assistant'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => nav('caregiver')}
-          className="flex flex-col items-center gap-2.5 p-4 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all min-h-[80px] justify-center shadow-sm"
-        >
-          <Heart className="w-7 h-7 text-[#E74C3C]" />
-          <span className="text-sm font-bold text-slate-700 text-center leading-tight">
-            {bn ? 'পরিচর্যাকারী' : 'Caregiver'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => nav('education')}
-          className="flex flex-col items-center gap-2.5 p-4 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all min-h-[80px] justify-center shadow-sm"
-        >
-          <BookOpen className="w-7 h-7 text-[#1A6B8A]" />
-          <span className="text-sm font-bold text-slate-700 text-center leading-tight">
-            {bn ? 'শিক্ষা কেন্দ্র' : 'Education Hub'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => nav('cost')}
-          className="flex flex-col items-center gap-2.5 p-4 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all min-h-[80px] justify-center shadow-sm"
-        >
-          <DollarSign className="w-7 h-7 text-[#F39C12]" />
-          <span className="text-sm font-bold text-slate-700 text-center leading-tight">
-            {bn ? 'খরচ পরিকল্পনা' : 'Cost Planner'}
-          </span>
-        </button>
+        {[
+          { key: 'diet',      icon: Utensils,   color: '#2ECC71', label: bn ? 'ডায়েট সহকারী' : 'Diet Assistant' },
+          { key: 'caregiver', icon: Heart,       color: '#E74C3C', label: bn ? 'পরিচর্যাকারী' : 'Caregiver' },
+          { key: 'education', icon: BookOpen,    color: '#1A6B8A', label: bn ? 'শিক্ষা কেন্দ্র' : 'Education Hub' },
+          { key: 'cost',      icon: DollarSign,  color: '#F39C12', label: bn ? 'খরচ পরিকল্পনা' : 'Cost Planner' },
+        ].map(({ key, icon: Icon, color, label }) => (
+          <button
+            key={key}
+            onClick={() => nav(key)}
+            className="flex flex-col items-center gap-2 p-3 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all justify-center shadow-sm"
+          >
+            <Icon className="w-6 h-6" style={{ color }} />
+            <span className="text-xs font-bold text-slate-700 text-center leading-tight">{label}</span>
+          </button>
+        ))}
       </motion.div>
 
       {/* ── FAB: Log Today's Vitals ── */}

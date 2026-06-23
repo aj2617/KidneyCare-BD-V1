@@ -137,11 +137,11 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
     .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-4">
 
       {/* ── TEAL HEADER ── */}
       <div
-        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-5"
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-5 pb-3 mb-0"
         style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">

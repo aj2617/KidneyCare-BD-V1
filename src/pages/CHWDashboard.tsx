@@ -417,7 +417,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
 
       {/* ── TEAL HEADER ── */}
       <div
-        className="px-4 pt-8 pb-4"
+        className="px-4 pt-5 pb-3"
         style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
       >
         <div className="flex items-center justify-between">
@@ -476,20 +476,20 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
         <div className="px-4 pt-4 space-y-4">
           {/* Header stats */}
           <div className="flex gap-3">
-            <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Star className="w-4 h-4" style={{ color: '#F39C12' }} />
+            <div className="flex-1 bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Star className="w-3.5 h-3.5" style={{ color: '#F39C12' }} />
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{bn ? 'পয়েন্ট' : 'Points'}</span>
               </div>
-              <p className="text-3xl font-black" style={{ color: '#F39C12' }}>{profile?.points || 0}</p>
+              <p className="text-2xl font-black" style={{ color: '#F39C12' }}>{profile?.points || 0}</p>
               {myRank > 0 && <p className="text-xs text-slate-400 mt-0.5">#{myRank} {bn ? 'র‍্যাঙ্ক' : 'rank'}</p>}
             </div>
-            <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-[#1A6B8A]" />
+            <div className="flex-1 bg-white rounded-2xl p-3 border border-slate-100 shadow-sm">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Users className="w-3.5 h-3.5 text-[#1A6B8A]" />
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{bn ? 'রোগী' : 'Patients'}</span>
               </div>
-              <p className="text-3xl font-black text-[#1A6B8A]">{patientCount}<span className="text-lg text-slate-400">/30</span></p>
+              <p className="text-2xl font-black text-[#1A6B8A]">{patientCount}<span className="text-base text-slate-400">/30</span></p>
               <p className="text-xs text-slate-400 mt-0.5">{visitCount} {bn ? 'ভিজিট' : 'visits'}</p>
             </div>
           </div>
@@ -539,13 +539,13 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                   <button
                     key={p.id}
                     onClick={() => setSelectedPatientDetail(p)}
-                    className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 active:bg-slate-50 transition-colors text-left"
+                    className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex items-center gap-3 active:bg-slate-50 transition-colors text-left"
                   >
                     <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 rounded-full bg-[#1A6B8A]/10 flex items-center justify-center text-[#1A6B8A] font-black text-lg">
+                      <div className="w-10 h-10 rounded-full bg-[#1A6B8A]/10 flex items-center justify-center text-[#1A6B8A] font-black text-base">
                         {p.name?.charAt(0)?.toUpperCase()}
                       </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${urgencyDot[urgency]}`} />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${urgencyDot[urgency]}`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-slate-900 truncate">{p.name}</p>
