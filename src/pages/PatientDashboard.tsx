@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, AlertCircle, Flame, Utensils, Heart,
-  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets
+  ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets, Loader2
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
@@ -115,20 +115,38 @@ export default function PatientDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        <div className="h-48 rounded-3xl bg-slate-200" />
-        <div className="grid grid-cols-2 gap-4">
-          <div className="h-36 rounded-2xl bg-slate-200" />
-          <div className="h-36 rounded-2xl bg-slate-200" />
-        </div>
-        <div className="h-28 rounded-2xl bg-slate-200" />
-        <div className="h-40 rounded-2xl bg-slate-200" />
+      <div className="flex flex-col items-center justify-center py-32 gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-[#1A6B8A]" />
+        <p className="text-slate-500 text-sm">{bn ? 'লোড হচ্ছে...' : 'Loading...'}</p>
       </div>
     );
   }
 
+  const patientInitials = (user?.name || 'P')
+    .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
+
   return (
     <div className="space-y-4 pb-6">
+
+      {/* ── GREETING HEADER ── */}
+      <div
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-1"
+        style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-white/60 mb-0.5">
+              {bn ? 'আপনার স্বাস্থ্য সারসংক্ষেপ' : 'Your Health Summary'}
+            </p>
+            <h1 className="text-lg font-black text-white tracking-tight">
+              {bn ? 'হ্যালো, ' : 'Hello, '}{user?.name?.split(' ')[0] || (bn ? 'রোগী' : 'Patient')}
+            </h1>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-white/20 border border-white/30 flex items-center justify-center text-white text-sm font-black">
+            {patientInitials}
+          </div>
+        </div>
+      </div>
 
       {/* Forced survey overlay — blocks dashboard until complete */}
       {surveyCompleted === false && (

@@ -347,28 +347,38 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 truncate">
-            {language === 'bn' ? 'জনস্বাস্থ্য ড্যাশবোর্ড' : 'Public Health Dashboard'}
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm mt-0.5 hidden sm:block">
-            {language === 'bn' ? 'বাংলাদেশের সিকেডি বোঝা পর্যবেক্ষণ করুন' : 'Monitor CKD burden and drive policy action across Bangladesh'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => { setShowResearchModal(true); setExportError(''); }}
-            className="p-2 sm:px-4 sm:py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-semibold flex items-center gap-2 hover:bg-slate-50 transition-all text-sm"
-            title={language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}>
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">{language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}</span>
-          </button>
-          <button onClick={handleExport} disabled={isExporting}
-            className="p-2 sm:px-4 sm:py-2 bg-[#1A6B8A] text-white rounded-xl font-semibold flex items-center gap-2 hover:bg-[#14556e] transition-all disabled:opacity-50 text-sm"
-            title={language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}>
-            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-            <span className="hidden sm:inline">{language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}</span>
-          </button>
+
+      {/* ── TEAL HEADER ── */}
+      <div
+        className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 pt-8 pb-4 mb-1"
+        style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-white/60 mb-0.5">
+              {language === 'bn' ? 'বাংলাদেশ সিকেডি পর্যবেক্ষণ' : 'Bangladesh CKD Monitoring'}
+            </p>
+            <h1 className="text-lg font-black text-white tracking-tight">
+              {language === 'bn' ? 'জনস্বাস্থ্য ড্যাশবোর্ড' : 'Public Health Dashboard'}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setShowResearchModal(true); setExportError(''); }}
+              className="p-2 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all"
+              title={language === 'bn' ? 'গবেষণা CSV' : 'Research CSV'}
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="p-2 bg-white text-[#1A6B8A] rounded-xl hover:bg-white/90 transition-all disabled:opacity-50"
+              title={language === 'bn' ? 'জাতীয় রিপোর্ট' : 'National Report'}
+            >
+              {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </div>
 

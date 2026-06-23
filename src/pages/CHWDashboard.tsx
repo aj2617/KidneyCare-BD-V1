@@ -355,7 +355,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     const days = getDaysSince(p.id);
     const recentVisits = visits.filter(v => v.patient_id === p.id).slice(0, 5);
     return (
-      <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="min-h-screen bg-[#F4F7FB]">
         <div className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
           <button onClick={() => setSelectedPatientDetail(null)} className="p-2 -ml-2 rounded-xl text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors">
             <ChevronRight className="w-6 h-6 rotate-180" />
@@ -413,7 +413,39 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-2">
+    <div className="min-h-screen bg-[#F4F7FB] pb-2">
+
+      {/* ── TEAL HEADER ── */}
+      <div
+        className="px-4 pt-8 pb-4"
+        style={{ background: '#1A6B8A', borderRadius: '0 0 1.5rem 1.5rem' }}
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs text-white/60 mb-0.5">
+              {bn ? 'কমিউনিটি স্বাস্থ্যকর্মী' : 'Community Health Worker'}
+            </p>
+            <h1 className="text-lg font-black text-white tracking-tight">
+              {user?.name?.split(' ')[0] || (bn ? 'CHW' : 'CHW')}
+            </h1>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
+              className="px-2.5 py-1.5 bg-white/10 border border-white/20 text-white text-xs font-bold rounded-xl hover:bg-white/20 transition-all"
+            >
+              {language === 'en' ? 'বাং' : 'EN'}
+            </button>
+            <button
+              onClick={logout}
+              className="p-2 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all"
+              title={bn ? 'লগআউট' : 'Logout'}
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Sync / offline banner */}
       {(!isOnline || isSyncing || syncMsg || pendingCount > 0) && (
@@ -447,7 +479,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <Star className="w-4 h-4" style={{ color: '#F39C12' }} />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{bn ? 'পয়েন্ট' : 'Points'}</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{bn ? 'পয়েন্ট' : 'Points'}</span>
               </div>
               <p className="text-3xl font-black" style={{ color: '#F39C12' }}>{profile?.points || 0}</p>
               {myRank > 0 && <p className="text-xs text-slate-400 mt-0.5">#{myRank} {bn ? 'র‍্যাঙ্ক' : 'rank'}</p>}
@@ -455,7 +487,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             <div className="flex-1 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="w-4 h-4 text-[#1A6B8A]" />
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">{bn ? 'রোগী' : 'Patients'}</span>
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{bn ? 'রোগী' : 'Patients'}</span>
               </div>
               <p className="text-3xl font-black text-[#1A6B8A]">{patientCount}<span className="text-lg text-slate-400">/30</span></p>
               <p className="text-xs text-slate-400 mt-0.5">{visitCount} {bn ? 'ভিজিট' : 'visits'}</p>
