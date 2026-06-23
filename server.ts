@@ -1823,6 +1823,17 @@ async function startServer() {
     const stageStats = db.prepare('SELECT ckd_stage, COUNT(*) as count FROM patients WHERE ckd_stage IS NOT NULL GROUP BY ckd_stage').all();
     const feedback = db.prepare('SELECT COUNT(*) as c FROM risk_feedback').get() as any;
     const femaleCount = (db.prepare("SELECT COUNT(*) as c FROM patients WHERE sex = 'female'").get() as any).c;
+    const surveyCompleted = (db.prepare('SELECT COUNT(*) as c FROM patients WHERE survey_completed = 1').get() as any).c;
+    const surveyByDistrict = db.prepare(`
+      SELECT u.district,
+        COUNT(p.id) as total,
+        SUM(p.survey_completed) as completed
+      FROM patients p
+      JOIN users u ON p.user_id = u.id
+      WHERE u.role = 'patient' AND u.district IS NOT NULL AND u.district != ''
+      GROUP BY u.district
+      ORDER BY completed DESC
+    `).all();
 
     res.json({
       total_patients: totalPatients,
@@ -1833,6 +1844,8 @@ async function startServer() {
       stage_distribution: stageStats,
       risk_feedback_count: feedback.c,
       female_count: femaleCount,
+      survey_completed_count: surveyCompleted,
+      survey_by_district: surveyByDistrict,
     });
   });
 

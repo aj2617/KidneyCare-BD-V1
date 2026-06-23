@@ -403,7 +403,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <KpiCard
                   label={language === 'bn' ? 'মোট রোগী' : 'Total Patients'}
                   value={totalPatients.toLocaleString()}
@@ -426,6 +426,80 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   icon={Activity}
                   color="bg-[#FEF5E7] text-[#F39C12]"
                 />
+              </div>
+
+              {/* Survey Completion KPI */}
+              {stats && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-slate-900">
+                        {language === 'bn' ? 'গবেষণা জরিপ সম্পূর্ণতা' : 'Research Questionnaire Completion'}
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {language === 'bn' ? 'নিবন্ধিত রোগীদের মধ্যে জরিপ সম্পন্নকারী' : 'Patients who completed the mandatory survey'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-black" style={{ color: '#2ECC71' }}>
+                        {totalPatients > 0 ? Math.round(((stats.survey_completed_count ?? 0) / totalPatients) * 100) : 0}%
+                      </p>
+                      <p className="text-xs text-slate-400">
+                        {stats.survey_completed_count ?? 0} / {totalPatients} {language === 'bn' ? 'রোগী' : 'patients'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Overall progress bar */}
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden mb-5">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${totalPatients > 0 ? Math.round(((stats.survey_completed_count ?? 0) / totalPatients) * 100) : 0}%`,
+                        background: 'linear-gradient(90deg, #2ECC71, #1a9e54)',
+                      }}
+                    />
+                  </div>
+
+                  {/* District breakdown table */}
+                  {Array.isArray(stats.survey_by_district) && stats.survey_by_district.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                        {language === 'bn' ? 'জেলাভিত্তিক বিভাজন' : 'District Breakdown'}
+                      </p>
+                      <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                        {(stats.survey_by_district as any[]).map((row: any) => {
+                          const pct = row.total > 0 ? Math.round((row.completed / row.total) * 100) : 0;
+                          const barColor = pct >= 80 ? '#2ECC71' : pct >= 50 ? '#F39C12' : '#E74C3C';
+                          return (
+                            <div key={row.district} className="flex items-center gap-3">
+                              <span className="text-xs font-semibold text-slate-600 w-28 shrink-0 truncate">{row.district}</span>
+                              <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%`, background: barColor }}
+                                />
+                              </div>
+                              <span className="text-xs font-bold w-16 text-right shrink-0" style={{ color: barColor }}>
+                                {row.completed}/{row.total}
+                                <span className="ml-1 font-normal text-slate-400">({pct}%)</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!Array.isArray(stats.survey_by_district) || stats.survey_by_district.length === 0) && (
+                    <p className="text-xs text-slate-400 text-center py-4">
+                      {language === 'bn' ? 'এখনো কোনো জেলার ডেটা নেই।' : 'No district data yet — surveys will appear here as patients complete them.'}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <KpiCard
                   label={language === 'bn' ? 'মহিলা রোগী %' : 'Female Patients %'}
                   value={femalePct !== null ? `${femalePct}%` : 'N/A'}
@@ -440,6 +514,21 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                   icon={Globe2}
                   color="bg-[#EAFAF1] text-[#1a7a44]"
                   trend={`${Math.round((districtsCovered / 64) * 100)}%`}
+                />
+                <KpiCard
+                  label={language === 'bn' ? 'জরিপ সম্পন্ন' : 'Surveys Done'}
+                  value={(stats?.survey_completed_count ?? 0).toLocaleString()}
+                  sub={language === 'bn' ? 'গবেষণা ডেটাসেটের জন্য প্রস্তুত' : 'ready for research dataset'}
+                  icon={CheckCircle2}
+                  color="bg-[#EAFAF1] text-[#1a7a44]"
+                  trend={totalPatients > 0 ? `${Math.round(((stats?.survey_completed_count ?? 0) / totalPatients) * 100)}%` : '0%'}
+                />
+                <KpiCard
+                  label={language === 'bn' ? 'জরিপ বাকি' : 'Surveys Pending'}
+                  value={(totalPatients - (stats?.survey_completed_count ?? 0)).toLocaleString()}
+                  sub={language === 'bn' ? 'এখনো জরিপ দেননি' : 'not yet completed'}
+                  icon={AlertCircle}
+                  color="bg-[#FEF5E7] text-[#F39C12]"
                 />
               </div>
 
