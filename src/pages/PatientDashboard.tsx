@@ -337,14 +337,14 @@ export default function PatientDashboard() {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`relative overflow-hidden rounded-3xl p-6 ${risk.bg} shadow-lg`}
+        className={`relative overflow-hidden rounded-2xl px-5 py-3 ${risk.bg} shadow-lg`}
       >
         {/* decorative circle */}
-        <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-white/10 pointer-events-none" />
-        <div className="absolute -bottom-14 -right-4 w-52 h-52 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
+        <div className="absolute -bottom-8 -right-2 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
 
-        <div className="relative flex justify-between items-start mb-4">
-          <span className={`text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full ${risk.badge} ${risk.text}`}>
+        <div className="relative flex justify-between items-center mb-2">
+          <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${risk.badge} ${risk.text}`}>
             {bn ? 'লাইভ ঝুঁকি ইঞ্জিন' : 'Live Risk Engine'}
           </span>
           <div className={`flex items-center gap-1.5 text-xs font-semibold ${risk.text} opacity-80`}>
@@ -353,24 +353,24 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        <div className="relative">
-          <div className="flex items-end gap-3 mb-2">
-            <span className={`text-7xl font-black leading-none ${risk.text}`}>{riskData.score}</span>
-            <span className={`text-2xl font-bold mb-2 ${risk.text} opacity-70`}>/100</span>
+        <div className="relative flex items-center gap-4">
+          <div className="flex items-end gap-2">
+            <span className={`text-5xl font-black leading-none ${risk.text}`}>{riskData.score}</span>
+            <span className={`text-lg font-bold mb-1 ${risk.text} opacity-70`}>/100</span>
           </div>
-          <p className={`text-base font-semibold leading-snug ${risk.text} opacity-90 max-w-xs`}>
-            {risk.msg}
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className={`text-sm font-semibold leading-snug ${risk.text} opacity-90`}>
+              {risk.msg}
+            </p>
+            {latestStage && (
+              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/20 w-fit`}>
+                <span className={`text-xs font-bold ${risk.text}`}>
+                  {bn ? `পর্যায় ${latestStage}` : `Stage ${latestStage}`} CKD
+                </span>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* CKD Stage chip */}
-        {latestStage && (
-          <div className={`relative mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/20`}>
-            <span className={`text-sm font-bold ${risk.text}`}>
-              {bn ? `পর্যায় ${latestStage}` : `Stage ${latestStage}`} CKD
-            </span>
-          </div>
-        )}
       </motion.div>
 
       {/* ── MINI STATS ROW ── */}
