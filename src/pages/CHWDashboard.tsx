@@ -5,7 +5,8 @@ import {
   Users, Activity, Star, Settings, MapPin, CheckCircle2,
   Loader2, Navigation, RefreshCw, ChevronRight,
   Award, AlertTriangle, Clock, Plus, Search, LogOut,
-  Wifi, WifiOff, Globe, Droplets, Heart, UserCircle
+  Wifi, WifiOff, Globe, Droplets, Heart, UserCircle,
+  CalendarDays, CalendarPlus, Send, Trash2, CheckSquare, X
 } from 'lucide-react';
 
 // ── IndexedDB offline queue ──────────────────────────────────────────────────
@@ -139,6 +140,19 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
   const [search, setSearch] = useState('');
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [selectedPatientDetail, setSelectedPatientDetail] = useState<any>(null);
+  const [scheduledVisits, setScheduledVisits] = useState<any[]>([]);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [schedPatient, setSchedPatient] = useState('');
+  const [schedDate, setSchedDate] = useState('');
+  const [schedType, setSchedType] = useState('routine');
+  const [schedReason, setSchedReason] = useState('');
+  const [schedSubmitting, setSchedSubmitting] = useState(false);
+  const [schedMsg, setSchedMsg] = useState('');
+  const [completingId, setCompletingId] = useState<number | null>(null);
+  const [completeNotes, setCompleteNotes] = useState('');
+  const [summaryId, setSummaryId] = useState<number | null>(null);
+  const [summaryText, setSummaryText] = useState('');
+  const [summarySubmitting, setSummarySubmitting] = useState(false);
 
   // Build lastVisit map
   const lastVisitMap: Record<number, Date | null> = {};
@@ -170,18 +184,20 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     setIsLoading(true);
     const h = { Authorization: `Bearer ${token}` };
     try {
-      const [pr, pat, all, vis, lb] = await Promise.all([
+      const [pr, pat, all, vis, lb, sv] = await Promise.all([
         fetch('/api/chw/profile', { headers: h }),
         fetch('/api/chw/patients', { headers: h }),
         fetch('/api/chw/all-patients', { headers: h }),
         fetch('/api/chw/visits', { headers: h }),
         fetch('/api/chw/leaderboard', { headers: h }),
+        fetch('/api/chw/scheduled-visits', { headers: h }),
       ]);
       if (pr.ok) setProfile(await pr.json());
       if (pat.ok) setPatients(await pat.json());
       if (all.ok) setAllPatients(await all.json());
       if (vis.ok) setVisits(await vis.json());
       if (lb.ok) setLeaderboard(await lb.json());
+      if (sv.ok) { const d = await sv.json(); setScheduledVisits(Array.isArray(d) ? d : []); }
     } catch { /* offline graceful */ }
     finally { setIsLoading(false); }
   };
@@ -945,6 +961,392 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
             <LogOut className="w-5 h-5" />
             {bn ? 'লগআউট করুন' : 'Log Out'}
           </button>
+        </div>
+      )}
+
+      {/* ── SCHEDULE TAB ─────────────────────────────────────────────────── */}
+      {tab === 'chw-schedule' && (
+        <div className="px-4 pt-4 pb-8 space-y-4">
+
+          {/* Success / error feedback */}
+          {schedMsg && (
+            <div className="p-3 rounded-2xl text-sm font-semibold flex items-center gap-2"
+              style={{ background: schedMsg.startsWith('✓') ? '#EAFAF1' : '#FDECEA', border: `1px solid ${schedMsg.startsWith('✓') ? '#2ECC71' : '#E74C3C'}`, color: schedMsg.startsWith('✓') ? '#1a7a44' : '#7b1a1a' }}>
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              {schedMsg}
+            </div>
+          )}
+
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black text-slate-900">{bn ? 'সময়সূচী' : 'Visit Schedule'}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {scheduledVisits.filter(v => v.status === 'pending').length} {bn ? 'টি আসন্ন ভিজিট' : 'upcoming visits'}
+              </p>
+            </div>
+            <button
+              onClick={() => { setShowScheduleModal(true); setSchedMsg(''); }}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-sm font-bold text-white shadow-sm active:opacity-80 transition-opacity"
+              style={{ background: '#1A6B8A' }}
+            >
+              <CalendarPlus className="w-4 h-4" />
+              {bn ? 'নতুন' : 'New'}
+            </button>
+          </div>
+
+          {/* Quick suggest: auto-recommend next visits by risk */}
+          {patients.length > 0 && (() => {
+            const suggested = patients
+              .filter(p => {
+                const pending = scheduledVisits.filter(s => s.patient_id === p.id && s.status === 'pending');
+                return pending.length === 0; // no scheduled visit yet
+              })
+              .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))
+              .slice(0, 3);
+            if (suggested.length === 0) return null;
+            const suggestDate = (riskScore: number) => {
+              const days = riskScore > 75 ? 7 : riskScore > 50 ? 14 : 30;
+              const d = new Date();
+              d.setDate(d.getDate() + days);
+              return d.toISOString().slice(0, 10);
+            };
+            return (
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#1A6B8A', background: '#F0F8FB' }}>
+                <div className="px-4 py-2.5 flex items-center gap-2" style={{ background: '#1A6B8A' }}>
+                  <CalendarDays className="w-4 h-4 text-white" />
+                  <p className="text-xs font-black text-white">{bn ? 'পরামর্শ: এখনো শিডিউল নেই' : 'Suggested: no visit scheduled yet'}</p>
+                </div>
+                <div className="p-3 space-y-2">
+                  {suggested.map(p => {
+                    const nextDate = suggestDate(p.risk_score || 0);
+                    const days = p.risk_score > 75 ? 7 : p.risk_score > 50 ? 14 : 30;
+                    return (
+                      <div key={p.id} className="bg-white rounded-xl p-3 flex items-center gap-3 border border-slate-100">
+                        <div className="w-8 h-8 rounded-full bg-[#1A6B8A]/10 flex items-center justify-center text-[#1A6B8A] font-black text-sm flex-shrink-0">
+                          {p.name?.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-900 truncate">{p.name}</p>
+                          <p className="text-xs text-slate-500">{bn ? `${days} দিনের মধ্যে` : `Within ${days} days`} · {nextDate}</p>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/chw/schedule-visit', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ patient_id: p.id, scheduled_date: nextDate, visit_type: 'routine', reason: bn ? 'ঝুঁকি অনুযায়ী নির্ধারিত' : 'Risk-based follow-up' }),
+                            });
+                            fetchData();
+                            setSchedMsg(bn ? `✓ ${p.name}-এর জন্য ভিজিট শিডিউল হয়েছে` : `✓ Scheduled for ${p.name}`);
+                            setTimeout(() => setSchedMsg(''), 4000);
+                          }}
+                          className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white"
+                          style={{ background: '#2ECC71' }}
+                        >
+                          {bn ? 'যোগ করুন' : 'Add'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Scheduled visits list */}
+          {scheduledVisits.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-slate-200">
+              <CalendarDays className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-400 font-medium">{bn ? 'কোনো শিডিউল নেই' : 'No visits scheduled'}</p>
+              <p className="text-xs text-slate-400 mt-1">{bn ? 'উপরের বোতামে ক্লিক করুন' : 'Tap "New" to schedule one'}</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Group by status */}
+              {['pending', 'completed'].map(status => {
+                const group = scheduledVisits.filter(v => v.status === status);
+                if (group.length === 0) return null;
+                const today = new Date().toISOString().slice(0, 10);
+                return (
+                  <div key={status}>
+                    <p className="text-[10px] font-black uppercase tracking-widest mb-2 px-1"
+                      style={{ color: status === 'pending' ? '#1A6B8A' : '#2ECC71' }}>
+                      {status === 'pending' ? (bn ? 'আসন্ন' : 'Upcoming') : (bn ? 'সম্পন্ন' : 'Completed')}
+                    </p>
+                    <div className="space-y-2">
+                      {group.map(sv => {
+                        const isToday = sv.scheduled_date === today;
+                        const isPast = sv.scheduled_date < today && status === 'pending';
+                        const riskColor = sv.risk_score > 75 ? '#E74C3C' : sv.risk_score > 50 ? '#F39C12' : '#2ECC71';
+
+                        return (
+                          <div key={sv.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                            {/* Date stripe */}
+                            <div className="flex items-center gap-2 px-4 py-2"
+                              style={{
+                                background: isToday ? '#1A6B8A' : isPast ? '#FDECEA' : status === 'completed' ? '#EAFAF1' : '#F8FAFC',
+                                borderBottom: '1px solid',
+                                borderColor: isToday ? '#1A6B8A' : isPast ? '#E74C3C' : status === 'completed' ? '#2ECC71' : '#e2e8f0',
+                              }}>
+                              <CalendarDays className="w-3.5 h-3.5 flex-shrink-0"
+                                style={{ color: isToday ? '#fff' : isPast ? '#E74C3C' : status === 'completed' ? '#2ECC71' : '#64748b' }} />
+                              <span className="text-xs font-bold"
+                                style={{ color: isToday ? '#fff' : isPast ? '#E74C3C' : status === 'completed' ? '#1a7a44' : '#64748b' }}>
+                                {isToday ? (bn ? 'আজ — ' : 'Today — ') : isPast ? (bn ? 'মেয়াদ পেরিয়েছে — ' : 'Overdue — ') : ''}{sv.scheduled_date}
+                              </span>
+                              <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/30"
+                                style={{ color: isToday ? '#fff' : '#64748b' }}>
+                                {sv.visit_type}
+                              </span>
+                            </div>
+
+                            {/* Patient info */}
+                            <div className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
+                                  style={{ background: riskColor }}>
+                                  {sv.patient_name?.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-bold text-slate-900 truncate">{sv.patient_name}</p>
+                                  <p className="text-xs text-slate-500">{sv.district} {sv.ckd_stage ? `· Stage ${sv.ckd_stage}` : ''}</p>
+                                  {sv.reason && <p className="text-xs text-slate-400 mt-0.5 italic truncate">{sv.reason}</p>}
+                                  {sv.notes && status === 'completed' && (
+                                    <p className="text-xs text-slate-600 mt-1 bg-slate-50 rounded-lg px-2 py-1">📝 {sv.notes}</p>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Actions */}
+                              {status === 'pending' && (
+                                <div className="flex gap-2 mt-3">
+                                  {/* Complete */}
+                                  {completingId === sv.id ? (
+                                    <div className="flex-1 space-y-2">
+                                      <textarea
+                                        value={completeNotes}
+                                        onChange={e => setCompleteNotes(e.target.value)}
+                                        rows={2}
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#2ECC71]/30 resize-none"
+                                        placeholder={bn ? 'সংক্ষিপ্ত নোট (ঐচ্ছিক)...' : 'Brief notes (optional)...'}
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={async () => {
+                                            await fetch(`/api/chw/schedule-visit/${sv.id}/complete`, {
+                                              method: 'PUT',
+                                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                              body: JSON.stringify({ notes: completeNotes }),
+                                            });
+                                            setCompletingId(null); setCompleteNotes('');
+                                            fetchData();
+                                            setSchedMsg(bn ? '✓ ভিজিট সম্পন্ন হিসেবে চিহ্নিত' : '✓ Visit marked complete');
+                                            setTimeout(() => setSchedMsg(''), 4000);
+                                          }}
+                                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
+                                          style={{ background: '#2ECC71' }}>
+                                          {bn ? 'সম্পন্ন ✓' : 'Confirm ✓'}
+                                        </button>
+                                        <button onClick={() => setCompletingId(null)}
+                                          className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100">
+                                          {bn ? 'বাতিল' : 'Cancel'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : summaryId === sv.id ? (
+                                    <div className="flex-1 space-y-2">
+                                      <textarea
+                                        value={summaryText}
+                                        onChange={e => setSummaryText(e.target.value)}
+                                        rows={3}
+                                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30 resize-none"
+                                        placeholder={bn ? 'ডাক্তারের জন্য সারসংক্ষেপ লিখুন...' : 'Write visit summary for doctor...'}
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          disabled={summarySubmitting || !summaryText.trim()}
+                                          onClick={async () => {
+                                            setSummarySubmitting(true);
+                                            await fetch('/api/chw/send-visit-summary', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                              body: JSON.stringify({ scheduled_visit_id: sv.id, patient_id: sv.patient_id, summary_text: summaryText }),
+                                            });
+                                            setSummarySubmitting(false); setSummaryId(null); setSummaryText('');
+                                            fetchData();
+                                            setSchedMsg(bn ? '✓ সারসংক্ষেপ ডাক্তারকে পাঠানো হয়েছে' : '✓ Summary sent to doctor');
+                                            setTimeout(() => setSchedMsg(''), 5000);
+                                          }}
+                                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white flex items-center justify-center gap-1 disabled:opacity-50"
+                                          style={{ background: '#1A6B8A' }}>
+                                          {summarySubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                          {bn ? 'পাঠান' : 'Send'}
+                                        </button>
+                                        <button onClick={() => { setSummaryId(null); setSummaryText(''); }}
+                                          className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100">
+                                          {bn ? 'বাতিল' : 'Cancel'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => { setCompletingId(sv.id); setSummaryId(null); }}
+                                        className="flex-1 py-2 rounded-xl text-xs font-bold border-2 flex items-center justify-center gap-1"
+                                        style={{ borderColor: '#2ECC71', color: '#2ECC71', background: '#EAFAF1' }}>
+                                        <CheckSquare className="w-3.5 h-3.5" />
+                                        {bn ? 'সম্পন্ন' : 'Done'}
+                                      </button>
+                                      {sv.assigned_doctor_id && !sv.doctor_notified && (
+                                        <button
+                                          onClick={() => { setSummaryId(sv.id); setCompletingId(null); }}
+                                          className="flex-1 py-2 rounded-xl text-xs font-bold border-2 flex items-center justify-center gap-1"
+                                          style={{ borderColor: '#1A6B8A', color: '#1A6B8A', background: '#F0F8FB' }}>
+                                          <Send className="w-3.5 h-3.5" />
+                                          {bn ? 'ডাক্তারকে জানান' : 'Notify Doctor'}
+                                        </button>
+                                      )}
+                                      {sv.doctor_notified === 1 && (
+                                        <span className="flex-1 py-2 rounded-xl text-xs font-bold text-center"
+                                          style={{ background: '#EAFAF1', color: '#1a7a44' }}>
+                                          ✓ {bn ? 'ডাক্তার জানেন' : 'Doctor notified'}
+                                        </span>
+                                      )}
+                                      <button
+                                        onClick={async () => {
+                                          await fetch(`/api/chw/schedule-visit/${sv.id}`, {
+                                            method: 'DELETE',
+                                            headers: { Authorization: `Bearer ${token}` },
+                                          });
+                                          fetchData();
+                                        }}
+                                        className="p-2 rounded-xl text-slate-400 hover:text-red-500 transition-colors bg-slate-100">
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── SCHEDULE VISIT MODAL ─────────────────────────────────────────── */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowScheduleModal(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarPlus className="w-5 h-5 text-[#1A6B8A]" />
+                <h3 className="font-black text-slate-900">{bn ? 'নতুন ভিজিট শিডিউল' : 'Schedule a Visit'}</h3>
+              </div>
+              <button onClick={() => setShowScheduleModal(false)} className="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Patient */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">{bn ? 'রোগী *' : 'Patient *'}</label>
+              <select
+                value={schedPatient}
+                onChange={e => setSchedPatient(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                required
+              >
+                <option value="">{bn ? '— রোগী বেছে নিন —' : '— Select patient —'}</option>
+                {sortedPatients.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} · {p.district}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">{bn ? 'পরিদর্শনের তারিখ *' : 'Visit Date *'}</label>
+              <input
+                type="date"
+                value={schedDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={e => setSchedDate(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                required
+              />
+            </div>
+
+            {/* Visit type */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">{bn ? 'ভিজিটের ধরন' : 'Visit Type'}</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { v: 'routine', en: 'Routine', bn: 'নিয়মিত' },
+                  { v: 'urgent', en: 'Urgent', bn: 'জরুরি' },
+                  { v: 'medication', en: 'Medication', bn: 'ওষুধ' },
+                  { v: 'followup', en: 'Follow-up', bn: 'ফলো-আপ' },
+                ].map(t => (
+                  <button
+                    key={t.v}
+                    type="button"
+                    onClick={() => setSchedType(t.v)}
+                    className={`py-2.5 rounded-2xl text-sm font-bold border-2 transition-all ${schedType === t.v ? 'border-[#1A6B8A] bg-[#1A6B8A] text-white' : 'border-slate-200 bg-white text-slate-600'}`}
+                  >
+                    {bn ? t.bn : t.en}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1.5">{bn ? 'কারণ (ঐচ্ছিক)' : 'Reason (optional)'}</label>
+              <input
+                type="text"
+                value={schedReason}
+                onChange={e => setSchedReason(e.target.value)}
+                placeholder={bn ? 'যেমন: BP চেক, ওষুধ দেওয়া...' : 'e.g. BP check, medication delivery...'}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+              />
+            </div>
+
+            {/* Submit */}
+            <button
+              disabled={!schedPatient || !schedDate || schedSubmitting}
+              onClick={async () => {
+                if (!schedPatient || !schedDate) return;
+                setSchedSubmitting(true);
+                const r = await fetch('/api/chw/schedule-visit', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ patient_id: parseInt(schedPatient), scheduled_date: schedDate, visit_type: schedType, reason: schedReason }),
+                });
+                setSchedSubmitting(false);
+                if (r.ok) {
+                  setShowScheduleModal(false);
+                  setSchedPatient(''); setSchedDate(''); setSchedType('routine'); setSchedReason('');
+                  fetchData();
+                  setSchedMsg(bn ? '✓ ভিজিট সফলভাবে শিডিউল হয়েছে' : '✓ Visit scheduled successfully');
+                  setTimeout(() => setSchedMsg(''), 5000);
+                }
+              }}
+              className="w-full py-4 rounded-2xl font-black text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+              style={{ background: '#1A6B8A' }}
+            >
+              {schedSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarPlus className="w-4 h-4" />}
+              {bn ? 'শিডিউল করুন' : 'Schedule Visit'}
+            </button>
+          </div>
         </div>
       )}
     </div>

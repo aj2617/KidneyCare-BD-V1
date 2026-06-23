@@ -145,6 +145,37 @@ db.exec(`
     FOREIGN KEY(patient_id) REFERENCES patients(id)
   );
 
+  CREATE TABLE IF NOT EXISTS chw_scheduled_visits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chw_id INTEGER NOT NULL,
+    patient_id INTEGER NOT NULL,
+    scheduled_date TEXT NOT NULL,
+    visit_type TEXT DEFAULT 'routine',
+    reason TEXT,
+    status TEXT DEFAULT 'pending',
+    completed_at DATETIME,
+    doctor_notified INTEGER DEFAULT 0,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(chw_id) REFERENCES users(id),
+    FOREIGN KEY(patient_id) REFERENCES patients(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS chw_visit_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chw_id INTEGER NOT NULL,
+    chw_name TEXT,
+    patient_id INTEGER NOT NULL,
+    patient_name TEXT,
+    doctor_id INTEGER,
+    summary_text TEXT,
+    vitals_json TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(chw_id) REFERENCES users(id),
+    FOREIGN KEY(patient_id) REFERENCES patients(id)
+  );
+
   CREATE TABLE IF NOT EXISTS teleconsultations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     doctor_id INTEGER,
@@ -1737,6 +1768,111 @@ async function startServer() {
       ORDER BY c.points DESC LIMIT 20
     `).all();
     res.json(leaders);
+  });
+
+  // ─── CHW Visit Scheduler ──────────────────────────────────────────────────
+  app.get('/api/chw/scheduled-visits', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const visits = db.prepare(`
+      SELECT sv.*, u.name as patient_name, u.district, p.risk_score, p.ckd_stage,
+        p.assigned_doctor_id,
+        (SELECT COUNT(*) FROM chw_patient_logs l WHERE l.patient_id = sv.patient_id AND l.chw_id = sv.chw_id) as total_visits
+      FROM chw_scheduled_visits sv
+      JOIN patients p ON sv.patient_id = p.id
+      JOIN users u ON p.user_id = u.id
+      WHERE sv.chw_id = ?
+        AND sv.status != 'cancelled'
+      ORDER BY sv.scheduled_date ASC
+    `).all(req.user.id);
+    res.json(visits);
+  });
+
+  app.post('/api/chw/schedule-visit', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const { patient_id, scheduled_date, visit_type, reason } = req.body;
+    if (!patient_id || !scheduled_date) return res.status(400).json({ error: 'patient_id and scheduled_date required' });
+    const id = db.prepare(`
+      INSERT INTO chw_scheduled_visits (chw_id, patient_id, scheduled_date, visit_type, reason)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(req.user.id, patient_id, scheduled_date, visit_type || 'routine', reason || null).lastInsertRowid;
+    res.json({ id, message: 'Visit scheduled' });
+  });
+
+  app.put('/api/chw/schedule-visit/:id/complete', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const { notes } = req.body;
+    db.prepare(`
+      UPDATE chw_scheduled_visits
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP, notes = ?
+      WHERE id = ? AND chw_id = ?
+    `).run(notes || null, req.params.id, req.user.id);
+    res.json({ message: 'Visit marked complete' });
+  });
+
+  app.delete('/api/chw/schedule-visit/:id', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    db.prepare(`UPDATE chw_scheduled_visits SET status = 'cancelled' WHERE id = ? AND chw_id = ?`).run(req.params.id, req.user.id);
+    res.json({ message: 'Visit cancelled' });
+  });
+
+  app.post('/api/chw/send-visit-summary', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const { scheduled_visit_id, patient_id, summary_text, vitals } = req.body;
+    if (!patient_id || !summary_text) return res.status(400).json({ error: 'patient_id and summary_text required' });
+
+    const chw = db.prepare('SELECT u.name FROM users u WHERE u.id = ?').get(req.user.id) as any;
+    const patient = db.prepare('SELECT u.name, p.assigned_doctor_id FROM patients p JOIN users u ON p.user_id = u.id WHERE p.id = ?').get(patient_id) as any;
+
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+    db.prepare(`
+      INSERT INTO chw_visit_summaries (chw_id, chw_name, patient_id, patient_name, doctor_id, summary_text, vitals_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.user.id, chw?.name || 'CHW',
+      patient_id, patient.patient_name || patient.name,
+      patient.assigned_doctor_id || null,
+      summary_text,
+      vitals ? JSON.stringify(vitals) : null
+    );
+
+    // Mark scheduled visit as doctor-notified
+    if (scheduled_visit_id) {
+      db.prepare('UPDATE chw_scheduled_visits SET doctor_notified = 1 WHERE id = ? AND chw_id = ?').run(scheduled_visit_id, req.user.id);
+    }
+
+    // Create an alert for the doctor if assigned
+    if (patient.assigned_doctor_id) {
+      try {
+        db.prepare(`
+          INSERT INTO alerts (patient_id, type, message)
+          VALUES (?, 'INFO', ?)
+        `).run(patient_id, `CHW Visit Summary for ${patient.name || 'patient'}: ${summary_text.slice(0, 120)}`);
+      } catch { /* alerts table may not have all columns — ignore */ }
+    }
+
+    res.json({ message: 'Summary sent to doctor' });
+  });
+
+  // Doctor: get CHW visit summaries for their patients
+  app.get('/api/doctor/chw-summaries', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const summaries = db.prepare(`
+      SELECT s.*, u.name as patient_user_name
+      FROM chw_visit_summaries s
+      JOIN patients p ON s.patient_id = p.id
+      JOIN users u ON p.user_id = u.id
+      WHERE s.doctor_id = ?
+      ORDER BY s.created_at DESC
+      LIMIT 50
+    `).all(req.user.id);
+    res.json(summaries);
+  });
+
+  app.put('/api/doctor/chw-summaries/:id/read', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    db.prepare('UPDATE chw_visit_summaries SET is_read = 1 WHERE id = ? AND doctor_id = ?').run(req.params.id, req.user.id);
+    res.json({ message: 'Marked read' });
   });
 
   // ════════════════════════════════════════════════════════════════════════════

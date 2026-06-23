@@ -5,7 +5,7 @@ import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
   Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill,
-  ClipboardList, Wrench, UserCircle, Shield, Settings, Star
+  ClipboardList, Wrench, UserCircle, Shield, Settings, Star, CalendarDays
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -492,6 +492,7 @@ export default function App() {
             {[
               { id: 'chw-home', icon: Users, en: 'My Patients', bn: 'রোগীরা' },
               { id: 'chw-vitals', icon: Activity, en: 'Log Visit', bn: 'ভিজিট' },
+              { id: 'chw-schedule', icon: CalendarDays, en: 'Schedule', bn: 'সময়সূচী' },
               { id: 'chw-points', icon: Star, en: 'My Points', bn: 'পয়েন্ট' },
               { id: 'chw-settings', icon: Settings, en: 'Settings', bn: 'সেটিংস' },
             ].map(item => {
