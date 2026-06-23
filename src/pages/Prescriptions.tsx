@@ -66,12 +66,21 @@ export default function Prescriptions() {
     }
   };
 
+  const escapeHtml = (str: string): string => {
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
   const printPrescription = (rx: any) => {
     const medicines = Array.isArray(rx.medicines) ? rx.medicines : [];
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`
-      <html><head><title>Prescription - ${rx.patient_name}</title>
+      <html><head><title>Prescription - ${escapeHtml(rx.patient_name)}</title>
       <style>body{font-family:Arial,sans-serif;padding:40px;max-width:600px;margin:0 auto}
       h1{color:#1A6B8A;border-bottom:2px solid #1A6B8A;padding-bottom:10px}
       table{width:100%;border-collapse:collapse;margin-top:20px}
@@ -80,15 +89,15 @@ export default function Prescriptions() {
       .footer{margin-top:30px;font-size:12px;color:#666;border-top:1px solid #eee;padding-top:10px}
       </style></head><body>
       <h1>🏥 KidneyCare BD</h1>
-      <p><strong>${language === 'bn' ? 'রোগীর নাম' : 'Patient'}:</strong> ${rx.patient_name}</p>
-      <p><strong>${language === 'bn' ? 'ডাক্তার' : 'Doctor'}:</strong> ${rx.doctor_name || user?.name}</p>
-      <p><strong>${language === 'bn' ? 'তারিখ' : 'Date'}:</strong> ${new Date(rx.date).toLocaleDateString()}</p>
+      <p><strong>${language === 'bn' ? 'রোগীর নাম' : 'Patient'}:</strong> ${escapeHtml(rx.patient_name)}</p>
+      <p><strong>${language === 'bn' ? 'ডাক্তার' : 'Doctor'}:</strong> ${escapeHtml(rx.doctor_name || user?.name || '')}</p>
+      <p><strong>${language === 'bn' ? 'তারিখ' : 'Date'}:</strong> ${escapeHtml(new Date(rx.date).toLocaleDateString())}</p>
       <table>
         <tr><th>${language === 'bn' ? 'ওষুধ' : 'Medicine'}</th><th>${language === 'bn' ? 'ডোজ' : 'Dosage'}</th><th>${language === 'bn' ? 'সময়' : 'Frequency'}</th><th>${language === 'bn' ? 'মেয়াদ' : 'Duration'}</th></tr>
-        ${medicines.map((m: Medicine) => `<tr><td>${m.name}</td><td>${m.dosage}</td><td>${m.frequency}</td><td>${m.duration}</td></tr>`).join('')}
+        ${medicines.map((m: Medicine) => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.dosage)}</td><td>${escapeHtml(m.frequency)}</td><td>${escapeHtml(m.duration)}</td></tr>`).join('')}
       </table>
-      ${rx.notes ? `<p style="margin-top:15px"><strong>${language === 'bn' ? 'নোট' : 'Notes'}:</strong> ${rx.notes}</p>` : ''}
-      <div class="qr"><strong>QR Code:</strong> ${rx.qr_code}</div>
+      ${rx.notes ? `<p style="margin-top:15px"><strong>${language === 'bn' ? 'নোট' : 'Notes'}:</strong> ${escapeHtml(rx.notes)}</p>` : ''}
+      <div class="qr"><strong>QR Code:</strong> ${escapeHtml(rx.qr_code)}</div>
       <div class="footer">KidneyCare BD — Digital Health Monitoring System for CKD Patients in Bangladesh</div>
       </body></html>
     `);

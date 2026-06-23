@@ -24,7 +24,11 @@ if (databaseDir && databaseDir !== '.') {
 
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-for-kidneycare-bd';
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('[FATAL] JWT_SECRET environment variable is not set in production. Exiting.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-secret-do-not-use-in-prod';
 
 // ─── Schema: Original Tables ──────────────────────────────────────────────────
 db.exec(`
