@@ -5,7 +5,7 @@ import {
   AlertCircle, Download, FileText, Loader2, Map as MapIcon, Users,
   BarChart2, Calculator, Activity, TrendingUp, Shield, CheckCircle2,
   XCircle, Search, Plus, ChevronRight, Layers, RefreshCw, Globe2,
-  UserCheck, UserX, Building2, X
+  UserCheck, UserX, Building2, X, CheckCheck, TriangleAlert
 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -142,6 +142,12 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
   const [exportEndDate, setExportEndDate] = useState('');
   const [exportError, setExportError] = useState('');
 
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; title: string; detail?: string } | null>(null);
+  const showToast = (type: 'success' | 'error', title: string, detail?: string) => {
+    setToast({ type, title, detail });
+    setTimeout(() => setToast(null), 5000);
+  };
+
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
@@ -205,7 +211,16 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
       if (!res.ok) throw new Error('Export failed.');
       const data = await res.json();
       downloadTextFile(data.content, data.filename);
-    } catch (err) { setError(err instanceof Error ? err.message : 'Export failed.'); }
+      showToast('success',
+        language === 'bn' ? 'জাতীয় প্রতিবেদন ডাউনলোড হয়েছে' : 'National report downloaded',
+        data.filename
+      );
+    } catch (err) {
+      showToast('error',
+        language === 'bn' ? 'রপ্তানি ব্যর্থ হয়েছে' : 'Export failed',
+        err instanceof Error ? err.message : undefined
+      );
+    }
     finally { setIsExporting(false); }
   };
 
@@ -221,7 +236,9 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Export failed.');
-      const blob = await res.blob();
+      const text = await res.text();
+      const rowCount = Math.max(0, text.split('\n').length - 1);
+      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
       const filename = `KidneyCareBD_Research_${new Date().toISOString().split('T')[0]}${exportDistrict ? '_' + exportDistrict : ''}.csv`;
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -229,8 +246,18 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
       document.body.appendChild(link); link.click();
       document.body.removeChild(link); URL.revokeObjectURL(url);
       setShowResearchModal(false);
+      showToast('success',
+        language === 'bn' ? 'গবেষণা ডেটা ডাউনলোড হয়েছে' : 'Research CSV downloaded',
+        language === 'bn'
+          ? `${rowCount} জন রোগীর ডেটা — ${filename}`
+          : `${rowCount} patient rows — ${filename}`
+      );
     } catch (err) {
       setExportError(err instanceof Error ? err.message : 'Export failed.');
+      showToast('error',
+        language === 'bn' ? 'রপ্তানি ব্যর্থ হয়েছে' : 'Research export failed',
+        err instanceof Error ? err.message : undefined
+      );
     } finally { setIsResearchExporting(false); }
   };
 
@@ -298,7 +325,12 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
       `## Patient List (Anonymized)`,
       ...pts.map((p: any, i: number) => `${i + 1}. ${p.district}, ${p.sex}, Age ${p.age}, Stage ${p.ckd_stage}, Risk ${p.risk_score}`),
     ].join('\n');
-    downloadTextFile(content, `Cohort_${cohort.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.md`);
+    const filename = `Cohort_${cohort.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.md`;
+    downloadTextFile(content, filename);
+    showToast('success',
+      language === 'bn' ? 'কোহর্ট রিপোর্ট ডাউনলোড হয়েছে' : 'Cohort report downloaded',
+      language === 'bn' ? `${summary.total} জন রোগী — ${filename}` : `${summary.total} patients — ${filename}`
+    );
   };
 
   const sortedHeatmap = useMemo(() => [...heatmapData].sort((a, b) => b.count - a.count), [heatmapData]);
@@ -347,6 +379,58 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
 
   return (
     <div className="space-y-6">
+
+      {/* ── EXPORT TOAST ── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            className="fixed top-5 right-5 z-[9999] max-w-sm w-full shadow-2xl rounded-2xl overflow-hidden"
+            style={{
+              background: toast.type === 'success' ? '#fff' : '#fff',
+              border: `1.5px solid ${toast.type === 'success' ? '#2ECC71' : '#E74C3C'}`,
+            }}
+          >
+            <div className="flex items-start gap-3 px-4 py-3.5">
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                style={{ background: toast.type === 'success' ? '#EAFAF1' : '#FEF2F2' }}
+              >
+                {toast.type === 'success'
+                  ? <CheckCheck className="w-4 h-4" style={{ color: '#2ECC71' }} />
+                  : <TriangleAlert className="w-4 h-4" style={{ color: '#E74C3C' }} />
+                }
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-slate-900 leading-tight">{toast.title}</p>
+                {toast.detail && (
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">{toast.detail}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setToast(null)}
+                className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {/* Auto-dismiss progress bar */}
+            <motion.div
+              initial={{ scaleX: 1 }}
+              animate={{ scaleX: 0 }}
+              transition={{ duration: 5, ease: 'linear' }}
+              style={{
+                transformOrigin: 'left',
+                height: 3,
+                background: toast.type === 'success' ? '#2ECC71' : '#E74C3C',
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── TEAL HEADER ── */}
       <div
