@@ -148,6 +148,11 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
     setTimeout(() => setToast(null), 5000);
   };
 
+  const [dhis2Preview, setDhis2Preview] = useState<any | null>(null);
+  const [dhis2Loading, setDhis2Loading] = useState(false);
+  const [dhis2Error, setDhis2Error] = useState('');
+  const [dhis2Expanded, setDhis2Expanded] = useState(false);
+
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
