@@ -1363,6 +1363,80 @@ async function startServer() {
     res.json({ message: 'Patient unassigned' });
   });
 
+  // ─── Pending Lab Triage ───────────────────────────────────────────────────
+  // Returns patients who have logged vitals/symptoms but no creatinine or GFR
+  // reading in the past 30 days — prioritised by risk score then days overdue.
+  app.get('/api/doctor/pending-labs', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+
+    const { assignedOnly } = req.query;
+    const assignedFilter = assignedOnly === 'true'
+      ? 'AND p.assigned_doctor_id = ' + req.user.id
+      : '';
+
+    const rows = db.prepare(`
+      SELECT
+        u.name, u.district, u.division,
+        p.id as patient_id, p.ckd_stage, p.risk_score,
+        p.diabetes, p.hypertension,
+        -- Most recent creatinine vitals log
+        (SELECT v.creatinine FROM vitals_log v
+          WHERE v.patient_id = p.id AND v.creatinine IS NOT NULL
+          ORDER BY v.date DESC LIMIT 1) as last_creatinine,
+        (SELECT v.date FROM vitals_log v
+          WHERE v.patient_id = p.id AND v.creatinine IS NOT NULL
+          ORDER BY v.date DESC LIMIT 1) as last_creatinine_date,
+        -- Most recent GFR record
+        (SELECT g.date FROM gfr_records g
+          WHERE g.patient_id = p.id
+          ORDER BY g.date DESC LIMIT 1) as last_gfr_date,
+        (SELECT g.ckd_epi FROM gfr_records g
+          WHERE g.patient_id = p.id
+          ORDER BY g.date DESC LIMIT 1) as last_egfr,
+        -- Latest symptoms from vitals
+        (SELECT v.fatigue FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as fatigue,
+        (SELECT v.edema FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as edema,
+        (SELECT v.systolic FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as last_systolic,
+        (SELECT v.diastolic FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as last_diastolic,
+        (SELECT v.date FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as last_vitals_date,
+        (SELECT COUNT(*) FROM vitals_log v WHERE v.patient_id = p.id) as vitals_count
+      FROM patients p
+      JOIN users u ON p.user_id = u.id
+      WHERE u.role = 'patient'
+        ${assignedFilter}
+        AND (
+          -- No creatinine ever, or last creatinine older than 30 days
+          (SELECT v.date FROM vitals_log v WHERE v.patient_id = p.id AND v.creatinine IS NOT NULL ORDER BY v.date DESC LIMIT 1) IS NULL
+          OR (SELECT v.date FROM vitals_log v WHERE v.patient_id = p.id AND v.creatinine IS NOT NULL ORDER BY v.date DESC LIMIT 1) < date('now', '-30 days')
+        )
+        AND (
+          -- Has at least one vitals entry (patient is being monitored)
+          (SELECT COUNT(*) FROM vitals_log v WHERE v.patient_id = p.id) > 0
+          -- OR has CKD stage assigned
+          OR p.ckd_stage IS NOT NULL
+        )
+      ORDER BY p.risk_score DESC, last_creatinine_date ASC
+      LIMIT 20
+    `).all() as any[];
+
+    // Compute days overdue for each row
+    const now = Date.now();
+    const result = rows.map(r => ({
+      ...r,
+      days_since_creatinine: r.last_creatinine_date
+        ? Math.floor((now - new Date(r.last_creatinine_date).getTime()) / 86400000)
+        : null,
+      days_since_gfr: r.last_gfr_date
+        ? Math.floor((now - new Date(r.last_gfr_date).getTime()) / 86400000)
+        : null,
+      days_since_vitals: r.last_vitals_date
+        ? Math.floor((now - new Date(r.last_vitals_date).getTime()) / 86400000)
+        : null,
+    }));
+
+    res.json(result);
+  });
+
   // ════════════════════════════════════════════════════════════════════════════
   // PRESCRIPTIONS
   // ════════════════════════════════════════════════════════════════════════════

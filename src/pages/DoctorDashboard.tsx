@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Users, Search, Bell, ChevronRight, AlertCircle,
-  Activity, Clock, Filter, X, UserPlus, CheckCircle2, Loader2
+  Activity, Clock, Filter, X, UserPlus, CheckCircle2, Loader2,
+  FlaskConical, ChevronDown, ChevronUp, Syringe, ArrowRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -69,6 +70,9 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
   const [assignedOnly, setAssignedOnly] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [pendingLabs, setPendingLabs] = useState<any[]>([]);
+  const [labsExpanded, setLabsExpanded] = useState(true);
+  const [labsLoading, setLabsLoading] = useState(true);
 
   const bn = language === 'bn';
 
@@ -76,16 +80,21 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
 
   const fetchData = async () => {
     setIsLoading(true);
+    setLabsLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [pRes, aRes] = await Promise.all([
+      const [pRes, aRes, lRes] = await Promise.all([
         fetch(`/api/doctor/patients?assignedOnly=${assignedOnly}`, { headers }),
         fetch('/api/doctor/alerts', { headers }),
+        fetch(`/api/doctor/pending-labs?assignedOnly=${assignedOnly}`, { headers }),
       ]);
       setPatients(await pRes.json());
       setAlerts(await aRes.json());
+      const labData = await lRes.json();
+      setPendingLabs(Array.isArray(labData) ? labData : []);
     } finally {
       setIsLoading(false);
+      setLabsLoading(false);
     }
   };
 
@@ -204,6 +213,147 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
           </div>
         ))}
       </div>
+
+      {/* ── PENDING LABS TRIAGE PANEL ── */}
+      {(labsLoading || pendingLabs.length > 0) && (
+        <div className="rounded-2xl overflow-hidden border shadow-sm"
+          style={{ borderColor: '#F39C12', background: '#FFFBF0' }}>
+          {/* Header */}
+          <button
+            onClick={() => setLabsExpanded(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3"
+            style={{ background: '#FEF5E7' }}
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: '#F39C12', color: '#fff' }}>
+                <FlaskConical className="w-4 h-4" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-black text-slate-900 leading-none">
+                  {bn ? 'পেন্ডিং ল্যাব পরীক্ষা' : 'Pending Lab Tests'}
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {labsLoading
+                    ? (bn ? 'লোড হচ্ছে...' : 'Loading…')
+                    : bn
+                      ? `${pendingLabs.length} জন রোগীর ক্রিয়েটিনিন পরীক্ষা ৩০+ দিন বাকি`
+                      : `${pendingLabs.length} patient${pendingLabs.length !== 1 ? 's' : ''} overdue for creatinine / GFR test`
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {!labsLoading && (
+                <span className="text-xs font-black px-2 py-0.5 rounded-full"
+                  style={{ background: '#F39C12', color: '#fff' }}>
+                  {pendingLabs.length}
+                </span>
+              )}
+              {labsExpanded
+                ? <ChevronUp className="w-4 h-4 text-slate-400" />
+                : <ChevronDown className="w-4 h-4 text-slate-400" />
+              }
+            </div>
+          </button>
+
+          {/* Body */}
+          <AnimatePresence initial={false}>
+            {labsExpanded && (
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height: 'auto' }}
+                exit={{ height: 0 }}
+                transition={{ duration: 0.22 }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="px-3 pb-3 pt-2 space-y-2 max-h-72 overflow-y-auto">
+                  {labsLoading && (
+                    <>
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-14 bg-white/60 rounded-xl animate-pulse" />
+                      ))}
+                    </>
+                  )}
+                  {!labsLoading && pendingLabs.map((p, i) => {
+                    const riskColor = p.risk_score > 75 ? '#E74C3C' : p.risk_score > 50 ? '#F39C12' : '#2ECC71';
+                    const riskBg   = p.risk_score > 75 ? '#FDECEA' : p.risk_score > 50 ? '#FEF5E7' : '#EAFAF1';
+                    const riskLabel = p.risk_score > 75 ? (bn ? 'সংকটাপন্ন' : 'Critical')
+                      : p.risk_score > 50 ? (bn ? 'উচ্চ' : 'High')
+                      : (bn ? 'মধ্যম' : 'Moderate');
+                    const initials = (p.name || '?').split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
+                    const daysOverdue = p.days_since_creatinine;
+                    const hasSymptoms = p.fatigue || p.edema;
+
+                    return (
+                      <motion.div
+                        key={p.patient_id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                        className="bg-white rounded-xl border border-orange-100 p-3 flex items-center gap-3 shadow-sm"
+                      >
+                        {/* Avatar */}
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                          style={{ background: riskColor }}
+                        >
+                          {initials}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{p.name}</span>
+                            {p.ckd_stage && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                                S{p.ckd_stage}
+                              </span>
+                            )}
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                              style={{ background: riskBg, color: riskColor }}>
+                              {riskLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-[11px] text-slate-500 truncate">
+                              {p.district || '—'}
+                            </span>
+                            <span className="text-[11px] font-bold"
+                              style={{ color: daysOverdue !== null && daysOverdue > 60 ? '#E74C3C' : '#F39C12' }}>
+                              {daysOverdue !== null
+                                ? (bn ? `${daysOverdue}দ আগে ক্রিয়েটিনিন` : `Cr ${daysOverdue}d ago`)
+                                : (bn ? 'ক্রিয়েটিনিন নেই' : 'No creatinine on record')
+                              }
+                            </span>
+                            {hasSymptoms && (
+                              <span className="text-[10px] font-bold text-red-500 flex items-center gap-0.5">
+                                ⚠ {[p.fatigue && (bn ? 'ক্লান্তি' : 'fatigue'), p.edema && (bn ? 'শোথ' : 'edema')].filter(Boolean).join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <button
+                          onClick={() => onSelectPatient(p.patient_id)}
+                          className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 active:scale-95"
+                          style={{ background: '#F39C12' }}
+                          title={bn ? 'রোগী দেখুন' : 'Review patient'}
+                        >
+                          <Syringe className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">{bn ? 'অর্ডার করুন' : 'Order'}</span>
+                          <ArrowRight className="w-3 h-3 sm:hidden" />
+                        </button>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* ── SEARCH + FILTERS ── */}
       <div className="space-y-2">
