@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import Database from 'better-sqlite3';
@@ -2810,6 +2809,7 @@ async function startServer() {
   // ─── Vite / Static ────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
     try {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({ server: { middlewareMode: true, allowedHosts: true }, appType: 'spa' });
       app.use(vite.middlewares);
     } catch (error) {
