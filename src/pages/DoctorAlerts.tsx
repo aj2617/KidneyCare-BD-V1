@@ -37,7 +37,7 @@ function SwipeableAlertCard({
 }: {
   alert: Alert;
   onMarkRead: (id: number) => void;
-  onViewPatient: (id: number) => void;
+  onViewPatient: (patient: { id: number; name?: string }) => void;
   bn: boolean;
 }) {
   const isCritical = alert.type === 'CRITICAL';
@@ -99,7 +99,7 @@ function SwipeableAlertCard({
           <div className="flex items-center gap-4">
             {alert.patient_id && (
               <button
-                onClick={() => onViewPatient(alert.patient_id!)}
+                onClick={() => onViewPatient({ id: alert.patient_id!, name: alert.patient_name })}
                 className="text-xs font-bold flex items-center gap-1 group hover:underline transition-all"
                 style={{ color: '#1A6B8A' }}
               >
@@ -183,8 +183,13 @@ export default function DoctorAlerts() {
     }
   };
 
-  const viewPatient = (id: number) => {
-    window.dispatchEvent(new CustomEvent('navigate', { detail: `patient-${id}` }));
+  const viewPatient = (patient: { id: number; name?: string }) => {
+    window.dispatchEvent(new CustomEvent('navigate', {
+      detail: {
+        page: `patient-${patient.id}`,
+        selectedPatient: patient,
+      },
+    }));
   };
 
   const critical = alerts.filter(a => a.type === 'CRITICAL');

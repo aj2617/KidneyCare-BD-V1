@@ -1,7 +1,0 @@
-{
-  "name": "KidneyCare BD",
-  "description": "Digital Health Monitoring and Decision Support System for Chronic Kidney Disease (CKD) patients in Bangladesh.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
-}

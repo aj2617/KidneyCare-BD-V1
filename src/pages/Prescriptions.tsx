@@ -11,7 +11,7 @@ interface Medicine {
   duration: string;
 }
 
-export default function Prescriptions() {
+export default function Prescriptions({ selectedPatient }: { selectedPatient?: { id: number; name?: string } | null }) {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
@@ -29,6 +29,12 @@ export default function Prescriptions() {
   const [message, setMessage] = useState('');
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    if (selectedPatient?.id) {
+      setFormData(f => ({ ...f, patient_id: String(selectedPatient.id) }));
+    }
+  }, [selectedPatient?.id]);
 
   const fetchData = async () => {
     const headers = { Authorization: `Bearer ${token}` };
@@ -61,7 +67,12 @@ export default function Prescriptions() {
     if (res.ok) {
       setMessage(language === 'bn' ? 'প্রেসক্রিপশন তৈরি হয়েছে!' : 'Prescription created!');
       setShowForm(false);
-      setFormData({ patient_id: '', medicines: [{ name: '', dosage: '', frequency: '', duration: '' }], notes: '', language: 'bn' });
+      setFormData({
+        patient_id: selectedPatient?.id ? String(selectedPatient.id) : '',
+        medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+        notes: '',
+        language: 'bn',
+      });
       fetchData();
     }
   };
@@ -145,6 +156,11 @@ export default function Prescriptions() {
                   <option value="">{language === 'bn' ? '-- রোগী বেছে নিন --' : '-- Select patient --'}</option>
                   {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+                {selectedPatient?.name && (
+                  <p className="text-[11px] text-[#1A6B8A] font-semibold">
+                    {language === 'bn' ? 'নির্বাচিত রোগী:' : 'Selected patient:'} {selectedPatient.name}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700">{language === 'bn' ? 'ভাষা' : 'Language'}</label>

@@ -142,7 +142,7 @@ export default function GfrCalculator() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="app-shell px-4 sm:px-6 lg:px-8 py-6 space-y-8 max-w-6xl">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
         <div className="text-center sm:text-left flex-1">
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{t('gfr.title')}</h1>

@@ -33,7 +33,7 @@ export default function CostPlanner() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="app-shell px-4 sm:px-6 lg:px-8 py-6 space-y-8 max-w-6xl">
       <div className="text-center max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-slate-900">{t('cost.title')}</h1>
         <p className="text-slate-500 mt-2">Estimate potential treatment costs and plan your financial journey in Bangladesh.</p>

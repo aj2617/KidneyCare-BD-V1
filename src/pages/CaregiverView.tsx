@@ -41,7 +41,7 @@ export default function CaregiverView() {
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#1A6B8A]" /></div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="app-shell px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-3xl font-bold text-slate-900">
           {language === 'bn' ? 'পারিবারিক পরিচর্যাকারী' : 'Family Caregiver View'}

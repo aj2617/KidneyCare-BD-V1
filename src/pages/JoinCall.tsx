@@ -63,7 +63,7 @@ export default function JoinCall({ joinToken }: { joinToken: string }) {
       timerRef.current = setInterval(() => setCallDuration(d => d + 1), 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (step !== 'calling') setCallDuration(0);
+      setCallDuration(0);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [step]);

@@ -9,6 +9,18 @@ import {
   CalendarDays, CalendarPlus, Send, Trash2, CheckSquare, X
 } from 'lucide-react';
 
+const DISTRICTS_BY_DIVISION: Record<string, string[]> = {
+  Dhaka: ['Dhaka', 'Faridpur', 'Gazipur', 'Gopalganj', 'Kishoreganj', 'Madaripur', 'Manikganj', 'Munshiganj', 'Narayanganj', 'Narsingdi', 'Rajbari', 'Shariatpur', 'Tangail'],
+  Chittagong: ['Bandarban', 'Brahmanbaria', 'Chandpur', 'Chittagong', 'Comilla', "Cox's Bazar", 'Feni', 'Khagrachari', 'Lakshmipur', 'Noakhali', 'Rangamati'],
+  Rajshahi: ['Bogra', 'Joypurhat', 'Naogaon', 'Natore', 'Chapainawabganj', 'Pabna', 'Rajshahi', 'Sirajganj'],
+  Khulna: ['Bagerhat', 'Chuadanga', 'Jessore', 'Jhenaidah', 'Khulna', 'Kushtia', 'Magura', 'Meherpur', 'Narail', 'Satkhira'],
+  Barisal: ['Barguna', 'Barisal', 'Bhola', 'Jhalokati', 'Patuakhali', 'Pirojpur'],
+  Sylhet: ['Habiganj', 'Moulvibazar', 'Sunamganj', 'Sylhet'],
+  Rangpur: ['Dinajpur', 'Gaibandha', 'Kurigram', 'Lalmonirhat', 'Nilphamari', 'Panchagarh', 'Rangpur', 'Thakurgaon'],
+  Mymensingh: ['Jamalpur', 'Mymensingh', 'Netrokona', 'Sherpur'],
+};
+const DIVISIONS = Object.keys(DISTRICTS_BY_DIVISION);
+
 // ── IndexedDB offline queue ──────────────────────────────────────────────────
 const IDB_NAME = 'kidneycare-chw-v1';
 const STORE = 'pendingVisits';
@@ -140,6 +152,38 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
   const [search, setSearch] = useState('');
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [selectedPatientDetail, setSelectedPatientDetail] = useState<any>(null);
+  const [showEnrollForm, setShowEnrollForm] = useState(false);
+  const [systemDoctors, setSystemDoctors] = useState<{ id: number; name: string; specialty: string }[]>([]);
+  const [enrollForm, setEnrollForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    password: '',
+    age: '',
+    sex: '',
+    weight: '',
+    diabetes: 'no',
+    hypertension: 'no',
+    familyHistory: 'no',
+    caregiverPhone: '',
+    pin: '',
+    assignedDoctorId: '',
+    division: '',
+    district: '',
+  });
+
+  const [enrollSubmitting, setEnrollSubmitting] = useState(false);
+  const [enrollError, setEnrollError] = useState('');
+
+  useEffect(() => {
+    if (profile) {
+      setEnrollForm(f => ({
+        ...f,
+        division: profile.division || '',
+        district: profile.district || '',
+      }));
+    }
+  }, [profile]);
   const [scheduledVisits, setScheduledVisits] = useState<any[]>([]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [schedPatient, setSchedPatient] = useState('');
@@ -184,13 +228,14 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     setIsLoading(true);
     const h = { Authorization: `Bearer ${token}` };
     try {
-      const [pr, pat, all, vis, lb, sv] = await Promise.all([
+      const [pr, pat, all, vis, lb, sv, docs] = await Promise.all([
         fetch('/api/chw/profile', { headers: h }),
         fetch('/api/chw/patients', { headers: h }),
         fetch('/api/chw/all-patients', { headers: h }),
         fetch('/api/chw/visits', { headers: h }),
         fetch('/api/chw/leaderboard', { headers: h }),
         fetch('/api/chw/scheduled-visits', { headers: h }),
+        fetch('/api/public/doctors').catch(() => null),
       ]);
       if (pr.ok) setProfile(await pr.json());
       if (pat.ok) setPatients(await pat.json());
@@ -198,6 +243,7 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
       if (vis.ok) setVisits(await vis.json());
       if (lb.ok) setLeaderboard(await lb.json());
       if (sv.ok) { const d = await sv.json(); setScheduledVisits(Array.isArray(d) ? d : []); }
+      if (docs && docs.ok) setSystemDoctors(await docs.json());
     } catch { /* offline graceful */ }
     finally { setIsLoading(false); }
   };
@@ -281,6 +327,62 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
     setShowVitals(false);
     setIsSubmitting(false);
     setTimeout(() => setSubmitMsg(''), 5000);
+  };
+
+  const handleEnrollPatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!enrollForm.name.trim()) return;
+    setEnrollSubmitting(true);
+    setEnrollError('');
+
+    const payload = {
+      name: enrollForm.name.trim(),
+      email: enrollForm.email.trim() || undefined,
+      phone: enrollForm.phone.trim() || undefined,
+      password: enrollForm.password || undefined,
+      age: enrollForm.age ? parseInt(enrollForm.age) : undefined,
+      sex: enrollForm.sex || undefined,
+      weight: enrollForm.weight ? parseFloat(enrollForm.weight) : undefined,
+      division: enrollForm.division,
+      district: enrollForm.district,
+      diabetes: enrollForm.diabetes === 'yes',
+      hypertension: enrollForm.hypertension === 'yes',
+      family_history: enrollForm.familyHistory === 'yes',
+      caregiver_phone: enrollForm.caregiverPhone.trim() || undefined,
+      pin: enrollForm.pin || undefined,
+      assigned_doctor_id: enrollForm.assignedDoctorId ? parseInt(enrollForm.assignedDoctorId) : undefined,
+    };
+
+    try {
+      const r = await fetch('/api/chw/register-patient', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (r.ok) {
+        setSubmitMsg(bn ? '✓ রোগী সফলভাবে নিবন্ধিত ও যুক্ত হয়েছে!' : '✓ Patient registered and enrolled successfully!');
+        setEnrollForm({
+          name: '', phone: '', email: '', password: '', age: '', sex: '', weight: '',
+          diabetes: 'no', hypertension: 'no', familyHistory: 'no', caregiverPhone: '', pin: '',
+          assignedDoctorId: '', division: profile?.division || '', district: profile?.district || ''
+        });
+        setShowAddPatient(false);
+        setShowEnrollForm(false);
+        fetchData();
+        setTimeout(() => setSubmitMsg(''), 5000);
+      } else {
+        const data = await r.json();
+        setEnrollError(data.error || (bn ? 'নিবন্ধন ব্যর্থ হয়েছে' : 'Registration failed'));
+      }
+    } catch {
+      setEnrollError(bn ? 'সংযোগ ব্যর্থ হয়েছে' : 'Connection failed');
+    } finally {
+      setEnrollSubmitting(false);
+    }
   };
 
   const assignPatient = async (pid: number) => {
@@ -582,28 +684,272 @@ export default function CHWDashboard({ tab = 'chw-home' }: Props) {
                 <h3 className="font-bold text-slate-800">{bn ? 'রোগী যোগ করুন' : 'Add to Roster'}</h3>
                 <span className="text-xs text-slate-400">{unassigned.length} {bn ? 'জন উপলব্ধ' : 'available'}</span>
               </div>
-              <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
-                {unassigned.length === 0 ? (
-                  <p className="text-center py-8 text-sm text-slate-400">{bn ? 'কোনো রোগী নেই' : 'No patients available'}</p>
-                ) : unassigned.slice(0, 20).map(p => (
-                  <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold flex-shrink-0">
-                      {p.name?.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-slate-800 text-sm truncate">{p.name}</p>
-                      <p className="text-xs text-slate-400">{p.district} · Stage {p.ckd_stage || '--'}</p>
-                    </div>
-                    <button
-                      onClick={() => assignPatient(p.id)}
-                      disabled={patientCount >= 30}
-                      className="px-3 py-1.5 bg-[#1A6B8A] text-white rounded-xl text-xs font-bold disabled:opacity-40 active:bg-[#14556e] transition-colors"
-                    >
-                      {bn ? 'যোগ' : 'Add'}
-                    </button>
-                  </div>
-                ))}
+
+              {/* Sub-tabs to toggle Assign vs Direct Enroll */}
+              <div className="flex border-b border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setShowEnrollForm(false); setEnrollError(''); }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-colors ${!showEnrollForm ? 'text-[#1A6B8A] border-b-2 border-[#1A6B8A]' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {bn ? 'খুঁজুন ও যোগ করুন' : 'Assign Existing'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowEnrollForm(true); setEnrollError(''); }}
+                  className={`flex-1 py-3 text-center text-xs font-bold transition-colors ${showEnrollForm ? 'text-[#1A6B8A] border-b-2 border-[#1A6B8A]' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  {bn ? 'সরাসরি নতুন নিবন্ধন' : 'Enroll New Patient'}
+                </button>
               </div>
+
+              {showEnrollForm ? (
+                <form onSubmit={handleEnrollPatient} className="p-4 space-y-4 max-h-96 overflow-y-auto">
+                  {enrollError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-semibold">
+                      {enrollError}
+                    </div>
+                  )}
+
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'পূর্ণ নাম *' : 'Full Name *'}</label>
+                    <input
+                      type="text"
+                      required
+                      value={enrollForm.name}
+                      onChange={e => setEnrollForm({ ...enrollForm, name: e.target.value })}
+                      placeholder={bn ? 'রোগীর পূর্ণ নাম লিখুন' : 'Patient full name'}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                    />
+                  </div>
+
+                  {/* Phone + Email */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'ফোন নম্বর' : 'Phone'}</label>
+                      <input
+                        type="tel"
+                        value={enrollForm.phone}
+                        onChange={e => setEnrollForm({ ...enrollForm, phone: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                        placeholder="01XXXXXXXXX"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'ইমেইল (ঐচ্ছিক)' : 'Email (optional)'}</label>
+                      <input
+                        type="email"
+                        value={enrollForm.email}
+                        onChange={e => setEnrollForm({ ...enrollForm, email: e.target.value })}
+                        placeholder="name@example.com"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Age + Sex */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'বয়স *' : 'Age *'}</label>
+                      <input
+                        type="number"
+                        required
+                        min="1" max="120"
+                        value={enrollForm.age}
+                        onChange={e => setEnrollForm({ ...enrollForm, age: e.target.value })}
+                        placeholder="e.g. 45"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1A6B8A]/30"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'লিঙ্গ *' : 'Sex *'}</label>
+                      <select
+                        required
+                        value={enrollForm.sex}
+                        onChange={e => setEnrollForm({ ...enrollForm, sex: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                      >
+                        <option value="">—</option>
+                        <option value="male">{bn ? 'পুরুষ' : 'Male'}</option>
+                        <option value="female">{bn ? 'মহিলা' : 'Female'}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Weight */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'ওজন (কেজি) *' : 'Weight (kg) *'}</label>
+                    <input
+                      type="number"
+                      required
+                      step="0.1"
+                      min="30" max="300"
+                      value={enrollForm.weight}
+                      onChange={e => setEnrollForm({ ...enrollForm, weight: e.target.value })}
+                      placeholder="e.g. 62.5"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Division + District */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'বিভাগ *' : 'Division *'}</label>
+                      <select
+                        required
+                        value={enrollForm.division}
+                        onChange={e => setEnrollForm({ ...enrollForm, division: e.target.value, district: '' })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                      >
+                        <option value="">{bn ? 'বিভাগ' : 'Division'}</option>
+                        {DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'জেলা *' : 'District *'}</label>
+                      <select
+                        required
+                        disabled={!enrollForm.division}
+                        value={enrollForm.district}
+                        onChange={e => setEnrollForm({ ...enrollForm, district: e.target.value })}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none disabled:opacity-50"
+                      >
+                        <option value="">{bn ? 'জেলা' : 'District'}</option>
+                        {(enrollForm.division ? DISTRICTS_BY_DIVISION[enrollForm.division] || [] : []).map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Caregiver Phone + PIN */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'তত্ত্বাবধায়কের ফোন' : 'Caregiver Phone'}</label>
+                      <input
+                        type="tel"
+                        value={enrollForm.caregiverPhone}
+                        onChange={e => setEnrollForm({ ...enrollForm, caregiverPhone: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                        placeholder="01XXXXXXXXX"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'নিরাপত্তা পিন (৪ ডিজিট)' : 'Security PIN (4-digit)'}</label>
+                      <input
+                        type="password"
+                        pattern="\d{4}"
+                        maxLength={4}
+                        value={enrollForm.pin}
+                        onChange={e => setEnrollForm({ ...enrollForm, pin: e.target.value.replace(/\D/g, '') })}
+                        placeholder="e.g. 1234"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Diabetes + Hypertension + Family History */}
+                  <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{bn ? 'ডায়াবেটিস আছে?' : 'Diabetes?'}</span>
+                      <div className="flex gap-2">
+                        {['yes', 'no'].map(o => (
+                          <button
+                            key={o}
+                            type="button"
+                            onClick={() => setEnrollForm({ ...enrollForm, diabetes: o })}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${enrollForm.diabetes === o ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]' : 'bg-white text-slate-600 border-slate-200'}`}
+                          >
+                            {o === 'yes' ? (bn ? 'হ্যাঁ' : 'Yes') : (bn ? 'না' : 'No')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{bn ? 'উচ্চ রক্তচাপ আছে?' : 'Hypertension?'}</span>
+                      <div className="flex gap-2">
+                        {['yes', 'no'].map(o => (
+                          <button
+                            key={o}
+                            type="button"
+                            onClick={() => setEnrollForm({ ...enrollForm, hypertension: o })}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${enrollForm.hypertension === o ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]' : 'bg-white text-slate-600 border-slate-200'}`}
+                          >
+                            {o === 'yes' ? (bn ? 'হ্যাঁ' : 'Yes') : (bn ? 'না' : 'No')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{bn ? 'পারিবারিক কিডনি রোগ?' : 'Family Kidney Disease?'}</span>
+                      <div className="flex gap-2">
+                        {['yes', 'no'].map(o => (
+                          <button
+                            key={o}
+                            type="button"
+                            onClick={() => setEnrollForm({ ...enrollForm, familyHistory: o })}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold border ${enrollForm.familyHistory === o ? 'bg-[#1A6B8A] text-white border-[#1A6B8A]' : 'bg-white text-slate-600 border-slate-200'}`}
+                          >
+                            {o === 'yes' ? (bn ? 'হ্যাঁ' : 'Yes') : (bn ? 'না' : 'No')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Assigned Doctor SELECT */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 mb-1">{bn ? 'নির্ধারিত ডাক্তার *' : 'Assigned Doctor *'}</label>
+                    <select
+                      required
+                      value={enrollForm.assignedDoctorId}
+                      onChange={e => setEnrollForm({ ...enrollForm, assignedDoctorId: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none"
+                    >
+                      <option value="">{bn ? '— ডাক্তার নির্বাচন করুন —' : '— Select a doctor —'}</option>
+                      {systemDoctors.map(doc => (
+                        <option key={doc.id} value={doc.id.toString()}>
+                          {doc.name} ({doc.specialty})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={enrollSubmitting}
+                    className="w-full py-3 bg-[#1A6B8A] text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:bg-[#14556e] disabled:opacity-50 transition-colors"
+                  >
+                    {enrollSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                    {bn ? 'নিবন্ধন করুন' : 'Register & Enroll'}
+                  </button>
+                </form>
+              ) : (
+                <div className="divide-y divide-slate-50 max-h-72 overflow-y-auto">
+                  {unassigned.length === 0 ? (
+                    <p className="text-center py-8 text-sm text-slate-400">{bn ? 'কোনো রোগী নেই' : 'No patients available'}</p>
+                  ) : unassigned.slice(0, 20).map(p => (
+                    <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold flex-shrink-0">
+                        {p.name?.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">{p.name}</p>
+                        <p className="text-xs text-slate-400">{p.district} · Stage {p.ckd_stage || '--'}</p>
+                      </div>
+                      <button
+                        onClick={() => assignPatient(p.id)}
+                        disabled={patientCount >= 30}
+                        className="px-3 py-1.5 bg-[#1A6B8A] text-white rounded-xl text-xs font-bold disabled:opacity-40 active:bg-[#14556e] transition-colors"
+                      >
+                        {bn ? 'যোগ' : 'Add'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

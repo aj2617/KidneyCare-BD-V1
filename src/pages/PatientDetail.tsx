@@ -357,10 +357,11 @@ function RxCard({ rx, index, bn, patientId, token }: {
 }
 
 // ── Prescription timeline section ─────────────────────────────────────────
-function PrescriptionTimeline({ prescriptions, bn, patientId, token }: {
+function PrescriptionTimeline({ prescriptions, bn, patientId, patientName, token }: {
   prescriptions: any[];
   bn: boolean;
   patientId: number;
+  patientName: string;
   token: string;
 }) {
   if (!prescriptions || prescriptions.length === 0) return null;
@@ -376,7 +377,12 @@ function PrescriptionTimeline({ prescriptions, bn, patientId, token }: {
           </span>
         </h3>
         <button
-          onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+          onClick={() => window.dispatchEvent(new CustomEvent('navigate', {
+            detail: {
+              page: 'prescriptions',
+              selectedPatient: { id: patientId, name: patientName },
+            },
+          }))}
           className="text-xs font-bold text-[#1A6B8A] hover:underline"
         >
           {bn ? 'নতুন →' : 'Issue new →'}
@@ -433,7 +439,11 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
   const startTeleconsult = () => {
     if (!data?.patient) return;
     window.dispatchEvent(new CustomEvent('navigate', {
-      detail: { page: 'teleconsult', teleconsultPatient: { id: parseInt(id), name: data.patient.name } },
+      detail: {
+        page: 'teleconsult',
+        teleconsultPatient: { id: parseInt(id), name: data.patient.name },
+        selectedPatient: { id: parseInt(id), name: data.patient.name },
+      },
     }));
   };
 
@@ -621,7 +631,12 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
             {bn ? 'ভিডিও কল' : 'Start Teleconsult'}
           </button>
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
+            onClick={() => window.dispatchEvent(new CustomEvent('navigate', {
+              detail: {
+                page: 'prescriptions',
+                selectedPatient: { id: parseInt(id), name: data.patient.name },
+              },
+            }))}
             className="flex items-center gap-2 px-4 py-2.5 bg-[#1A6B8A] text-white rounded-xl text-sm font-bold hover:bg-[#14556e] transition-all shadow-sm shadow-[#1A6B8A]/20 min-h-[44px]"
           >
             <Plus className="w-4 h-4" />
@@ -750,7 +765,7 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
       </div>
 
       {/* ── PRESCRIPTION TIMELINE ── */}
-      <PrescriptionTimeline prescriptions={prescriptions} bn={bn} patientId={Number(id)} token={token || ''} />
+      <PrescriptionTimeline prescriptions={prescriptions} bn={bn} patientId={Number(id)} patientName={patient.name} token={token || ''} />
 
       {/* ── RISK FEEDBACK ── */}
       <motion.div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -815,10 +830,15 @@ export default function PatientDetail({ id, onBack }: { id: string; onBack: () =
               <ClipboardEdit className="w-4 h-4 shrink-0" />
               <span className="truncate">{bn ? 'ভাইটালস লগ' : 'Log Vitals'}</span>
             </button>
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'prescriptions' }))}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all shadow-sm min-h-[48px]"
-            >
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('navigate', {
+              detail: {
+                page: 'prescriptions',
+                selectedPatient: { id: parseInt(id), name: data.patient.name },
+              },
+            }))}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-3 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-all shadow-sm min-h-[48px]"
+          >
               <Plus className="w-4 h-4 shrink-0" />
               <span className="truncate">{bn ? 'প্রেসক্রিপশন' : 'Issue Rx'}</span>
             </button>

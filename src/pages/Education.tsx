@@ -34,7 +34,7 @@ export default function Education() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="app-shell px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-6xl">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{t('edu.title')}</h1>

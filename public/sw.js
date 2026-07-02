@@ -1,5 +1,7 @@
-const CACHE_NAME = 'kidneycare-bd-v5';
+const CACHE_NAME = 'kidneycare-bd-v6';
 const STATIC_ASSETS = [
+  '/',
+  '/index.html',
   '/manifest.json',
   '/favicon.svg',
   '/offline.html',
@@ -52,14 +54,18 @@ self.addEventListener('fetch', (event) => {
   // HTML navigation: network-first → offline page fallback
   if (request.mode === 'navigate' ||
       (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'))) {
-    event.respondWith(
-      fetch(request).catch(() =>
-        caches.match('/offline.html').then(r => r ||
+    event.respondWith((async () => {
+      try {
+        return await fetch(request);
+      } catch (_) {
+        const cachedApp = await caches.match('/index.html') || await caches.match('/');
+        if (cachedApp) return cachedApp;
+        const offline = await caches.match('/offline.html');
+        return offline ||
           new Response('<h1>KidneyCare BD — Offline</h1><p>Please reconnect to continue.</p>',
-            { headers: { 'Content-Type': 'text/html' } })
-        )
-      )
-    );
+            { headers: { 'Content-Type': 'text/html' } });
+      }
+    })());
     return;
   }
 
@@ -68,7 +74,7 @@ self.addEventListener('fetch', (event) => {
     const isCacheable = CACHEABLE_APIS.some(api => url.pathname.startsWith(api));
     if (isCacheable) {
       event.respondWith(
-        caches.open('kidneycare-api-v5').then(async (cache) => {
+        caches.open('kidneycare-api-v6').then(async (cache) => {
           const cached = await cache.match(request);
           const networkPromise = fetch(request).then(res => {
             if (res.ok) cache.put(request, res.clone());

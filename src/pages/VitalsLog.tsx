@@ -214,7 +214,7 @@ export default function VitalsLog() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="app-shell px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-4xl">
 
       {/* Header */}
       <div className="flex justify-between items-start gap-3">

@@ -100,7 +100,7 @@ function WeekCalendar({ bn }: { bn: boolean }) {
   );
 }
 
-export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id: number) => void }) {
+export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (patient: { id: number; name?: string }) => void }) {
   const { token, user } = useAuth();
   const { language } = useLanguage();
   const [patients, setPatients] = useState<any[]>([]);
@@ -256,7 +256,7 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 + i * 0.05 }}
-                  onClick={() => onSelectPatient(p.id)}
+                  onClick={() => onSelectPatient({ id: p.id, name: p.name })}
                   className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between w-full text-left active:scale-[0.98] transition-transform"
                 >
                   <div className="flex items-center gap-3">
@@ -335,6 +335,7 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
                   detail: {
                     page: 'teleconsult',
                     teleconsultPatient: { id: teleconsultPatient.id, name: teleconsultPatient.name },
+                    selectedPatient: { id: teleconsultPatient.id, name: teleconsultPatient.name },
                   },
                 }))}
                 className="w-full py-2.5 rounded-xl text-white font-semibold flex items-center justify-center gap-2 transition-opacity hover:opacity-90 active:opacity-80"
@@ -388,7 +389,7 @@ export default function DoctorToday({ onSelectPatient }: { onSelectPatient: (id:
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 + i * 0.04 }}
-                    onClick={() => onSelectPatient(p.id)}
+                    onClick={() => onSelectPatient({ id: p.id, name: p.name })}
                     className="bg-rose-50/60 rounded-2xl p-4 shadow-sm border border-rose-100 flex items-center justify-between w-full text-left active:scale-[0.98] transition-transform"
                   >
                     <div className="flex items-center gap-3">

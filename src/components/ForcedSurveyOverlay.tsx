@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, ShieldCheck, ChevronRight, ChevronLeft, ClipboardList } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -40,6 +40,23 @@ const EMPTY: Responses = {
   aware_risk_factors: '', health_checkup_freq: '', received_advice: '', dietary_restrictions: '',
   tested_creatinine: '', knows_htn_dm_damage: '', painkillers: '',
 };
+
+function isSectionComplete(responses: Responses, section: number) {
+  if (section === 1) return !!(responses.age && responses.gender && responses.education && responses.occupation && responses.residential_area);
+  if (section === 2) return !!(responses.hypertension_dx && responses.diabetes_dx && responses.family_kidney && responses.kidney_stones && responses.kidney_disease_prior && responses.bp_medication && responses.diabetes_medication && responses.dialysis);
+  if (section === 3) return !!(responses.urine_changes && responses.foamy_urine && responses.leg_swelling && responses.fatigue && responses.nausea && responses.appetite_loss && responses.weight_loss && responses.shortness_breath);
+  if (section === 4) return !!(responses.smoker && responses.alcohol && responses.water_intake && responses.salty_food && responses.exercise && responses.sleep_hours);
+  if (section === 5) return !!(responses.urine_test && responses.kidney_function_test);
+  if (section === 6) return !!(responses.aware_risk_factors && responses.health_checkup_freq && responses.received_advice && responses.dietary_restrictions && responses.tested_creatinine && responses.knows_htn_dm_damage && responses.painkillers);
+  return false;
+}
+
+function getResumeSection(responses: Responses) {
+  for (let section = 1; section <= TOTAL_SECTIONS; section += 1) {
+    if (!isSectionComplete(responses, section)) return section;
+  }
+  return 1;
+}
 
 const T = {
   en: {
@@ -267,29 +284,82 @@ export default function ForcedSurveyOverlay({ token, patientName, onComplete }: 
   const [responses, setResponses] = useState<Responses>({ ...EMPTY });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const saveTimer = useRef<number | null>(null);
+  const lastSavedSnapshot = useRef('');
 
   const set = (k: keyof Responses, v: string | number) =>
     setResponses(r => ({ ...r, [k]: v }));
 
   const isSectionValid = () => {
-    const r = responses;
-    if (section === 1) return !!(r.age && r.gender && r.education && r.occupation && r.residential_area);
-    if (section === 2) return !!(r.hypertension_dx && r.diabetes_dx && r.family_kidney && r.kidney_stones && r.kidney_disease_prior && r.bp_medication && r.diabetes_medication && r.dialysis);
-    if (section === 3) return !!(r.urine_changes && r.foamy_urine && r.leg_swelling && r.fatigue && r.nausea && r.appetite_loss && r.weight_loss && r.shortness_breath);
-    if (section === 4) return !!(r.smoker && r.alcohol && r.water_intake && r.salty_food && r.exercise && r.sleep_hours);
-    if (section === 5) return !!(r.urine_test && r.kidney_function_test);
-    if (section === 6) return !!(r.aware_risk_factors && r.health_checkup_freq && r.received_advice && r.dietary_restrictions && r.tested_creatinine && r.knows_htn_dm_damage && r.painkillers);
-    return false;
+    return isSectionComplete(responses, section);
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSurvey = async () => {
+      try {
+        const res = await fetch('/api/patient/survey', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !data) return;
+        const hydrated = { ...EMPTY, ...data };
+        setResponses(hydrated);
+        setSection(getResumeSection(hydrated));
+        lastSavedSnapshot.current = JSON.stringify(hydrated);
+      } catch {
+        // Drafts are best-effort; leave the form usable if the request fails.
+      } finally {
+        if (!cancelled) setDraftLoaded(true);
+      }
+    };
+
+    loadSurvey();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!draftLoaded || submitting) return;
+    const snapshot = JSON.stringify(responses);
+    if (snapshot === lastSavedSnapshot.current) return;
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    setSaveState('saving');
+    saveTimer.current = window.setTimeout(async () => {
+      try {
+        await fetch('/api/patient/survey', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ responses, completed: false }),
+        });
+        lastSavedSnapshot.current = snapshot;
+        setSaveState('saved');
+        window.setTimeout(() => setSaveState('idle'), 1200);
+      } catch {
+        setSaveState('idle');
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [responses, draftLoaded, submitting, token]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     setError('');
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
     try {
       const res = await fetch('/api/patient/survey', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(responses),
+        body: JSON.stringify({ responses, completed: true }),
       });
       if (!res.ok) throw new Error('Failed to save survey');
       onComplete();
@@ -336,6 +406,11 @@ export default function ForcedSurveyOverlay({ token, patientName, onComplete }: 
           <div className="text-center mb-5">
             <h1 className="text-xl font-black text-slate-900">{tx.heading}</h1>
             <p className="text-sm text-slate-500">{tx.subheading}</p>
+            <p className="mt-2 text-xs font-medium text-slate-400">
+              {saveState === 'saving'
+                ? (bn ? 'à¦¸à¦‚à¦°à¦•à§à¦·à¦£ à¦¹à¦šà§à¦›à§‡â€¦' : 'Saving progress...')
+                : (bn ? 'à¦ªà§à¦°à¦¸à§à¦¥à¦¾à¦¨ à¦¸à§à¦¬à¦¯à¦¼à¦‚à¦•à§à¦°à¦¿à¦¯à¦¼ à¦­à¦¾à¦¬à§‡ à¦¸à¦‚à¦°à¦•à§à¦·à¦¿à¦¤ à¦¹à¦¯à¦¼à§‡' : 'Progress is saved automatically')}
+            </p>
           </div>
 
           {/* Progress bar */}

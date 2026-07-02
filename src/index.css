@@ -1,6 +1,100 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    background:
+      radial-gradient(circle at top, rgba(26, 107, 138, 0.08), transparent 34%),
+      linear-gradient(180deg, #f8fbfd 0%, #eef4f9 100%);
+  }
+
+  body {
+    background:
+      radial-gradient(circle at top left, rgba(26, 107, 138, 0.04), transparent 28%),
+      linear-gradient(180deg, #f8fbfd 0%, #edf3f8 100%);
+    color: #102433;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(26, 107, 138, 0.16);
+    color: #0f172a;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    outline-color: #1a6b8a;
+  }
+}
+
+/* Global responsive reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow-x: hidden;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+#root {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+/* All images / media stay within their container */
+img, video, svg, canvas, iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Tables scroll horizontally instead of breaking layout */
+table {
+  width: 100%;
+}
+
+/* Inputs / textareas never exceed their parent */
+input, textarea, select, button {
+  max-width: 100%;
+}
 
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .app-shell {
+    max-width: 84rem;
+    margin-inline: auto;
+  }
+  .app-card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.06)];
+  }
+  .app-card-soft {
+    @apply rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_8px_24px_rgba(15,23,42,0.04)];
+  }
+  .app-section-title {
+    @apply text-sm font-black tracking-wide text-slate-900;
+  }
+
+  /* Safe area helpers for mobile notch / home bar */
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

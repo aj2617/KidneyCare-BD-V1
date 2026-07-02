@@ -165,7 +165,7 @@ export default function VitalsReminder({ language, token }: Props) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: 'spring', stiffness: 280, damping: 26 }}
-            className="fixed bottom-20 left-4 right-4 z-[65] md:left-auto md:right-6 md:bottom-6 md:max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 p-4"
+            className="fixed top-[88px] left-4 right-4 z-[65] max-h-[calc(100vh-112px)] overflow-y-auto md:left-auto md:right-6 md:top-[88px] md:w-[384px] bg-white rounded-2xl shadow-2xl border border-slate-100 p-4"
           >
             <button
               onClick={dismissPermPrompt}
@@ -228,14 +228,14 @@ export default function VitalsReminder({ language, token }: Props) {
 
         {/* ── Settings panel ── */}
         <AnimatePresence>
-          {showPanel && (
+        {showPanel && (
             <motion.div
               key="panel"
               initial={{ opacity: 0, scale: 0.92, y: -8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.92, y: -8 }}
               transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              className="absolute right-0 top-12 z-[80] w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden"
+              className="fixed top-[76px] right-4 sm:right-6 z-[80] w-[calc(100vw-2rem)] sm:w-80 max-w-sm max-h-[calc(100vh-96px)] bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden"
             >
               <div className="p-4 border-b border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ export default function VitalsReminder({ language, token }: Props) {
                 </button>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="p-4 space-y-4 overflow-y-auto">
                 {/* Not supported */}
                 {!notifSupported && (
                   <p className="text-xs text-slate-500">

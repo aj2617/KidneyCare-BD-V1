@@ -4,13 +4,12 @@ import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, AlertCircle, Flame, Utensils, Heart,
   ArrowUpRight, Plus, ChevronRight, BookOpen, DollarSign, Droplets, Loader2,
-  Bell, X, Info, TriangleAlert, ClipboardList
+  Bell, X, Info, TriangleAlert, Shield, CalendarDays
 } from 'lucide-react';
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
 } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
-import ForcedSurveyOverlay from '../components/ForcedSurveyOverlay';
 
 export default function PatientDashboard() {
   const { token, user } = useAuth();
@@ -21,8 +20,6 @@ export default function PatientDashboard() {
   const [streak, setStreak] = useState(0);
   const [lastBP, setLastBP] = useState<{ systolic: number; diastolic: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [surveyCompleted, setSurveyCompleted] = useState<boolean | null>(null);
-  const [showSurvey, setShowSurvey] = useState(false);
   const [alerts, setAlerts] = useState<{ id: string; type: 'critical' | 'warning' | 'info'; title: string; message: string }[]>([]);
   const [showAlerts, setShowAlerts] = useState(false);
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
@@ -46,24 +43,7 @@ export default function PatientDashboard() {
 
   useEffect(() => {
     fetchData();
-    checkSurveyStatus();
   }, []);
-
-  const checkSurveyStatus = async () => {
-    try {
-      const res = await fetch('/api/patient/survey/status', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setSurveyCompleted(data.completed);
-      } else {
-        setSurveyCompleted(true);
-      }
-    } catch {
-      setSurveyCompleted(true);
-    }
-  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -101,21 +81,21 @@ export default function PatientDashboard() {
       label: language === 'bn' ? 'কম ঝুঁকি' : 'Low Risk',
       msg: language === 'bn'
         ? 'আপনি ভালো করছেন! প্রতিদিন ভাইটালস লগ করুন।'
-        : 'You\'re doing great! Keep logging daily vitals.',
+        : "You're doing great! Keep logging daily vitals.",
     };
     if (score <= 50) return {
       bg: 'bg-[#F39C12]', text: 'text-white', badge: 'bg-white/20',
       label: language === 'bn' ? 'মাঝারি ঝুঁকি' : 'Moderate Risk',
       msg: language === 'bn'
         ? 'সচেতন থাকুন। নিয়মিত চেকআপ করুন।'
-        : 'Stay vigilant. Follow your doctor\'s advice.',
+        : "Stay vigilant. Follow your doctor's advice.",
     };
     if (score <= 75) return {
       bg: 'bg-[#E74C3C]', text: 'text-white', badge: 'bg-white/20',
       label: language === 'bn' ? 'উচ্চ ঝুঁকি' : 'High Risk',
       msg: language === 'bn'
         ? 'দ্রুত ডাক্তার দেখান। ওষুধ মিস করবেন না।'
-        : 'See your doctor soon. Don\'t miss medications.',
+        : "See your doctor soon. Don't miss medications.",
     };
     return {
       bg: 'bg-[#C0392B]', text: 'text-white', badge: 'bg-white/20',
@@ -130,6 +110,9 @@ export default function PatientDashboard() {
   const latestStage = gfrHistory.length > 0 ? gfrHistory[gfrHistory.length - 1].stage : null;
   const latestRec = gfrHistory.length > 0 ? gfrHistory[gfrHistory.length - 1].recommendation : null;
   const sparkData = gfrHistory.slice(-8).map((g, i) => ({ i, v: Math.round(g.mdrd) }));
+  const gfrTrend = sparkData.length > 1 && sparkData[0].v
+    ? Math.round(((sparkData[sparkData.length - 1].v - sparkData[0].v) / sparkData[0].v) * 100)
+    : null;
   const risk = getRiskConfig(riskData.score);
 
   const bn = language === 'bn';
@@ -181,7 +164,6 @@ export default function PatientDashboard() {
                   {unreadCount}
                 </motion.span>
               )}
-              {/* Pulsing ring when critical */}
               {criticalCount > 0 && (
                 <motion.span
                   animate={{ scale: [1, 1.6, 1], opacity: [0.7, 0, 0.7] }}
@@ -212,7 +194,7 @@ export default function PatientDashboard() {
                   <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/10 border border-white/20">
                     <Bell className="w-4 h-4 text-white/60" />
                     <p className="text-sm text-white/80 font-medium">
-                      {bn ? 'কোনো নতুন সতর্কতা নেই' : 'No new alerts — all clear!'}
+                      {bn ? 'কোনো নতুন সতর্কতা নেই — সব ঠিক আছে!' : 'No new alerts — all clear!'}
                     </p>
                   </div>
                 ) : (
@@ -253,313 +235,236 @@ export default function PatientDashboard() {
         </AnimatePresence>
       </div>
 
-      {/* Survey overlay — shown only when patient clicks the notification */}
-      {showSurvey && (
-        <ForcedSurveyOverlay
-          token={token!}
-          patientName={user?.name || ''}
-          onComplete={() => { setSurveyCompleted(true); setShowSurvey(false); }}
-        />
-      )}
-
-      {/* Survey notification banner */}
-      <AnimatePresence>
-        {surveyCompleted === false && !showSurvey && (
+      {/* ── DASHBOARD CONTENT ── */}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-3">
+          {/* ── HERO RISK CARD ── */}
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl shadow-sm"
-            style={{ background: '#EFF8FB', border: '1px solid #1A6B8A' }}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <motion.div
-                animate={{ scale: [1, 1.15, 1] }}
-                transition={{ duration: 1.6, repeat: Infinity }}
-                className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
-                style={{ background: '#1A6B8A' }}
-              >
-                <ClipboardList className="w-4 h-4 text-white" />
-              </motion.div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold leading-snug" style={{ color: '#0f4560' }}>
-                  {bn ? 'স্বাস্থ্য জরিপ সম্পূর্ণ করুন' : 'Complete your Health Survey'}
-                </p>
-                <p className="text-xs mt-0.5 leading-snug" style={{ color: '#1A6B8A' }}>
-                  {bn ? 'ঝুঁকির স্কোর উন্নত করতে সাহায্য করে' : 'Helps personalise your risk score'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowSurvey(true)}
-              className="shrink-0 px-3 py-1.5 text-white text-xs font-bold rounded-xl transition-colors"
-              style={{ background: '#1A6B8A' }}
-            >
-              {bn ? 'শুরু করুন' : 'Start'}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Profile incomplete banner */}
-      <AnimatePresence>
-        {isProfileIncomplete && (
-          <motion.div
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-2xl shadow-sm"
-            style={{ background: '#FEF5E7', border: '1px solid #F39C12' }}
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <motion.div
-                animate={{ opacity: [1, 0.3, 1] }}
-                transition={{ duration: 1.2, repeat: Infinity }}
-                className="shrink-0 w-2 h-2 rounded-full"
-                style={{ background: '#F39C12' }}
-              />
-              <p className="text-sm font-semibold leading-snug" style={{ color: '#7d5100' }}>
-                {bn ? 'সঠিক স্কোরের জন্য প্রোফাইল সম্পূর্ণ করুন' : 'Complete your profile for accurate scoring'}
-              </p>
-            </div>
-            <button
-              onClick={() => nav('profile')}
-              className="shrink-0 px-3 py-1.5 text-white text-xs font-bold rounded-xl transition-colors"
-              style={{ background: '#F39C12' }}
-            >
-              {bn ? 'আপডেট' : 'Update'}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ── HERO RISK CARD ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className={`relative overflow-hidden rounded-2xl px-5 py-3 ${risk.bg} shadow-lg`}
-      >
-        {/* decorative circle */}
-        <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full bg-white/10 pointer-events-none" />
-        <div className="absolute -bottom-8 -right-2 w-32 h-32 rounded-full bg-white/5 pointer-events-none" />
-
-        <div className="relative flex justify-between items-center mb-2">
-          <span className={`text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${risk.badge} ${risk.text}`}>
-            {bn ? 'লাইভ ঝুঁকি ইঞ্জিন' : 'Live Risk Engine'}
-          </span>
-          <div className={`flex items-center gap-1.5 text-xs font-semibold ${risk.text} opacity-80`}>
-            <AlertCircle className="w-3.5 h-3.5" />
-            {risk.label}
-          </div>
-        </div>
-
-        <div className="relative flex items-center gap-4">
-          <div className="flex items-end gap-2">
-            <span className={`text-5xl font-black leading-none ${risk.text}`}>{riskData.score}</span>
-            <span className={`text-lg font-bold mb-1 ${risk.text} opacity-70`}>/100</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className={`text-sm font-semibold leading-snug ${risk.text} opacity-90`}>
-              {risk.msg}
-            </p>
-            {latestStage && (
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/20 w-fit`}>
-                <span className={`text-xs font-bold ${risk.text}`}>
-                  {bn ? `পর্যায় ${latestStage}` : `Stage ${latestStage}`} CKD
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ── MINI STATS ROW ── */}
-      <div className="grid grid-cols-2 gap-3">
-
-        {/* Last BP card */}
-        {lastBP && (
-          <motion.button
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.03 }}
-            onClick={() => nav('vitals')}
-            className="col-span-2 text-left px-3 py-2.5 rounded-2xl border shadow-sm active:scale-95 transition-transform flex items-center justify-between"
-            style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', borderColor: '#E74C3C' } : { background: '#fff', borderColor: '#f1f5f9' }}
+            className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[140px_minmax(0,1fr)]"
+          >
+            <div className={`flex flex-col items-center justify-center gap-2 px-4 py-5 text-white ${risk.bg}`}>
+              <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/70">
+                {bn ? 'ঝুঁকি স্কোর' : 'Risk Score'}
+              </span>
+              <div className="flex items-end gap-1">
+                <span className="text-4xl font-black leading-none">{riskData.score}</span>
+                <span className="mb-1 text-lg font-bold opacity-80">/100</span>
+              </div>
+              <span className="rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-bold">
+                {risk.label}
+              </span>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900">
+                    {bn ? 'লাইভ ঝুঁকি ইঞ্জিন স্ট্যাটাস' : 'Live Risk Engine Status'}
+                  </h2>
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-[#FFF2EA] px-3 py-1 text-xs font-bold text-[#C0392B]">
+                    {latestStage ? `${bn ? `পর্যায় ${latestStage}` : `Stage ${latestStage}`} CKD` : (bn ? 'পর্যায় অজানা' : 'Stage unknown')}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-red-100 bg-[#FFF6F3] p-2 text-[#F4A8A0]">
+                  <TriangleAlert className="h-6 w-6" />
+                </div>
+              </div>
+              <p className="text-sm italic text-slate-500">
+                {risk.msg}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(riskData.factors?.length ? riskData.factors.slice(0, 2) : [
+                  bn ? 'উচ্চ রক্তচাপ' : 'Elevated BP levels',
+                  bn ? 'পারিবারিক কিডনি ঝুঁকি' : 'Family history risk',
+                ]).map((factor, index) => (
+                  <span key={index} className="inline-flex items-center gap-1 rounded-full border border-[#F1D0C8] bg-[#FFF7F4] px-3 py-1 text-xs font-bold text-[#7B1A1A]">
+                    <span className="h-2 w-2 rounded-full bg-[#E74C3C]" />
+                    {factor}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {lastBP && (
+              <motion.button
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.03 }}
+                onClick={() => nav('vitals')}
+                className="text-left rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-transform active:scale-95"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-xl bg-[#EAF5F9] p-2 text-[#1A6B8A]">
+                    <Droplets className="h-4 w-4" />
+                  </div>
+                  <span className="rounded-full bg-[#E8F8EE] px-2 py-1 text-[10px] font-bold text-[#22A55D]">
+                    {lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? (bn ? 'উচ্চ' : 'High') : (bn ? 'স্বাভাবিক' : 'Normal')}
+                  </span>
+                </div>
+                <p className="mt-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  {bn ? 'রক্তচাপ' : 'Blood Pressure'}
+                </p>
+                <p className="mt-1 text-3xl font-black leading-none text-slate-900">
+                  {lastBP.systolic}/{lastBP.diastolic}
+                  <span className="ml-1 text-xs font-semibold text-slate-400">mmHg</span>
+                </p>
+                <div className="mt-4 flex items-end gap-1.5">
+                  {[10, 18, 14, 28, 20].map((height, index) => (
+                    <div key={index} className="w-10 rounded-t-md bg-[#BFD8E1]" style={{ height }} />
+                  ))}
+                </div>
+              </motion.button>
+            )}
+
+            <motion.button
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+              onClick={() => nav('gfr')}
+              className="text-left rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition-transform active:scale-95"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="rounded-xl bg-[#EAF5F9] p-2 text-[#1A6B8A]">
+                  <Activity className="h-4 w-4" />
+                </div>
+                <span className={`text-[10px] font-bold ${gfrTrend !== null && gfrTrend < 0 ? 'text-[#C0392B]' : 'text-[#22A55D]'}`}>
+                  {gfrTrend !== null ? `${gfrTrend > 0 ? '+' : ''}${gfrTrend}%` : '--'}
+                </span>
+              </div>
+              <p className="mt-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                {bn ? 'সর্বশেষ ইজিএফআর' : 'Latest eGFR'}
+              </p>
+              <p className="mt-1 text-3xl font-black leading-none text-slate-900">
+                {latestGfr ?? '--'}
+                <span className="ml-1 text-xs font-semibold text-slate-400">mL/min</span>
+              </p>
+              {sparkData.length > 1 && (
+                <div className="mt-4 h-16 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sparkData}>
+                      <Line
+                        type="monotone"
+                        dataKey="v"
+                        stroke="#0C5F7C"
+                        strokeWidth={2.5}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                      <Tooltip
+                        contentStyle={{ fontSize: 11, borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        formatter={(v: any) => [`${v} mL/min`, 'GFR']}
+                        labelFormatter={() => ''}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </motion.button>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-2xl bg-[#2F3337] p-4 text-white shadow-sm"
+          >
+            <div className="mb-3 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-[#8ED1FF]" />
+              <p className="text-sm font-black uppercase tracking-widest text-[#8ED1FF]">
+                {bn ? 'ক্লিনিক্যাল পরামর্শ' : 'Clinical Recommendation'}
+              </p>
+            </div>
+            <ul className="space-y-2 text-sm font-semibold text-white">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white" />
+                <span>{latestRec || (bn ? 'প্রতি ৩ মাসে মনিটর করুন; জীবনধারা পরিবর্তন করুন' : 'Monitor every 3 months; lifestyle modification')}</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-white" />
+                <span>{bn ? 'প্রতিদিন ২,০০০ mg-এর নিচে সোডিয়াম সীমিত রাখুন' : 'Limit sodium intake to under 2,000mg per day'}</span>
+              </li>
+            </ul>
+            <button
+              onClick={() => nav('education')}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#11709A] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#0f5e80]"
+            >
+              {bn ? 'অ্যাকশন প্ল্যান দেখুন' : 'View Action Plan'}
+              <ArrowUpRight className="h-4 w-4" />
+            </button>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="grid grid-cols-2 gap-3"
+          >
+            {[
+              { key: 'diet',      icon: Utensils,  color: '#2ECC71', label: bn ? 'ডায়েট সহকারী' : 'Diet Assistant' },
+              { key: 'caregiver', icon: Heart,     color: '#E74C3C', label: bn ? 'পরিচর্যাকারী' : 'Caregiver' },
+              { key: 'education', icon: BookOpen,   color: '#1A6B8A', label: bn ? 'শিক্ষা কেন্দ্র' : 'Education Hub' },
+              { key: 'cost',      icon: DollarSign, color: '#F39C12', label: bn ? 'খরচ পরিকল্পনা' : 'Cost Planner' },
+            ].map(({ key, icon: Icon, color, label }) => (
+              <button
+                key={key}
+                onClick={() => nav(key)}
+                className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white p-3 text-center shadow-sm transition-all hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95"
+              >
+                <Icon className="h-6 w-6" style={{ color }} />
+                <span className="text-xs font-bold leading-tight text-slate-700">{label}</span>
+              </button>
+            ))}
+          </motion.div>
+
+        </div>
+
+        <div className="space-y-3 lg:sticky lg:top-4 self-start">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="rounded-2xl border border-slate-200 bg-slate-100 p-4 shadow-sm"
           >
             <div className="flex items-center gap-3">
-              <div className="p-1.5 rounded-xl" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', color: '#E74C3C' } : { background: '#EFF8FB', color: '#1A6B8A' }}>
-                <Droplets className="w-4 h-4" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-slate-300 bg-white text-slate-500">
+                <Flame className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xl font-black leading-none" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { color: '#7b1a1a' } : { color: '#0f172a' }}>
-                  {lastBP.systolic}/{lastBP.diastolic}
-                  <span className="text-xs font-semibold text-slate-400 ml-1">mmHg</span>
-                </p>
-                <p className="text-xs font-semibold text-slate-400 mt-0.5">
-                  {bn ? 'সর্বশেষ রক্তচাপ' : 'Last Blood Pressure'}
+                <p className="text-3xl font-black leading-none text-slate-900">{streak}</p>
+                <p className="text-xs font-semibold text-slate-500">
+                  {bn ? 'দিনের স্ট্রিক' : 'Day streak'}
                 </p>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-xs font-bold px-2 py-1 rounded-lg" style={lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? { background: '#FDECEA', color: '#7b1a1a' } : { background: '#EAFAF1', color: '#1a7a44' }}>
-                {lastBP.systolic >= 140 || lastBP.diastolic >= 90 ? (bn ? 'উচ্চ' : 'High') : (bn ? 'স্বাভাবিক' : 'Normal')}
-              </p>
-              <p className="text-xs text-slate-400 mt-1">{new Date(lastBP.date).toLocaleDateString()}</p>
-            </div>
-          </motion.button>
-        )}
+          </motion.div>
 
-        {/* GFR Sparkline card */}
-        <motion.button
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          onClick={() => nav('gfr')}
-          className="text-left p-3 bg-white rounded-2xl border border-slate-100 shadow-sm active:scale-95 transition-transform flex flex-col justify-between gap-2"
-        >
-          <div className="flex justify-between items-center">
-            <div className="p-1.5 rounded-xl" style={{ background: '#EFF8FB', color: '#1A6B8A' }}>
-              <Activity className="w-4 h-4" />
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+              {bn ? 'সক্রিয় ঝুঁকির কারণ' : 'Active Risk Factors'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(riskData.factors?.length ? riskData.factors.slice(0, 4) : [bn ? 'কোনো ঝুঁকি নেই' : 'No active risk factors']).map((factor, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center gap-1 rounded-full border border-[#F1D0C8] bg-[#FFF7F4] px-3 py-1 text-xs font-bold text-[#7B1A1A]"
+                >
+                  <span className="h-2 w-2 rounded-full bg-[#E74C3C]" />
+                  {factor}
+                </span>
+              ))}
             </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </div>
-          <div>
-            <p className="text-2xl font-black text-slate-900 leading-none">
-              {latestGfr ?? '--'}
-            </p>
-            <p className="text-xs font-semibold text-slate-400 mt-0.5">
-              {bn ? 'সর্বশেষ ইজিএফআর' : 'Latest eGFR'}
-            </p>
-          </div>
-          {/* mini sparkline */}
-          {sparkData.length > 1 && (
-            <div className="h-10 w-full mt-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={sparkData}>
-                  <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke="#1A6B8A"
-                    strokeWidth={2.5}
-                    dot={false}
-                    isAnimationActive={false}
-                  />
-                  <Tooltip
-                    contentStyle={{ fontSize: 11, borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    formatter={(v: any) => [`${v} mL/min`, 'GFR']}
-                    labelFormatter={() => ''}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </motion.button>
-
-        {/* Streak card */}
-        <motion.button
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          onClick={() => nav('vitals')}
-          className="text-left p-3 rounded-2xl border shadow-sm active:scale-95 transition-transform flex flex-col justify-between gap-2"
-          style={streak >= 5 ? { background: '#FEF5E7', borderColor: '#F39C12' } : { background: '#fff', borderColor: '#f1f5f9' }}
-        >
-          <div className="flex justify-between items-center">
-            <div className="p-1.5 rounded-xl" style={streak >= 5 ? { background: '#FDE9C3', color: '#F39C12' } : { background: '#f1f5f9', color: '#94a3b8' }}>
-              <Flame className="w-4 h-4" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-slate-300" />
-          </div>
-          <div>
-            <p className="text-2xl font-black leading-none" style={streak >= 5 ? { color: '#F39C12' } : { color: '#0f172a' }}>
-              {streak}
-            </p>
-            <p className="text-xs font-semibold text-slate-400 mt-0.5">
-              {bn ? 'দিনের স্ট্রিক' : 'Day streak'}
-            </p>
-          </div>
-          <p className="text-xs font-semibold" style={streak >= 5 ? { color: '#F39C12' } : { color: '#94a3b8' }}>
-            {streak === 0
-              ? (bn ? 'আজ শুরু করুন!' : 'Start today!')
-              : streak >= 10
-              ? (bn ? '🔥 অসাধারণ!' : '🔥 Incredible!')
-              : streak >= 5
-              ? (bn ? '🔥 দারুণ চলছে!' : '🔥 On a roll!')
-              : (bn ? 'চালিয়ে যান!' : 'Keep it up!')}
-          </p>
-        </motion.button>
+          </motion.div>
+        </div>
       </div>
-
-      {/* ── ACTIVE RISK FACTORS ── */}
-      {riskData.factors && riskData.factors.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"
-        >
-          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
-            {bn ? 'সক্রিয় ঝুঁকির কারণ' : 'Active Risk Factors'}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {riskData.factors.map((f, i) => (
-              <span
-                key={i}
-                className="px-3 py-1.5 text-xs font-bold rounded-full"
-                style={{ background: '#FDECEA', border: '1px solid #E74C3C', color: '#7b1a1a' }}
-              >
-                {f}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ── CLINICAL RECOMMENDATION ── */}
-      {latestRec && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-sm"
-        >
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">
-            {bn ? 'ক্লিনিকাল পরামর্শ' : 'Clinical Recommendation'}
-          </p>
-          <p className="text-sm leading-relaxed text-slate-200 mb-3">{latestRec}</p>
-          <button
-            onClick={() => nav('education')}
-            className="flex items-center gap-2 text-xs font-bold text-white bg-white/10 hover:bg-white/20 transition-colors rounded-xl px-3 py-2"
-          >
-            {bn ? 'অ্যাকশন প্ল্যান দেখুন' : 'View Action Plan'}
-            <ArrowUpRight className="w-4 h-4" />
-          </button>
-        </motion.div>
-      )}
-
-      {/* ── QUICK ACTIONS GRID ── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-        className="grid grid-cols-2 gap-3"
-      >
-        {[
-          { key: 'diet',      icon: Utensils,   color: '#2ECC71', label: bn ? 'ডায়েট সহকারী' : 'Diet Assistant' },
-          { key: 'caregiver', icon: Heart,       color: '#E74C3C', label: bn ? 'পরিচর্যাকারী' : 'Caregiver' },
-          { key: 'education', icon: BookOpen,    color: '#1A6B8A', label: bn ? 'শিক্ষা কেন্দ্র' : 'Education Hub' },
-          { key: 'cost',      icon: DollarSign,  color: '#F39C12', label: bn ? 'খরচ পরিকল্পনা' : 'Cost Planner' },
-        ].map(({ key, icon: Icon, color, label }) => (
-          <button
-            key={key}
-            onClick={() => nav(key)}
-            className="flex flex-col items-center gap-2 p-3 bg-white border border-slate-100 rounded-2xl hover:border-[#1A6B8A]/30 hover:bg-[#1A6B8A]/5 active:scale-95 transition-all justify-center shadow-sm"
-          >
-            <Icon className="w-6 h-6" style={{ color }} />
-            <span className="text-xs font-bold text-slate-700 text-center leading-tight">{label}</span>
-          </button>
-        ))}
-      </motion.div>
 
       {/* ── FAB: Log Today's Vitals ── */}
       <motion.button
@@ -572,7 +477,7 @@ export default function PatientDashboard() {
         aria-label={bn ? 'আজকের ভাইটালস লগ করুন' : "Log Today's Vitals"}
       >
         <Plus className="w-5 h-5" />
-        {bn ? 'আজকের ভাইটালস' : "Log Vitals"}
+        {bn ? 'ভাইটালস লগ' : 'Log Vitals'}
       </motion.button>
     </div>
   );

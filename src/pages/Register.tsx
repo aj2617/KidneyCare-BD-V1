@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
   Activity, Mail, Lock, User, MapPin, ArrowLeft, Loader2,
@@ -189,6 +189,7 @@ interface FormData {
   diabetes: TriBool; hypertension: TriBool; familyHistory: TriBool; area: string;
   bmdcNumber: string; specialty: string; hospital: string; experience: string;
   nationalId: string; organization: string; workingArea: string;
+  assignedDoctorId: string;
 }
 
 function FieldError({ msg }: { msg: string }) {
@@ -293,7 +294,17 @@ export default function Register({
     diabetes: '', hypertension: '', familyHistory: '', area: '',
     bmdcNumber: '', specialty: '', hospital: '', experience: '',
     nationalId: '', organization: '', workingArea: '',
+    assignedDoctorId: '',
   });
+
+  const [doctors, setDoctors] = useState<{ id: number; name: string; specialty: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/public/doctors')
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setDoctors(data))
+      .catch(() => {});
+  }, []);
 
   const set = (k: keyof FormData, v: string) => setForm(f => ({ ...f, [k]: v }));
   const touch = (k: string) => setTouched(t => ({ ...t, [k]: true }));
@@ -361,6 +372,7 @@ export default function Register({
           hypertension: form.hypertension,
           family_history: form.familyHistory,
           area: form.area,
+          assigned_doctor_id: form.assignedDoctorId ? parseInt(form.assignedDoctorId) : undefined,
         } : {}),
         ...(role === 'doctor' ? {
           bmdc_number: form.bmdcNumber,
@@ -738,6 +750,23 @@ export default function Register({
                         onChange={v => set('familyHistory', v)}
                         yes={tx.yes} no={tx.no} dontKnow={tx.dontKnow}
                       />
+                    </div>
+
+                    {/* Assigned Doctor */}
+                    <div>
+                      <Label>{language === 'bn' ? 'নির্ধারিত ডাক্তার (ঐচ্ছিক)' : 'Assigned Doctor (optional)'}</Label>
+                      <select
+                        value={form.assignedDoctorId}
+                        onChange={e => set('assignedDoctorId', e.target.value)}
+                        className={inputCls()}
+                      >
+                        <option value="">{language === 'bn' ? '— ডাক্তার নির্বাচন করুন —' : '— Select a doctor —'}</option>
+                        {doctors.map(doc => (
+                          <option key={doc.id} value={doc.id.toString()}>
+                            {doc.name} ({doc.specialty})
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </>
                 )}

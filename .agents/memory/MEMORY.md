@@ -1,1 +1,0 @@
-- [KidneyCare BD setup quirks](kidneycare-setup.md) — better-sqlite3 native binary + concurrently blocked; specific fix required

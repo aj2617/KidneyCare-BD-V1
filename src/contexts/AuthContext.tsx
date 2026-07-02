@@ -4,6 +4,7 @@ interface User {
   id: number;
   name: string;
   role: 'patient' | 'doctor' | 'admin' | 'chw';
+  email?: string;
 }
 
 interface AuthContextType {
@@ -15,17 +16,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function isValidUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<User> & { role?: unknown };
+  return (
+    typeof candidate.id === 'number' &&
+    Number.isFinite(candidate.id) &&
+    typeof candidate.name === 'string' &&
+    candidate.name.trim().length > 0 &&
+    (candidate.role === 'patient' ||
+      candidate.role === 'doctor' ||
+      candidate.role === 'admin' ||
+      candidate.role === 'chw')
+  );
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+    try {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
+      if (savedToken && savedUser) {
+        const parsed = JSON.parse(savedUser);
+        if (isValidUser(parsed)) {
+          setToken(savedToken);
+          setUser(parsed);
+          return;
+        }
+      }
+    } catch {
+      // Ignore corrupted auth state and fall back to logged-out UI.
     }
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
   }, []);
 
   const login = (newToken: string, newUser: User) => {

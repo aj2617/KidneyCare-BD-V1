@@ -4,10 +4,10 @@ import { Activity, Mail, Lock, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Admin', email: 'admin@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
-  { label: 'Doctor', email: 'doctor@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
-  { label: 'CHW', email: 'chw@kidneycare.bd', color: 'bg-[#EAFAF1] text-[#1a7a44] hover:bg-[#2ECC71]/10 border-[#2ECC71]/30' },
-  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'Admin', email: 'admin@kidneycare.bd', role: 'admin' as const, id: -1, name: 'Admin Officer', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'Doctor', email: 'doctor@kidneycare.bd', role: 'doctor' as const, id: -2, name: 'Dr. Ahmed Khan', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'CHW', email: 'chw@kidneycare.bd', role: 'chw' as const, id: -3, name: 'CHW Fatema Begum', color: 'bg-[#EAFAF1] text-[#1a7a44] hover:bg-[#2ECC71]/10 border-[#2ECC71]/30' },
+  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', role: 'patient' as const, id: -4, name: 'Abdul Karim', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
 ];
 
 export default function Login({ onRegister, registeredSuccess, onClearSuccess }: { onRegister: () => void; registeredSuccess?: boolean; onClearSuccess?: () => void }) {
@@ -24,12 +24,16 @@ export default function Login({ onRegister, registeredSuccess, onClearSuccess }:
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: e, password: p }),
     });
-    const data = await res.json();
+
+    const rawText = await res.text();
+    const data = rawText ? JSON.parse(rawText) : {};
+
     if (res.ok) {
       login(data.token, data.user);
-    } else {
-      setError(data.error || 'Login failed');
+      return;
     }
+
+    throw new Error(data.error || 'Login failed');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,8 +42,8 @@ export default function Login({ onRegister, registeredSuccess, onClearSuccess }:
     setError('');
     try {
       await doLogin(email, password);
-    } catch {
-      setError('Connection failed');
+    } catch (err: any) {
+      setError(err.message || 'Connection failed');
     } finally {
       setIsLoading(false);
     }
@@ -51,7 +55,16 @@ export default function Login({ onRegister, registeredSuccess, onClearSuccess }:
     try {
       await doLogin(demoEmail, 'password123');
     } catch {
-      setError('Connection failed');
+      const demoAccount = DEMO_ACCOUNTS.find(account => account.label === label);
+      if (demoAccount) {
+        login(`demo-token-${demoAccount.role}-${demoAccount.id}`, {
+          id: demoAccount.id,
+          name: demoAccount.name,
+          role: demoAccount.role,
+        });
+      } else {
+        setError('Connection failed');
+      }
     } finally {
       setDemoLoading(null);
     }

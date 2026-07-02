@@ -132,6 +132,9 @@ export default function MedicationAdherence() {
   };
 
   const grid = buildGrid();
+  const weekRows = Array.from({ length: Math.ceil(grid.length / 7) }, (_, weekIndex) =>
+    grid.slice(weekIndex * 7, weekIndex * 7 + 7)
+  );
 
   // Week labels
   const weekLabels = [
@@ -341,47 +344,47 @@ export default function MedicationAdherence() {
       </div>
 
       {/* 12-Week Heatmap */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-[#1A6B8A]" />
-          <h2 className="font-bold text-slate-900">
+      <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 max-w-xl mx-auto">
+        <div className="flex items-center gap-2 mb-3 sm:mb-4">
+          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-[#1A6B8A]" />
+          <h2 className="font-bold text-sm sm:text-base text-slate-900">
             {bn ? '১২ সপ্তাহের অ্যাডহেরেন্স হিটম্যাপ' : '12-Week Adherence Heatmap'}
           </h2>
         </div>
 
-        {/* Day-of-week headers */}
-        <div className="grid grid-cols-7 gap-1 mb-1">
-          {weekLabels.map(label => (
-            <div key={label} className="text-center text-[10px] font-semibold text-slate-400">
-              {label}
+        {/* Vertical week rows */}
+        <div className="flex flex-col items-start gap-1.5">
+          {weekRows.map((week, weekIndex) => (
+            <div key={weekIndex} className="flex items-center gap-2">
+              <div className="w-8 shrink-0 text-[10px] font-semibold text-slate-400">
+                {bn ? `সপ্তা ${weekIndex + 1}` : `W${weekIndex + 1}`}
+              </div>
+              <div className="grid grid-cols-7 gap-0.5">
+                {week.map((cell) => {
+                  const hex = getRateColor(cell.rate);
+                  return (
+                    <div
+                      key={cell.date}
+                      title={`${cell.date}: ${cell.rate !== null ? cell.rate + '%' : (bn ? 'তথ্য নেই' : 'No data')}`}
+                      className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[2px] cursor-default transition-opacity hover:opacity-80"
+                      style={{ background: hex.startsWith('#') ? hex : undefined }}
+                    />
+                  );
+                })}
+              </div>
             </div>
           ))}
         </div>
 
-        {/* Grid — 84 cells in 12 rows of 7 */}
-        <div className="grid grid-cols-7 gap-1">
-          {grid.map((cell, i) => {
-            const hex = getRateColor(cell.rate);
-            return (
-              <div
-                key={cell.date}
-                title={`${cell.date}: ${cell.rate !== null ? cell.rate + '%' : (bn ? 'তথ্য নেই' : 'No data')}`}
-                className="aspect-square rounded-sm cursor-default transition-opacity hover:opacity-80"
-                style={{ background: hex.startsWith('#') ? hex : undefined }}
-              />
-            );
-          })}
-        </div>
-
         {/* Legend */}
-        <div className="flex items-center gap-3 mt-4 flex-wrap">
-          <span className="text-xs text-slate-400">{bn ? 'কম' : 'Less'}</span>
+        <div className="flex items-center gap-2 sm:gap-3 mt-3 sm:mt-4 flex-wrap">
+          <span className="text-[10px] sm:text-xs text-slate-400">{bn ? 'কম' : 'Less'}</span>
           {[null, 40, 60, 80, 95].map((val, i) => {
             const hex = getRateColor(val);
-            return <div key={i} className="w-4 h-4 rounded-sm" style={{ background: hex.startsWith('#') ? hex : '#e2e8f0' }} />;
+            return <div key={i} className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-[2px] sm:rounded-[3px]" style={{ background: hex.startsWith('#') ? hex : '#e2e8f0' }} />;
           })}
-          <span className="text-xs text-slate-400">{bn ? 'বেশি' : 'More'}</span>
-          <span className="text-xs text-slate-300 ml-2">
+          <span className="text-[10px] sm:text-xs text-slate-400">{bn ? 'বেশি' : 'More'}</span>
+          <span className="text-[10px] sm:text-xs text-slate-300 ml-1 sm:ml-2">
             {bn ? '(প্রতিটি ঘর = ১ দিন)' : '(each cell = 1 day)'}
           </span>
         </div>
