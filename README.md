@@ -96,9 +96,11 @@ npm install
 npm run dev
 ```
 
-`npm run dev` starts the Express server from `server.ts`. In development, Vite runs in middleware mode inside the same server process, so the frontend and backend are served together.
+`npm run dev` now starts the production server wrapper (`start-prod.ts`), which keeps the app boot path stable on Windows and serves the built frontend from `dist`.
 
-`npm start` now boots the production wrapper (`start-prod.ts`), which forces `NODE_ENV=production` before loading the server. That makes local behavior match Railway more closely after a build.
+If `dist/` is missing in a fresh checkout, run `npm run build` once before `npm run dev`.
+
+If you want the backend-only source server, use `npm run start:dev`.
 
 ### Other Useful Commands
 
