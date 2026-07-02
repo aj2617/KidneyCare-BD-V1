@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.env*
+kidneycare.db
+*.db-shm
+*.db-wal
+generated-reports/
+scratch/
+.config/
+.local/
+.agents/
+.canvas/
+.git/

@@ -24,12 +24,6 @@ if (databaseDir && databaseDir !== '.') {
 
 const db = new Database(databasePath);
 db.pragma('journal_mode = WAL');
-if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
-  console.error('[FATAL] JWT_SECRET environment variable is not set in production. Exiting.');
-  process.exit(1);
-}
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-insecure-secret-do-not-use-in-prod';
-
 // ─── Schema: Original Tables ──────────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -40,6 +34,10 @@ db.exec(`
     role TEXT NOT NULL,
     division TEXT,
     district TEXT,
+    specialty TEXT,
+    bmdc_number TEXT,
+    hospital TEXT,
+    experience TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -306,6 +304,20 @@ db.exec(`
 `);
 
 // ─── Add new columns to existing tables (safe, idempotent) ──────────────────
+const generateFallbackSecret = () => randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
+const getOrCreateAppSetting = (key: string, generator: () => string) => {
+  const existing = db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key) as any;
+  if (existing?.value) return existing.value as string;
+  const value = generator();
+  db.prepare('INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)').run(key, value);
+  return value;
+};
+
+const JWT_SECRET = process.env.JWT_SECRET || getOrCreateAppSetting('jwt_secret', generateFallbackSecret);
+if (!process.env.JWT_SECRET) {
+  console.warn('[Config] JWT_SECRET was not provided; generated a persisted fallback secret in SQLite.');
+}
+
 const addColumnIfMissing = (table: string, column: string, definition: string) => {
   try {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
@@ -315,6 +327,10 @@ const addColumnIfMissing = (table: string, column: string, definition: string) =
 };
 
 addColumnIfMissing('users', 'active', 'INTEGER DEFAULT 1');
+addColumnIfMissing('users', 'specialty', 'TEXT');
+addColumnIfMissing('users', 'bmdc_number', 'TEXT');
+addColumnIfMissing('users', 'hospital', 'TEXT');
+addColumnIfMissing('users', 'experience', 'TEXT');
 // ─── VAPID Key Management ─────────────────────────────────────────────────────
 function getOrCreateVapidKeys(): { publicKey: string; privateKey: string } {
   const pubRow  = db.prepare("SELECT value FROM app_settings WHERE key = 'vapid_public_key'").get() as any;
@@ -498,6 +514,8 @@ function calculateRiskScore(patient: any, district: string): number {
 
 async function startServer() {
   const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', 1);
   app.use(express.json({ limit: '10mb' }));
 
   app.get('/healthz', (_req, res) => {
@@ -613,6 +631,63 @@ async function startServer() {
       },
     ];
   };
+
+  function calculateAndSaveGFR(patientId: number, creatinine: number, weightOverride?: number) {
+    const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId) as any;
+    if (!patient) return;
+
+    const age = patient.age || 50;
+    const sex = patient.sex || 'male';
+    const weight = weightOverride || patient.weight || 70;
+    const uacr = patient.uacr || null;
+
+    let mdrd = 175 * Math.pow(creatinine, -1.154) * Math.pow(age, -0.203);
+    if (sex === 'female') mdrd *= 0.742;
+
+    let cg = ((140 - age) * weight) / (72 * creatinine);
+    if (sex === 'female') cg *= 0.85;
+
+    const k = sex === 'female' ? 0.7 : 0.9;
+    const a = sex === 'female' ? -0.329 : -0.411;
+    let ckdEpi = 141 * Math.pow(Math.min(creatinine / k, 1), a) * Math.pow(Math.max(creatinine / k, 1), -1.209) * Math.pow(0.993, age);
+    if (sex === 'female') ckdEpi *= 1.018;
+
+    const avgGfr = (mdrd + cg + ckdEpi) / 3;
+
+    // KDIGO staging
+    let stage = 1;
+    if (avgGfr < 15) stage = 5;
+    else if (avgGfr < 30) stage = 4;
+    else if (avgGfr < 60) stage = 3;
+    else if (avgGfr < 90) stage = 2;
+
+    if (uacr !== null) {
+      const uacrVal = parseFloat(uacr);
+      if (uacrVal >= 300 && stage < 3) stage = 3;
+    }
+
+    const recommendation = stage >= 4 ? 'Urgent nephrology referral required' :
+      stage === 3 ? 'Refer to nephrologist; intensify risk factor management' :
+      stage === 2 ? 'Monitor every 3 months; lifestyle modification' : 'Annual monitoring; preventive care';
+
+    db.prepare(`
+      INSERT INTO gfr_records (patient_id, creatinine, age, sex, weight, uacr, mdrd, cg, ckd_epi, stage, recommendation)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(patientId, creatinine, age, sex, weight, uacr, mdrd, cg, ckdEpi, stage, recommendation);
+
+    // Update CKD stage in patients table
+    db.prepare('UPDATE patients SET ckd_stage = ? WHERE id = ?').run(stage, patientId);
+
+    // Recalculate risk score too since stage/GFR might have changed
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(patient.user_id) as any;
+    if (user) {
+      const score = calculateRiskScore({ ...patient, ckd_stage: stage }, user.district);
+      db.prepare('UPDATE patients SET risk_score = ? WHERE id = ?').run(score, patientId);
+    }
+
+    // ── eGFR drop alert ────────────────────────────────────────────────────
+    checkGFRDropAlert(patientId, ckdEpi);
+  }
 
   // ─── eGFR Drop Alert ──────────────────────────────────────────────────────
   // Called every time a new GFR record is saved. Compares the two most recent
@@ -751,9 +826,9 @@ async function startServer() {
     db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Rahim Chowdhury', 'admin2@kidneycare.bd', hashedPassword, 'admin', 'Chittagong');
 
     // ── Doctors ──
-    const doc1 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Ahmed Khan', 'doctor@kidneycare.bd', hashedPassword, 'doctor', 'Dhaka');
-    const doc2 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Rashida Begum', 'doctor2@kidneycare.bd', hashedPassword, 'doctor', 'Chittagong');
-    const doc3 = db.prepare('INSERT INTO users (name, email, password, role, district) VALUES (?, ?, ?, ?, ?)').run('Dr. Karim Molla', 'doctor3@kidneycare.bd', hashedPassword, 'doctor', 'Rajshahi');
+    const doc1 = db.prepare('INSERT INTO users (name, email, password, role, district, specialty) VALUES (?, ?, ?, ?, ?, ?)').run('Dr. Ahmed Khan', 'doctor@kidneycare.bd', hashedPassword, 'doctor', 'Dhaka', 'Nephrologist');
+    const doc2 = db.prepare('INSERT INTO users (name, email, password, role, district, specialty) VALUES (?, ?, ?, ?, ?, ?)').run('Dr. Rashida Begum', 'doctor2@kidneycare.bd', hashedPassword, 'doctor', 'Chittagong', 'Nephrologist');
+    const doc3 = db.prepare('INSERT INTO users (name, email, password, role, district, specialty) VALUES (?, ?, ?, ?, ?, ?)').run('Dr. Karim Molla', 'doctor3@kidneycare.bd', hashedPassword, 'doctor', 'Rajshahi', 'Pediatric Nephrologist');
     const doctorIds = [doc1.lastInsertRowid, doc2.lastInsertRowid, doc3.lastInsertRowid];
 
     // ── CHWs ──
@@ -1008,6 +1083,7 @@ async function startServer() {
       age, sex, weight, diabetes, hypertension, family_history, area,
       bmdc_number, specialty, hospital, experience,
       national_id, organization, working_area,
+      assigned_doctor_id
     } = req.body;
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -1015,8 +1091,11 @@ async function startServer() {
     const hashedPassword = await bcrypt.hash(password, 10);
     try {
       const result = db.prepare(
-        'INSERT INTO users (name, email, password, role, division, district) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(name, email, hashedPassword, role, division || '', district || '');
+        'INSERT INTO users (name, email, password, role, division, district, specialty, bmdc_number, hospital, experience) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(
+        name, email, hashedPassword, role, division || '', district || '',
+        specialty || null, bmdc_number || null, hospital || null, experience || null
+      );
       const userId = result.lastInsertRowid;
 
       if (role === 'patient') {
@@ -1024,8 +1103,8 @@ async function startServer() {
         const hypertensionVal = hypertension === 'yes' ? 1 : hypertension === 'no' ? 0 : null;
         const familyHistoryVal = family_history === 'yes' ? 1 : family_history === 'no' ? 0 : null;
         db.prepare(
-          'INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, family_history) VALUES (?, ?, ?, ?, ?, ?, ?)'
-        ).run(userId, age || null, sex || null, weight || null, diabetesVal, hypertensionVal, familyHistoryVal);
+          'INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, family_history, assigned_doctor_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(userId, age || null, sex || null, weight || null, diabetesVal, hypertensionVal, familyHistoryVal, assigned_doctor_id || null);
       } else if (role === 'chw') {
         db.prepare('INSERT INTO chw_workers (user_id, region) VALUES (?, ?)').run(userId, working_area || district || '');
       }
@@ -1037,6 +1116,15 @@ async function startServer() {
       } else {
         res.status(400).json({ error: 'Registration failed' });
       }
+    }
+  });
+
+  app.get('/api/public/doctors', (req, res) => {
+    try {
+      const doctors = db.prepare("SELECT id, name, specialty FROM users WHERE role = 'doctor' ORDER BY name ASC").all();
+      res.json(doctors);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to fetch doctors: ' + err.message });
     }
   });
 
@@ -1091,6 +1179,10 @@ async function startServer() {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(patient.id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema ? 1 : 0, fatigue, medications);
 
+    if (creatinine !== undefined && creatinine !== null && creatinine !== '') {
+      calculateAndSaveGFR(patient.id, parseFloat(creatinine), weight ? parseFloat(weight) : undefined);
+    }
+
     updateStreak(patient.id);
     checkAlerts(patient.id);
     res.json({ message: 'Vitals logged' });
@@ -1126,6 +1218,9 @@ async function startServer() {
       const insertDate = date || new Date().toISOString();
       try {
         stmt.run(patient.id, systolic, diastolic, blood_sugar, creatinine, urine_protein, weight, edema ? 1 : 0, fatigue, medications, insertDate);
+        if (creatinine !== undefined && creatinine !== null && creatinine !== '') {
+          calculateAndSaveGFR(patient.id, parseFloat(creatinine), weight ? parseFloat(weight) : undefined);
+        }
         results.push({ ok: true, date: insertDate });
       } catch (e: any) {
         results.push({ ok: false, error: e.message });
@@ -1315,7 +1410,12 @@ async function startServer() {
   app.get('/api/doctor/patients', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
     const { assignedOnly } = req.query;
-    let query = `SELECT u.name, u.email, u.district, p.* FROM users u JOIN patients p ON u.id = p.user_id`;
+    let query = `
+      SELECT u.name, u.email, u.district, p.*,
+        (SELECT g.ckd_epi FROM gfr_records g WHERE g.patient_id = p.id ORDER BY g.date DESC LIMIT 1) as latest_gfr,
+        (SELECT v.date FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as last_vitals_date
+      FROM users u JOIN patients p ON u.id = p.user_id
+    `;
     const params: any[] = [];
     if (assignedOnly === 'true') {
       query += ' WHERE p.assigned_doctor_id = ?';
@@ -1364,7 +1464,9 @@ async function startServer() {
   app.get('/api/doctor/unassigned-patients', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'doctor') return res.sendStatus(403);
     const { q } = req.query as { q?: string };
-    let query = `SELECT u.name, u.email, u.district, p.*
+    let query = `SELECT u.name, u.email, u.district, p.*,
+        (SELECT g.ckd_epi FROM gfr_records g WHERE g.patient_id = p.id ORDER BY g.date DESC LIMIT 1) as latest_gfr,
+        (SELECT v.date FROM vitals_log v WHERE v.patient_id = p.id ORDER BY v.date DESC LIMIT 1) as last_vitals_date
       FROM users u JOIN patients p ON u.id = p.user_id
       WHERE (p.assigned_doctor_id IS NULL OR p.assigned_doctor_id != ?)`;
     const params: any[] = [req.user.id];
@@ -1391,6 +1493,9 @@ async function startServer() {
       blood_sugar || null, creatinine || null,
       weight || null, edema ? 1 : 0
     );
+    if (creatinine !== undefined && creatinine !== null && creatinine !== '') {
+      calculateAndSaveGFR(patient_id, parseFloat(creatinine), weight ? parseFloat(weight) : undefined);
+    }
     checkAlerts(patient_id);
     res.json({ message: 'Vitals logged' });
   });
@@ -1646,13 +1751,26 @@ async function startServer() {
   // TELECONSULTATIONS
   // ════════════════════════════════════════════════════════════════════════════
   app.post('/api/teleconsult/start', authenticateToken, (req: any, res) => {
-    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    if (req.user.role !== 'doctor' && req.user.role !== 'chw') return res.sendStatus(403);
     const { patient_id } = req.body;
+    let doctorId = req.user.id;
+    if (req.user.role === 'chw') {
+      const p = db.prepare('SELECT assigned_doctor_id FROM patients WHERE id = ?').get(patient_id) as any;
+      doctorId = p?.assigned_doctor_id || null;
+      if (!doctorId) {
+        // Auto-assign first doctor in DB if none exists
+        const defaultDoc = db.prepare("SELECT id FROM users WHERE role = 'doctor' LIMIT 1").get() as any;
+        doctorId = defaultDoc?.id || null;
+        if (doctorId) {
+          db.prepare('UPDATE patients SET assigned_doctor_id = ? WHERE id = ?').run(doctorId, patient_id);
+        }
+      }
+    }
     const joinToken = randomUUID();
     const roomId    = `kc-${randomUUID().slice(0, 8)}`;
     const result = db.prepare(
       'INSERT INTO teleconsultations (doctor_id, patient_id, status, join_token, room_id) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.user.id, patient_id || null, 'active', joinToken, roomId);
+    ).run(doctorId, patient_id || null, 'active', joinToken, roomId);
     res.json({ id: result.lastInsertRowid, joinToken, roomId });
   });
 
@@ -1766,6 +1884,113 @@ async function startServer() {
       res.json({ message: 'Patient assigned to CHW' });
     } catch {
       res.status(400).json({ error: 'Already assigned' });
+    }
+  });
+
+  app.post('/api/chw/register-patient', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const {
+      name, email, password, phone,
+      age, sex, weight, diabetes, hypertension, family_history,
+      district, division, caregiver_phone, pin, assigned_doctor_id
+    } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Patient name is required' });
+    }
+
+    const emailValue = email || `patient_${phone || Date.now()}@kidneycare.bd`;
+    const pwdValue = password || 'password123';
+    const hashedPassword = await bcrypt.hash(pwdValue, 10);
+    const hashedPin = pin ? await bcrypt.hash(pin, 10) : null;
+
+    const count = db.prepare('SELECT COUNT(*) as c FROM chw_patient_assignments WHERE chw_id = ?').get(req.user.id) as any;
+    if (count.c >= 30) return res.status(400).json({ error: 'CHW patient limit (30) reached' });
+
+    try {
+      let patientId: number | null = null;
+      db.transaction(() => {
+        const u = db.prepare(
+          'INSERT INTO users (name, email, password, role, district, division) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(name, emailValue, hashedPassword, 'patient', district || '', division || '');
+        const userId = u.lastInsertRowid;
+
+        const diabetesVal = diabetes === 'yes' || diabetes === 1 || diabetes === true ? 1 : 0;
+        const hypertensionVal = hypertension === 'yes' || hypertension === 1 || hypertension === true ? 1 : 0;
+        const familyHistoryVal = family_history === 'yes' || family_history === 1 || family_history === true ? 1 : 0;
+
+        const tempPatient = {
+          age: age ? parseInt(age) : null,
+          sex: sex || null,
+          weight: weight ? parseFloat(weight) : null,
+          diabetes: diabetesVal,
+          hypertension: hypertensionVal,
+          family_history: familyHistoryVal,
+          arsenic_prone_area: ARSENIC_DISTRICTS.has(district || '') ? 1 : 0,
+          herbal_remedy_use: 0,
+          nsaid_use: 0
+        };
+        const riskScore = calculateRiskScore(tempPatient, district || '');
+
+        const p = db.prepare(`
+          INSERT INTO patients (user_id, age, sex, weight, diabetes, hypertension, family_history, risk_score, arsenic_prone_area, caregiver_phone, pin, assigned_doctor_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(userId, tempPatient.age, tempPatient.sex, tempPatient.weight, tempPatient.diabetes, tempPatient.hypertension, tempPatient.family_history, riskScore, tempPatient.arsenic_prone_area, caregiver_phone || null, hashedPin || null, assigned_doctor_id || null);
+        patientId = Number(p.lastInsertRowid);
+
+        db.prepare('INSERT INTO chw_patient_assignments (chw_id, patient_id) VALUES (?, ?)').run(req.user.id, patientId);
+      })();
+
+      res.status(201).json({ message: 'Patient registered and assigned successfully', patientId });
+    } catch (err: any) {
+      if (err?.message?.includes('UNIQUE')) {
+        res.status(400).json({ error: 'Email or phone already exists' });
+      } else {
+        res.status(400).json({ error: 'Failed to register patient: ' + err.message });
+      }
+    }
+  });
+
+  app.put('/api/chw/patient/:id', authenticateToken, async (req: any, res) => {
+    if (req.user.role !== 'chw') return res.sendStatus(403);
+    const patientId = parseInt(req.params.id);
+    const { caregiver_phone, pin, age, sex, weight, diabetes, hypertension, family_history } = req.body;
+
+    try {
+      const patient = db.prepare('SELECT user_id FROM patients WHERE id = ?').get(patientId) as any;
+      if (!patient) return res.status(404).json({ error: 'Patient not found' });
+
+      let hashedPin = undefined;
+      if (pin && pin.length >= 4) {
+        hashedPin = await bcrypt.hash(pin, 10);
+      }
+
+      const updateFields: string[] = [];
+      const params: any[] = [];
+
+      if (age !== undefined) { updateFields.push('age = ?'); params.push(age !== '' ? parseInt(age) : null); }
+      if (sex !== undefined) { updateFields.push('sex = ?'); params.push(sex || null); }
+      if (weight !== undefined) { updateFields.push('weight = ?'); params.push(weight !== '' ? parseFloat(weight) : null); }
+      if (diabetes !== undefined) { updateFields.push('diabetes = ?'); params.push(diabetes === 'yes' || diabetes === 1 || diabetes === true ? 1 : 0); }
+      if (hypertension !== undefined) { updateFields.push('hypertension = ?'); params.push(hypertension === 'yes' || hypertension === 1 || hypertension === true ? 1 : 0); }
+      if (family_history !== undefined) { updateFields.push('family_history = ?'); params.push(family_history === 'yes' || family_history === 1 || family_history === true ? 1 : 0); }
+      if (caregiver_phone !== undefined) { updateFields.push('caregiver_phone = ?'); params.push(caregiver_phone || null); }
+      if (hashedPin !== undefined) { updateFields.push('pin = ?'); params.push(hashedPin); }
+
+      if (updateFields.length > 0) {
+        params.push(patientId);
+        db.prepare(`UPDATE patients SET ${updateFields.join(', ')} WHERE id = ?`).run(...params);
+      }
+
+      // Recalculate risk score
+      const updatedPatient = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId) as any;
+      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(updatedPatient.user_id) as any;
+      const score = calculateRiskScore(updatedPatient, user.district);
+      db.prepare('UPDATE patients SET risk_score = ? WHERE id = ?').run(score, patientId);
+
+      res.json({ message: 'Patient profile updated successfully', riskScore: score });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to update patient: ' + err.message });
     }
   });
 
@@ -1964,20 +2189,54 @@ async function startServer() {
     const heatmap = getAdminHeatmapData();
     const totalPatients = heatmap.reduce((sum, row) => sum + row.count, 0);
     const averageRisk = heatmap.length ? heatmap.reduce((sum, row) => sum + (row.avg_risk ?? 0), 0) / heatmap.length : 0;
-    const content = [
-      '# KidneyCare BD National CKD Burden Report',
-      `Generated on: ${new Date().toISOString()}`,
-      `Total tracked patients: ${totalPatients}`,
-      `Districts represented: ${heatmap.length}`,
-      `Average district risk score: ${averageRisk.toFixed(1)}`,
-      '## District summary',
-      ...(heatmap.map((d, i) => `${i + 1}. ${d.district}: ${d.count} patients, avg risk ${Math.round(d.avg_risk ?? 0)}`)),
-      '## Policy priorities',
-      '1. Expand screening in the highest-burden districts.',
-      '2. Improve follow-up capacity for districts with elevated average risk.',
-      '3. Use monthly exports to compare district trend movement over time.',
-    ].join('\n');
-    res.json({ filename: `KidneyCareBD_National_CKD_Report_${new Date().toISOString().split('T')[0]}.md`, content });
+
+    // Stage and survey stats
+    const stageStats = db.prepare(`
+      SELECT p.ckd_stage, COUNT(*) as count FROM patients p
+      JOIN users u ON p.user_id = u.id WHERE u.role = 'patient' GROUP BY p.ckd_stage ORDER BY p.ckd_stage
+    `).all() as any[];
+    const highRisk = (db.prepare("SELECT COUNT(*) as c FROM patients WHERE risk_score > 50").get() as any).c;
+    const surveyDone = (db.prepare("SELECT COUNT(*) as c FROM patients WHERE survey_completed = 1").get() as any).c;
+
+    res.json({
+      total_patients: totalPatients,
+      districts_count: heatmap.length,
+      avg_risk: Math.round(averageRisk),
+      high_risk_patients: highRisk,
+      survey_completed_count: surveyDone,
+      districts: heatmap,
+      stage_distribution: stageStats,
+      summary: [
+        `Total tracked patients across Bangladesh: ${totalPatients}`,
+        `Districts covered: ${heatmap.length}`,
+        `National average district risk score: ${averageRisk.toFixed(1)} / 100`,
+        `High-risk patients (score > 50): ${highRisk}`,
+        `Research surveys completed: ${surveyDone} / ${totalPatients}`,
+        `Report generated: ${new Date().toISOString()}`,
+      ].join('\n'),
+      recommendations: [
+        '1. Expand renal screening programmes in highest-burden districts: ' + heatmap.slice(0, 3).map(d => d.district).join(', ') + '.',
+        '2. Improve follow-up capacity where average risk score exceeds 50.',
+        '3. Accelerate research survey completion to ensure full epidemiological coverage.',
+        '4. Correlate arsenic-exposure zones with CKD prevalence data monthly.',
+        '5. Share district-level risk indices with divisional health officers quarterly.',
+      ].join('\n'),
+      // Legacy flat text content for fallback
+      content: [
+        '# KidneyCare BD National CKD Burden Report',
+        `Generated on: ${new Date().toISOString()}`,
+        `Total tracked patients: ${totalPatients}`,
+        `Districts represented: ${heatmap.length}`,
+        `Average district risk score: ${averageRisk.toFixed(1)}`,
+        '## District summary',
+        ...(heatmap.map((d, i) => `${i + 1}. ${d.district}: ${d.count} patients, avg risk ${Math.round(d.avg_risk ?? 0)}`)),
+        '## Policy priorities',
+        '1. Expand screening in the highest-burden districts.',
+        '2. Improve follow-up capacity for districts with elevated average risk.',
+        '3. Use monthly exports to compare district trend movement over time.',
+      ].join('\n'),
+      filename: `KidneyCareBD_National_CKD_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+    });
   });
 
   // ─── Budget Impact Simulator ──────────────────────────────────────────────
@@ -2105,6 +2364,119 @@ async function startServer() {
       survey_completed_count: surveyCompleted,
       survey_by_district: surveyByDistrict,
     });
+  });
+
+  // ─── Research Dataset CSV Export (GET with optional filters) ─────────────
+  app.get('/api/admin/research-export', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'admin') return res.sendStatus(403);
+
+    const { district, start_date, end_date } = req.query as any;
+
+    let whereClause = "WHERE u.role = 'patient'";
+    const params: any[] = [];
+
+    if (district) {
+      whereClause += ' AND u.district = ?';
+      params.push(district);
+    }
+    if (start_date) {
+      whereClause += ' AND u.created_at >= ?';
+      params.push(start_date);
+    }
+    if (end_date) {
+      whereClause += ' AND u.created_at <= ?';
+      params.push(end_date + ' 23:59:59');
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        'P' || CAST(p.id AS TEXT) as anon_id,
+        u.district,
+        u.division,
+        ps.responses,
+        ps.completed_at as survey_completed_at,
+        p.survey_completed,
+        g.mdrd as egfr_mdrd, g.cg as egfr_cg, g.ckd_epi as egfr_ckdepi,
+        COALESCE(g.stage, p.ckd_stage) as ckd_stage,
+        p.risk_score,
+        p.arsenic_prone_area, p.herbal_remedy_use, p.nsaid_use, p.uacr as patient_uacr,
+        v.systolic as bp_systolic, v.diastolic as bp_diastolic,
+        v.blood_sugar, v.creatinine as latest_creatinine, v.weight as latest_weight,
+        v.urine_protein, v.edema, v.fatigue as vitals_fatigue,
+        (SELECT COUNT(*) FROM vitals_log vl WHERE vl.patient_id = p.id) as total_vitals_logs,
+        (SELECT MIN(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as first_vitals_date,
+        (SELECT MAX(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as last_vitals_date,
+        (SELECT COUNT(*) FROM gfr_records gr WHERE gr.patient_id = p.id) as total_gfr_records
+      FROM users u
+      JOIN patients p ON u.id = p.user_id
+      LEFT JOIN patient_surveys ps ON p.id = ps.patient_id
+      LEFT JOIN (SELECT * FROM gfr_records WHERE id IN (SELECT MAX(id) FROM gfr_records GROUP BY patient_id)) g ON p.id = g.patient_id
+      LEFT JOIN (SELECT * FROM vitals_log WHERE id IN (SELECT MAX(id) FROM vitals_log GROUP BY patient_id)) v ON p.id = v.patient_id
+      ${whereClause}
+      ORDER BY p.risk_score DESC
+    `).all(...params) as any[];
+
+    if (rows.length === 0) {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename=kidneycare_research_export_${new Date().toISOString().split('T')[0]}.csv`);
+      return res.send('anon_id,district\n(no patients found)');
+    }
+
+    const surveyKeys = [
+      'age','gender','education','occupation','residential_area','monthly_income',
+      'hypertension_dx','diabetes_dx','family_kidney','kidney_stones','kidney_disease_prior',
+      'kidney_disease_type','bp_medication','diabetes_medication','dialysis',
+      'urine_changes','foamy_urine','leg_swelling','fatigue','nausea','appetite_loss',
+      'weight_loss','shortness_breath',
+      'smoker','alcohol','water_intake','salty_food','exercise','sleep_hours',
+      'bp_systolic_survey','bp_diastolic_survey','creatinine_survey','urine_test','kidney_function_test',
+      'aware_risk_factors','health_checkup_freq','received_advice','dietary_restrictions',
+      'tested_creatinine','knows_htn_dm_damage','painkillers',
+    ];
+
+    const csvHeaders = [
+      'anon_id','district','division',
+      'survey_completed',
+      ...surveyKeys,
+      'egfr_mdrd','egfr_cg','egfr_ckdepi','ckd_stage','risk_score',
+      'arsenic_prone_area','herbal_remedy_use','nsaid_use','patient_uacr',
+      'bp_systolic','bp_diastolic','blood_sugar','latest_creatinine','latest_weight',
+      'urine_protein','edema','vitals_fatigue',
+      'total_vitals_logs','total_gfr_records',
+      'first_vitals_date','last_vitals_date','survey_completed_at',
+    ];
+
+    const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+
+    const csvRows = rows.map(row => {
+      let survey: any = {};
+      try { survey = JSON.parse(row.responses || '{}'); } catch { /* */ }
+      const vals = [
+        row.anon_id, row.district, row.division ?? '',
+        row.survey_completed ? 'yes' : 'no',
+        ...surveyKeys.map(k => {
+          if (k === 'bp_systolic_survey') return survey.bp_systolic ?? '';
+          if (k === 'bp_diastolic_survey') return survey.bp_diastolic ?? '';
+          if (k === 'creatinine_survey') return survey.creatinine ?? '';
+          return survey[k] ?? '';
+        }),
+        row.egfr_mdrd ?? '', row.egfr_cg ?? '', row.egfr_ckdepi ?? '',
+        row.ckd_stage ?? '', row.risk_score ?? '',
+        row.arsenic_prone_area ?? '', row.herbal_remedy_use ?? '', row.nsaid_use ?? '', row.patient_uacr ?? '',
+        row.bp_systolic ?? '', row.bp_diastolic ?? '',
+        row.blood_sugar ?? '', row.latest_creatinine ?? '', row.latest_weight ?? '',
+        row.urine_protein ?? '', row.edema ?? '', row.vitals_fatigue ?? '',
+        row.total_vitals_logs ?? 0, row.total_gfr_records ?? 0,
+        row.first_vitals_date ?? '', row.last_vitals_date ?? '',
+        row.survey_completed_at ?? '',
+      ];
+      return vals.map(escape).join(',');
+    });
+
+    const csv = [csvHeaders.join(','), ...csvRows].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=kidneycare_research_export_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
   });
 
   // ─── DHIS2 Export ──────────────────────────────────────────────────────────
@@ -2396,8 +2768,9 @@ async function startServer() {
   app.get('/api/patient/survey/status', authenticateToken, (req: any, res) => {
     if (req.user.role !== 'patient') return res.sendStatus(403);
     const patient = db.prepare('SELECT id, survey_completed FROM patients WHERE user_id = ?').get(req.user.id) as any;
-    if (!patient) return res.json({ completed: false });
-    res.json({ completed: !!patient.survey_completed });
+    if (!patient) return res.json({ completed: false, hasDraft: false });
+    const survey = db.prepare('SELECT id, updated_at, completed_at FROM patient_surveys WHERE patient_id = ?').get(patient.id) as any;
+    res.json({ completed: !!patient.survey_completed, hasDraft: !!survey, updatedAt: survey?.updated_at ?? null, completedAt: survey?.completed_at ?? null });
   });
 
   app.get('/api/patient/survey', authenticateToken, (req: any, res) => {
@@ -2414,135 +2787,43 @@ async function startServer() {
     const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
     if (!patient) return res.status(404).json({ error: 'Patient not found' });
 
-    const responses = JSON.stringify(req.body);
+    const payload = req.body?.responses ?? req.body ?? {};
+    const completed = typeof req.body?.completed === 'boolean' ? req.body.completed : true;
+    const responses = JSON.stringify(payload);
     const existing = db.prepare('SELECT id FROM patient_surveys WHERE patient_id = ?').get(patient.id);
 
     if (existing) {
-      db.prepare('UPDATE patient_surveys SET responses = ?, updated_at = CURRENT_TIMESTAMP WHERE patient_id = ?')
-        .run(responses, patient.id);
+      db.prepare('UPDATE patient_surveys SET responses = ?, updated_at = CURRENT_TIMESTAMP, completed_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE completed_at END WHERE patient_id = ?')
+        .run(responses, completed ? 1 : 0, patient.id);
     } else {
-      db.prepare('INSERT INTO patient_surveys (patient_id, responses) VALUES (?, ?)').run(patient.id, responses);
+      db.prepare('INSERT INTO patient_surveys (patient_id, responses, completed_at) VALUES (?, ?, ?)')
+        .run(patient.id, responses, completed ? new Date().toISOString() : null);
     }
-    db.prepare('UPDATE patients SET survey_completed = 1 WHERE id = ?').run(patient.id);
+    if (completed) {
+      db.prepare('UPDATE patients SET survey_completed = 1 WHERE id = ?').run(patient.id);
+    }
     res.json({ success: true });
   });
 
-  // ─── Admin: Research Export (Survey + Clinical CSV) ───────────────────────
-
-  app.get('/api/admin/research-export', authenticateToken, (req: any, res) => {
-    if (req.user.role !== 'admin') return res.sendStatus(403);
-
-    const { district, start_date, end_date } = req.query as any;
-
-    let whereClause = "WHERE u.role = 'patient'";
-    const params: any[] = [];
-
-    if (district) { whereClause += ' AND u.district = ?'; params.push(district); }
-    if (start_date) { whereClause += ' AND (ps.completed_at >= ? OR ps.completed_at IS NULL)'; params.push(start_date); }
-    if (end_date) { whereClause += ' AND (ps.completed_at <= ? OR ps.completed_at IS NULL)'; params.push(end_date + ' 23:59:59'); }
-
-    const rows = db.prepare(`
-      SELECT
-        'P' || CAST(p.id AS TEXT) as anon_id,
-        u.district,
-        u.division,
-        ps.responses,
-        ps.completed_at as survey_completed_at,
-        p.survey_completed,
-        g.mdrd as egfr_mdrd, g.cg as egfr_cg, g.ckd_epi as egfr_ckdepi,
-        COALESCE(g.stage, p.ckd_stage) as ckd_stage,
-        p.risk_score,
-        p.arsenic_prone_area, p.herbal_remedy_use, p.nsaid_use, p.uacr as patient_uacr,
-        v.systolic as bp_systolic, v.diastolic as bp_diastolic,
-        v.blood_sugar, v.creatinine as latest_creatinine, v.weight as latest_weight,
-        v.urine_protein, v.edema, v.fatigue as vitals_fatigue,
-        (SELECT COUNT(*) FROM vitals_log vl WHERE vl.patient_id = p.id) as total_vitals_logs,
-        (SELECT MIN(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as first_vitals_date,
-        (SELECT MAX(date) FROM vitals_log vl WHERE vl.patient_id = p.id) as last_vitals_date,
-        (SELECT COUNT(*) FROM gfr_records gr WHERE gr.patient_id = p.id) as total_gfr_records
-      FROM users u
-      JOIN patients p ON u.id = p.user_id
-      LEFT JOIN patient_surveys ps ON p.id = ps.patient_id
-      LEFT JOIN (SELECT * FROM gfr_records WHERE id IN (SELECT MAX(id) FROM gfr_records GROUP BY patient_id)) g ON p.id = g.patient_id
-      LEFT JOIN (SELECT * FROM vitals_log WHERE id IN (SELECT MAX(id) FROM vitals_log GROUP BY patient_id)) v ON p.id = v.patient_id
-      ${whereClause}
-      ORDER BY COALESCE(ps.completed_at, '1970-01-01') DESC
-    `).all(...params) as any[];
-
-    if (rows.length === 0) {
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', 'attachment; filename=kidneycare_research_export.csv');
-      return res.send('anon_id,district\n(no patients found)');
-    }
-
-    const surveyKeys = [
-      'age','gender','education','occupation','residential_area','monthly_income',
-      'hypertension_dx','diabetes_dx','family_kidney','kidney_stones','kidney_disease_prior',
-      'kidney_disease_type','bp_medication','diabetes_medication','dialysis',
-      'urine_changes','foamy_urine','leg_swelling','fatigue','nausea','appetite_loss',
-      'weight_loss','shortness_breath',
-      'smoker','alcohol','water_intake','salty_food','exercise','sleep_hours',
-      'bp_systolic_survey','bp_diastolic_survey','creatinine_survey','urine_test','kidney_function_test',
-      'aware_risk_factors','health_checkup_freq','received_advice','dietary_restrictions',
-      'tested_creatinine','knows_htn_dm_damage','painkillers',
-    ];
-
-    const csvHeaders = [
-      'anon_id','district','division',
-      'survey_completed',
-      ...surveyKeys,
-      'egfr_mdrd','egfr_cg','egfr_ckdepi','ckd_stage','risk_score',
-      'arsenic_prone_area','herbal_remedy_use','nsaid_use','patient_uacr',
-      'bp_systolic','bp_diastolic','blood_sugar','latest_creatinine','latest_weight',
-      'urine_protein','edema','vitals_fatigue',
-      'total_vitals_logs','total_gfr_records',
-      'first_vitals_date','last_vitals_date','survey_completed_at',
-    ];
-
-    const escape = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-
-    const csvRows = rows.map(row => {
-      let survey: any = {};
-      try { survey = JSON.parse(row.responses || '{}'); } catch { /* */ }
-      const vals = [
-        row.anon_id, row.district, row.division ?? '',
-        row.survey_completed ? 'yes' : 'no',
-        ...surveyKeys.map(k => {
-          if (k === 'bp_systolic_survey') return survey.bp_systolic ?? '';
-          if (k === 'bp_diastolic_survey') return survey.bp_diastolic ?? '';
-          if (k === 'creatinine_survey') return survey.creatinine ?? '';
-          return survey[k] ?? '';
-        }),
-        row.egfr_mdrd ?? '', row.egfr_cg ?? '', row.egfr_ckdepi ?? '',
-        row.ckd_stage ?? '', row.risk_score ?? '',
-        row.arsenic_prone_area ?? '', row.herbal_remedy_use ?? '', row.nsaid_use ?? '', row.patient_uacr ?? '',
-        row.bp_systolic ?? '', row.bp_diastolic ?? '',
-        row.blood_sugar ?? '', row.latest_creatinine ?? '', row.latest_weight ?? '',
-        row.urine_protein ?? '', row.edema ?? '', row.vitals_fatigue ?? '',
-        row.total_vitals_logs ?? 0, row.total_gfr_records ?? 0,
-        row.first_vitals_date ?? '', row.last_vitals_date ?? '',
-        row.survey_completed_at ?? '',
-      ];
-      return vals.map(escape).join(',');
-    });
-
-    const csv = [csvHeaders.join(','), ...csvRows].join('\n');
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=kidneycare_research_export_${new Date().toISOString().split('T')[0]}.csv`);
-    res.send(csv);
-  });
+  // ─── Duplicate Route Removed ───
 
   // ─── Vite / Static ────────────────────────────────────────────────────────
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({ server: { middlewareMode: true, allowedHosts: true }, appType: 'spa' });
-    app.use(vite.middlewares);
+    try {
+      const vite = await createViteServer({ server: { middlewareMode: true, allowedHosts: true }, appType: 'spa' });
+      app.use(vite.middlewares);
+    } catch (error) {
+      console.warn('[Vite] Middleware mode unavailable, falling back to static dist serving.', error);
+      app.use(express.static('dist'));
+      app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'dist', 'index.html')));
+    }
   } else {
     app.use(express.static('dist'));
     app.get('*', (req, res) => res.sendFile(path.resolve(__dirname, 'dist', 'index.html')));
   }
 
   const PORT = Number(process.env.PORT) || 3000;
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`KidneyCare BD Enhanced Server running on http://localhost:${PORT}`);
     console.log(`Database: ${databasePath}`);
     scheduleDailyReminders();
@@ -2550,6 +2831,32 @@ async function startServer() {
     scheduleMissedLogAlerts();
     console.log('[Alerts] Missed-log alert scheduler started');
   });
+
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`[Shutdown] Received ${signal}; closing HTTP server and database.`);
+
+    const forceExit = setTimeout(() => {
+      console.warn('[Shutdown] Force exit after timeout.');
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+
+    server.close(() => {
+      try {
+        db.close();
+      } catch (err) {
+        console.warn('[Shutdown] Database close failed:', err);
+      }
+      clearTimeout(forceExit);
+      process.exit(0);
+    });
+  };
+
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 startServer();

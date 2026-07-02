@@ -2,7 +2,7 @@
 
 KidneyCare BD is a role-based chronic kidney disease (CKD) monitoring and decision-support platform for Bangladesh. It combines patient tracking, doctor workflows, education content, risk scoring, GFR calculation, and an admin-facing public health dashboard in a single application.
 
-This repository is designed so future contributors can understand both the product goal and the implementation quickly. If you need a deeper technical walkthrough, read [docs/ARCHITECTURE.md](/abs/path/c:/Users/Lenovo/Downloads/KineyCare%20BD/docs/ARCHITECTURE.md).
+This repository is designed so future contributors can understand both the product goal and the implementation quickly. If you need a deeper technical walkthrough, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Project Purpose
 
@@ -96,7 +96,9 @@ npm install
 npm run dev
 ```
 
-This command starts the Express server from `server.ts`. In development, Vite runs in middleware mode inside the same server process, so the frontend and backend are served together.
+`npm run dev` starts the Express server from `server.ts`. In development, Vite runs in middleware mode inside the same server process, so the frontend and backend are served together.
+
+`npm start` now boots the production wrapper (`start-prod.ts`), which forces `NODE_ENV=production` before loading the server. That makes local behavior match Railway more closely after a build.
 
 ### Other Useful Commands
 
@@ -118,6 +120,8 @@ This repository is now prepared for Railway deployment with SQLite persistence.
 - `server.ts` also supports `RAILWAY_VOLUME_MOUNT_PATH`, which Railway exposes for mounted volumes
 - `/healthz` is available for health checks
 - the database seeds itself automatically on first boot if the file is empty
+- the production start path now runs with `NODE_ENV=production` by default
+- `JWT_SECRET` is recommended, but if it is missing the app generates a persisted fallback secret in SQLite so the service can still boot cleanly
 
 ### Why a volume is required
 
@@ -134,7 +138,7 @@ SQLite stores data in a local file. Railway services need a mounted volume if yo
    - `DATABASE_PATH=/data/kidneycare.db`
    - or rely on `RAILWAY_VOLUME_MOUNT_PATH` and let the app create `kidneycare.db` there automatically
 7. Set `NODE_ENV=production`
-8. Set `JWT_SECRET` to a long random string
+8. Set `JWT_SECRET` to a long random string if you want the secret to live outside the database
 9. Deploy
 
 On the first deploy, the app will create the database file and seed demo users and sample patient data automatically.
@@ -142,7 +146,7 @@ On the first deploy, the app will create the database file and seed demo users a
 ### Important environment values on Railway
 
 - `NODE_ENV=production`
-- `JWT_SECRET=<generated secret>`
+- `JWT_SECRET=<generated secret>` or let the app persist one automatically in the SQLite database
 - Optional: `DATABASE_PATH=/data/kidneycare.db`
 
 If you attach a Railway volume and mount it to `/data`, using `DATABASE_PATH=/data/kidneycare.db` is the clearest setup.
@@ -183,7 +187,7 @@ Examples of main route groups:
 - `/api/admin/*`
 - `/api/articles`
 
-See [docs/ARCHITECTURE.md](/abs/path/c:/Users/Lenovo/Downloads/KineyCare%20BD/docs/ARCHITECTURE.md) for a route-by-route explanation.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a route-by-route explanation.
 
 ## Notes For Future Contributors
 
