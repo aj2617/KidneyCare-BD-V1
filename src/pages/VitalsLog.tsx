@@ -10,7 +10,6 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { enqueueVital, getQueuedVitals, syncQueuedVitals, QueuedVital } from '../lib/offlineVitals';
-import PWAInstallPrompt from '../components/PWAInstallPrompt';
 import NotificationOptIn from '../components/NotificationOptIn';
 
 const STREAK_MESSAGES: Record<string, Record<number, string>> = {
@@ -58,9 +57,6 @@ export default function VitalsLog() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ synced: number; failed: number } | null>(null);
   const [savedOffline, setSavedOffline] = useState(false);
-
-  // PWA install prompt — fires after first successful vitals save
-  const [triggerInstall, setTriggerInstall] = useState(false);
 
   // Chart state
   const [chartRange, setChartRange] = useState<7 | 30 | 90>(30);
@@ -172,8 +168,7 @@ export default function VitalsLog() {
         setFormData({ ...BLANK_FORM });
         fetchLogs();
         fetchStreak();
-        // Nudge PWA install after first successful save (component handles dedup via localStorage)
-        setTriggerInstall(true);
+        window.dispatchEvent(new CustomEvent('kcbd-open-pwa-prompt'));
       } else {
         const d = await res.json();
         setValidationError(d.error || 'Submission failed');
@@ -704,11 +699,6 @@ export default function VitalsLog() {
         )}
       </AnimatePresence>
 
-      <PWAInstallPrompt
-        language={language as 'en' | 'bn'}
-        triggered={triggerInstall}
-        onDismiss={() => setTriggerInstall(false)}
-      />
     </div>
   );
 }

@@ -39,6 +39,9 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      if (!isInStandaloneMode() && !localStorage.getItem(DISMISSED_KEY)) {
+        setShow(true);
+      }
     };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
