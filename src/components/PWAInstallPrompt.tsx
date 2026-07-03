@@ -47,6 +47,15 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  useEffect(() => {
+    if (!isIOSDevice) return;
+    if (isInStandaloneMode()) return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
+
+    const t = setTimeout(() => setShow(true), 1200);
+    return () => clearTimeout(t);
+  }, [isIOSDevice]);
+
   // Show when triggered by parent (after first vitals save)
   useEffect(() => {
     if (!triggered) return;

@@ -1344,14 +1344,79 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                 <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-[#1A6B8A]" /></div>
               ) : (
                 <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                  <div className="overflow-x-auto">
+                  <div className="md:hidden p-4 space-y-3">
+                    {filteredUsers.length === 0 ? (
+                      <div className="text-center py-10 text-slate-400 font-semibold">
+                        {bn ? 'কোনো অ্যাকাউন্ট পাওয়া যায়নি।' : 'No users found matching requirements.'}
+                      </div>
+                    ) : filteredUsers.map(u => (
+                      <div key={u.id} className={`rounded-2xl border p-4 shadow-sm ${u.active ? 'border-slate-100' : 'border-slate-200 bg-slate-50/60'}`}>
+                        <div className="flex items-start gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-[#1A6B8A]/10 text-[#1A6B8A] flex items-center justify-center font-black text-sm uppercase shrink-0">
+                            {u.name?.charAt(0) || '?'}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-black text-slate-800 truncate">{u.name}</p>
+                                <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                              </div>
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border shrink-0 ${ROLE_COLORS[u.role] || 'bg-slate-100 text-slate-600'}`}>
+                                {u.role}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{bn ? 'অবস্থান' : 'Location'}</p>
+                                <p className="mt-1 font-semibold text-slate-700 flex items-center gap-1.5">
+                                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span className="truncate">{u.district || '—'}</span>
+                                </p>
+                              </div>
+                              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{bn ? 'রেজিস্ট্রেশন' : 'Registered'}</p>
+                                <p className="mt-1 font-semibold text-slate-700">{u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 mt-4">
+                              {u.active ? (
+                                <span className="flex items-center gap-1 text-xs font-bold text-emerald-600">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  <span>{bn ? 'অনুমোদিত' : 'Approved'}</span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                                  <XCircle className="w-4 h-4" />
+                                  <span>{bn ? 'স্থগিত' : 'Suspended'}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => toggleUserStatus(u.id)}
+                              disabled={togglingUser === u.id}
+                              className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold transition-all disabled:opacity-50 active:scale-95"
+                              style={u.active ? { background: '#FFF1F0', color: '#CF1322', border: '1px solid #FFA39E' } : { background: '#F6FFED', color: '#389E0D', border: '1px solid #B7EB8F' }}>
+                              {togglingUser === u.id ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                                u.active ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                              <span>{u.active ? (bn ? 'স্থগিত করুন' : 'Suspend') : (bn ? 'পুনরুদ্ধার' : 'Approve')}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left border-collapse" role="table">
                       <thead>
                         <tr className="border-b border-slate-100 bg-slate-50/75">
                           <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">{bn ? 'ব্যবহারকারী' : 'User Detail'}</th>
                           <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">{bn ? 'রোল' : 'Role'}</th>
-                          <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hidden md:table-cell">{bn ? 'অবস্থান' : 'Location'}</th>
-                          <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest hidden lg:table-cell">{bn ? 'রেজিস্ট্রেশন' : 'Registered'}</th>
+                          <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">{bn ? 'অবস্থান' : 'Location'}</th>
+                          <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">{bn ? 'রেজিস্ট্রেশন' : 'Registered'}</th>
                           <th className="px-4 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">{bn ? 'স্ট্যাটাস' : 'Status'}</th>
                           <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest text-right">{bn ? 'অনুমোদন' : 'Control Action'}</th>
                         </tr>
@@ -1377,13 +1442,13 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                                 {u.role}
                               </span>
                             </td>
-                            <td className="px-4 py-4.5 hidden md:table-cell">
+                            <td className="px-4 py-4.5">
                               <span className="text-slate-600 flex items-center gap-1.5 text-xs font-medium">
                                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                                 {u.district || '—'}
                               </span>
                             </td>
-                            <td className="px-4 py-4.5 hidden lg:table-cell text-xs text-slate-400 font-medium">
+                            <td className="px-4 py-4.5 text-xs text-slate-400 font-medium">
                               {u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}
                             </td>
                             <td className="px-4 py-4.5">
@@ -1415,6 +1480,7 @@ export default function AdminDashboard({ initialTab = 'overview' }: { initialTab
                       </tbody>
                     </table>
                   </div>
+
                   <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex flex-col sm:flex-row justify-between items-center gap-3">
                     <p className="text-xs text-slate-500 font-semibold">
                       {bn ? `${filteredUsers.length} জন অ্যাকাউন্ট দেখানো হচ্ছে` : `Showing ${filteredUsers.length} system accounts`}

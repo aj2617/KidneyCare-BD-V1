@@ -1,9 +1,12 @@
-const CACHE_NAME = 'kidneycare-bd-v6';
+const CACHE_NAME = 'kidneycare-bd-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
   '/offline.html',
 ];
 
@@ -39,7 +42,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter(k => k !== CACHE_NAME && k !== 'kidneycare-api-v5')
+          .filter(k => k !== CACHE_NAME && k !== 'kidneycare-api-v6')
           .map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -74,7 +77,7 @@ self.addEventListener('fetch', (event) => {
     const isCacheable = CACHEABLE_APIS.some(api => url.pathname.startsWith(api));
     if (isCacheable) {
       event.respondWith(
-        caches.open('kidneycare-api-v6').then(async (cache) => {
+      caches.open('kidneycare-api-v7').then(async (cache) => {
           const cached = await cache.match(request);
           const networkPromise = fetch(request).then(res => {
             if (res.ok) cache.put(request, res.clone());
