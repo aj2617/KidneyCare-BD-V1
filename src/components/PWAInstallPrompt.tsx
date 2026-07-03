@@ -60,7 +60,6 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
   useEffect(() => {
     if (!triggered) return;
     if (isInStandaloneMode()) return;
-    if (localStorage.getItem(DISMISSED_KEY)) return;
     if (localStorage.getItem(VITALS_KEY)) return;
 
     // Mark so we only trigger once across sessions
@@ -180,8 +179,8 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
                   {bn ? 'বুঝেছি' : 'Got it'}
                 </button>
               </div>
-            ) : (
-              /* Android / Chrome */
+            ) : deferredPrompt ? (
+              /* Android / Chrome native install prompt */
               <div className="flex gap-3">
                 <button
                   onClick={dismiss}
@@ -190,7 +189,7 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
                   {bn ? 'পরে করব' : 'Maybe Later'}
                 </button>
                 <button
-                  onClick={deferredPrompt ? handleInstall : dismiss}
+                  onClick={handleInstall}
                   disabled={installing}
                   className="flex-[2] py-3.5 rounded-2xl bg-[#1A6B8A] text-white text-sm font-bold hover:bg-[#14556e] transition-colors flex items-center justify-center gap-2 min-h-[48px] disabled:opacity-60"
                 >
@@ -201,6 +200,33 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
                   )}
                   {bn ? 'ইনস্টল করুন' : 'Install App'}
                 </button>
+              </div>
+            ) : (
+              /* Chrome fallback instructions when the browser has not exposed the native prompt */
+              <div className="bg-slate-50 rounded-2xl p-4 mb-5 space-y-3">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  {bn ? 'ক্রোমে কীভাবে ইনস্টল করবেন' : 'How to install in Chrome'}
+                </p>
+                <p className="text-sm text-slate-700 leading-6">
+                  {bn
+                    ? 'Chrome মেনু (⋮) খুলে “Install app” বা “Add to Home screen” বেছে নিন। যদি এই অপশন না দেখায়, পেজটি রিফ্রেশ করুন এবং কয়েক সেকেন্ড অপেক্ষা করুন।'
+                    : 'Open the Chrome menu (⋮) and choose “Install app” or “Add to Home screen”. If you do not see it, refresh once and wait a few seconds.'}
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={dismiss}
+                    className="flex-1 py-3.5 rounded-2xl border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors min-h-[48px]"
+                  >
+                    {bn ? 'পরে করব' : 'Maybe Later'}
+                  </button>
+                  <button
+                    onClick={dismiss}
+                    className="flex-[2] py-3.5 rounded-2xl bg-[#1A6B8A] text-white text-sm font-bold hover:bg-[#14556e] transition-colors flex items-center justify-center gap-2 min-h-[48px]"
+                  >
+                    <Download className="w-4 h-4" />
+                    {bn ? 'বুঝেছি' : 'Got it'}
+                  </button>
+                </div>
               </div>
             )}
           </motion.div>
@@ -226,16 +252,16 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
               </p>
             </div>
             <div className="flex items-center gap-1.5">
-              {!isIOSDevice && deferredPrompt && (
+              {!isIOSDevice && (
                 <button
                   onClick={handleInstall}
-                  disabled={installing}
+                  disabled={!deferredPrompt || installing}
                   className="px-3 py-2 bg-[#1A6B8A] text-white text-xs font-bold rounded-xl hover:bg-[#14556e] transition-colors flex items-center gap-1.5 min-h-[36px] disabled:opacity-60"
                 >
                   {installing
                     ? <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     : <Download className="w-3.5 h-3.5" />}
-                  {bn ? 'ইনস্টল' : 'Install'}
+                  {deferredPrompt ? (bn ? 'ইনস্টল' : 'Install') : (bn ? 'গাইড' : 'Guide')}
                 </button>
               )}
               <button onClick={dismiss} className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors">

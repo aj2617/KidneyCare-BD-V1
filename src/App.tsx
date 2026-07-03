@@ -4,7 +4,7 @@ import { useLanguage } from './contexts/LanguageContext';
 import {
   Activity, Calculator, BookOpen, DollarSign, LayoutDashboard,
   Users, Map as MapIcon, Bell, LogOut, Menu, X, Globe, User,
-  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill,
+  Utensils, Heart, Video, FileText, BarChart2, Wifi, WifiOff, Cpu, Pill, Download,
   ClipboardList, Wrench, UserCircle, Shield, Settings, Star, CalendarDays
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -50,6 +50,7 @@ export default function App() {
   const [selectedDoctorPatient, setSelectedDoctorPatient] = useState<{ id: number; name?: string } | null>(null);
   const [registeredSuccess, setRegisteredSuccess] = useState(false);
   const [pwaPromptRequested, setPwaPromptRequested] = useState(false);
+  const openPwaPrompt = () => setPwaPromptRequested(true);
 
   // Detect ?join=TOKEN in URL — show public join page immediately
   const joinToken = new URLSearchParams(window.location.search).get('join');
@@ -300,6 +301,15 @@ export default function App() {
                   </button>
                 </div>
 
+                <button
+                  onClick={openPwaPrompt}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
+                  aria-label="Install app"
+                  title="Install app"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+
                 {user?.role === 'patient' && (
                   <div className="rounded-2xl border border-slate-200 bg-white px-2 py-1 shadow-sm">
                     <VitalsReminder language={language as 'en' | 'bn'} token={token} />
@@ -324,6 +334,14 @@ export default function App() {
 
               {/* Mobile actions */}
               <div className="lg:hidden flex items-center gap-1.5 shrink-0 ml-auto">
+                <button
+                  onClick={openPwaPrompt}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
+                  aria-label="Install app"
+                  title="Install app"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
                 <div className="w-7 h-7 rounded-full bg-[#1A6B8A]/10 border border-[#1A6B8A]/20 flex items-center justify-center text-[#1A6B8A] text-[10px] font-black shrink-0">
                   {user.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
                 </div>
@@ -426,6 +444,14 @@ export default function App() {
                   <Globe className="w-4 h-4" />
                   {language === 'en' ? 'বাংলা' : 'English'}
                 </button>
+                <button
+                  onClick={openPwaPrompt}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
+                  aria-label="Install app"
+                  title="Install app"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
                 <button onClick={() => setCurrentPage('login')} className="px-4 py-2 text-[#1A6B8A] font-bold hover:text-[#14556e] transition-colors whitespace-nowrap shrink-0">Login</button>
                 <button onClick={() => setCurrentPage('register')} className="px-5 py-2.5 rounded-2xl bg-[#1A6B8A] text-white font-bold shadow-lg shadow-[#1A6B8A]/20 hover:bg-[#14556e] transition-all whitespace-nowrap shrink-0">Register</button>
               </div>
@@ -437,10 +463,18 @@ export default function App() {
                 >
                   <Globe className="w-5 h-5" />
                 </button>
-                <button onClick={() => setCurrentPage('login')} className="px-2.5 py-2 text-[12px] font-bold leading-none text-[#1A6B8A] whitespace-nowrap shrink-0">
+                <button
+                  onClick={openPwaPrompt}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
+                  aria-label="Install app"
+                  title="Install app"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button onClick={() => setCurrentPage('login')} className="px-2.5 py-2 text-[11px] font-bold leading-none text-[#1A6B8A] whitespace-nowrap shrink-0">
                   Login
                 </button>
-                <button onClick={() => setCurrentPage('register')} className="px-3 py-2 rounded-xl bg-[#1A6B8A] text-white text-[12px] font-bold leading-none whitespace-nowrap shrink-0">
+                <button onClick={() => setCurrentPage('register')} className="px-2.5 py-2 rounded-xl bg-[#1A6B8A] text-white text-[11px] font-bold leading-none whitespace-nowrap shrink-0">
                   Register
                 </button>
               </div>
