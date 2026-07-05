@@ -36,15 +36,31 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
   useEffect(() => {
     setIsIOSDevice(isIOS());
 
+    // Check if the event was already captured globally
+    if ((window as any).deferredAppInstallPrompt) {
+      setDeferredPrompt((window as any).deferredAppInstallPrompt);
+      if (!isInStandaloneMode() && !localStorage.getItem(DISMISSED_KEY)) {
+        setShow(true);
+      }
+    }
+
     const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
+      if (e.type === 'beforeinstallprompt') {
+        e.preventDefault();
+      }
+      const promptEvent = (window as any).deferredAppInstallPrompt || e;
+      setDeferredPrompt(promptEvent);
       if (!isInStandaloneMode() && !localStorage.getItem(DISMISSED_KEY)) {
         setShow(true);
       }
     };
+
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    window.addEventListener('kcbd-pwa-installable', handler);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('kcbd-pwa-installable', handler);
+    };
   }, []);
 
   useEffect(() => {
@@ -56,21 +72,25 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
     return () => clearTimeout(t);
   }, [isIOSDevice]);
 
-  // Show when triggered by parent (after first vitals save)
+  // Show when triggered by parent (like manual click or post-vitals prompt)
   useEffect(() => {
     if (!triggered) return;
     if (isInStandaloneMode()) return;
-    if (localStorage.getItem(VITALS_KEY)) return;
 
-    // Mark so we only trigger once across sessions
-    localStorage.setItem(VITALS_KEY, '1');
-    // Small delay so the success animation plays first
-    const t = setTimeout(() => setShow(true), 800);
+    // Small delay so animations/actions play first, then show the prompt
+    const t = setTimeout(() => setShow(true), 300);
     return () => clearTimeout(t);
   }, [triggered]);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      alert(
+        bn
+          ? 'কিডনিকেয়ার বিডি ইনস্টল করতে:\n১. ব্রাউজারের অ্যাড্রেস বারের ডান পাশে থাকা ইনস্টল আইকন (⊕) ক্লিক করুন।\n২. অথবা মেনু (⋮) থেকে "Install app..." বা "কিডনিকেয়ার বিডি ইনস্টল করুন" সিলেক্ট করুন।'
+          : 'To install KidneyCare BD:\n1. Click the install icon (⊕) in the browser address bar.\n2. Or open the menu (⋮) and select "Install app..."'
+      );
+      return;
+    }
     setInstalling(true);
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
@@ -255,7 +275,7 @@ export default function PWAInstallPrompt({ language, triggered = false, onDismis
               {!isIOSDevice && (
                 <button
                   onClick={handleInstall}
-                  disabled={!deferredPrompt || installing}
+                  disabled={installing}
                   className="px-3 py-2 bg-[#1A6B8A] text-white text-xs font-bold rounded-xl hover:bg-[#14556e] transition-colors flex items-center gap-1.5 min-h-[36px] disabled:opacity-60"
                 >
                   {installing

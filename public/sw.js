@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kidneycare-bd-v7';
+const CACHE_NAME = 'kidneycare-bd-v8';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   '/offline.html',
 ];
 
-// API endpoints to cache for offline use (stale-while-revalidate)
+// API endpoints to cache for offline use (Network-First)
 const CACHEABLE_APIS = [
   '/api/articles',
   '/api/diet/foods',
@@ -42,7 +42,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter(k => k !== CACHE_NAME && k !== 'kidneycare-api-v6')
+          .filter(k => k !== CACHE_NAME && k !== 'kidneycare-api-v8')
           .map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
@@ -72,19 +72,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cacheable GET API calls: stale-while-revalidate
+  // Cacheable GET API calls: Network-First falling back to Cache
   if (url.pathname.startsWith('/api/') && request.method === 'GET') {
     const isCacheable = CACHEABLE_APIS.some(api => url.pathname.startsWith(api));
     if (isCacheable) {
       event.respondWith(
-      caches.open('kidneycare-api-v7').then(async (cache) => {
-          const cached = await cache.match(request);
-          const networkPromise = fetch(request).then(res => {
-            if (res.ok) cache.put(request, res.clone());
+        fetch(request)
+          .then((res) => {
+            if (res.ok) {
+              return caches.open('kidneycare-api-v8').then((cache) => {
+                cache.put(request, res.clone());
+                return res;
+              });
+            }
             return res;
-          }).catch(() => cached);
-          return cached || networkPromise;
-        })
+          })
+          .catch(() => {
+            return caches.match(request).then((cached) => {
+              if (cached) return cached;
+              return new Response(JSON.stringify({ error: 'Offline', offline: true }),
+                { headers: { 'Content-Type': 'application/json' } });
+            });
+          })
       );
       return;
     }
@@ -123,15 +132,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache-first, background update
+  // Static assets: Cache-First
   event.respondWith(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(request);
-      const networkPromise = fetch(request).then(res => {
-        if (res.ok && request.method === 'GET') cache.put(request, res.clone());
-        return res;
-      }).catch(() => null);
-      return cached || networkPromise || new Response('Offline');
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(request).then((networkResponse) => {
+        if (networkResponse.ok && request.method === 'GET') {
+          return caches.open(CACHE_NAME).then((cache) => {
+            cache.put(request, networkResponse.clone());
+            return networkResponse;
+          });
+        }
+        return networkResponse;
+      }).catch(() => {
+        if (request.destination === 'image') {
+          return caches.match('/favicon.svg');
+        }
+        return new Response('Offline');
+      });
     })
   );
 });

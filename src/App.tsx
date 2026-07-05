@@ -301,15 +301,6 @@ export default function App() {
                   </button>
                 </div>
 
-                <button
-                  onClick={openPwaPrompt}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
-                  aria-label="Install app"
-                  title="Install app"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                </button>
-
                 {user?.role === 'patient' && (
                   <div className="rounded-2xl border border-slate-200 bg-white px-2 py-1 shadow-sm">
                     <VitalsReminder language={language as 'en' | 'bn'} token={token} />
@@ -334,14 +325,6 @@ export default function App() {
 
               {/* Mobile actions */}
               <div className="lg:hidden flex items-center gap-1.5 shrink-0 ml-auto">
-                <button
-                  onClick={openPwaPrompt}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
-                  aria-label="Install app"
-                  title="Install app"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                </button>
                 <div className="w-7 h-7 rounded-full bg-[#1A6B8A]/10 border border-[#1A6B8A]/20 flex items-center justify-center text-[#1A6B8A] text-[10px] font-black shrink-0">
                   {user.name.split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase()}
                 </div>
@@ -444,14 +427,6 @@ export default function App() {
                   <Globe className="w-4 h-4" />
                   {language === 'en' ? 'বাংলা' : 'English'}
                 </button>
-                <button
-                  onClick={openPwaPrompt}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
-                  aria-label="Install app"
-                  title="Install app"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
                 <button onClick={() => setCurrentPage('login')} className="px-4 py-2 text-[#1A6B8A] font-bold hover:text-[#14556e] transition-colors whitespace-nowrap shrink-0">Login</button>
                 <button onClick={() => setCurrentPage('register')} className="px-5 py-2.5 rounded-2xl bg-[#1A6B8A] text-white font-bold shadow-lg shadow-[#1A6B8A]/20 hover:bg-[#14556e] transition-all whitespace-nowrap shrink-0">Register</button>
               </div>
@@ -462,14 +437,6 @@ export default function App() {
                   aria-label="Change language"
                 >
                   <Globe className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={openPwaPrompt}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[#1A6B8A]/15 bg-[#1A6B8A]/5 text-[#1A6B8A] hover:bg-[#1A6B8A]/10 transition-colors shrink-0"
-                  aria-label="Install app"
-                  title="Install app"
-                >
-                  <Download className="w-4 h-4" />
                 </button>
                 <button onClick={() => setCurrentPage('login')} className="px-2.5 py-2 text-[11px] font-bold leading-none text-[#1A6B8A] whitespace-nowrap shrink-0">
                   Login
@@ -660,12 +627,14 @@ export default function App() {
         />
       )}
 
-      {/* PWA install prompt — all authenticated users */}
-      <PWAInstallPrompt
-        language={language as 'en' | 'bn'}
-        triggered={pwaPromptRequested}
-        onDismiss={() => setPwaPromptRequested(false)}
-      />
+      {/* PWA install prompt — only rendered on the landing/home page */}
+      {currentPage === 'landing' && (
+        <PWAInstallPrompt
+          language={language as 'en' | 'bn'}
+          triggered={pwaPromptRequested}
+          onDismiss={() => setPwaPromptRequested(false)}
+        />
+      )}
 
       {!user && currentPage === 'landing' && (
         <footer className="bg-slate-900 text-slate-400 py-12 mt-20">
