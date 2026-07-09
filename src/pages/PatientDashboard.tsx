@@ -9,6 +9,7 @@ import {
 import {
   LineChart, Line, ResponsiveContainer, Tooltip
 } from 'recharts';
+import { Video, PhoneCall, Clock as ClockIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function PatientDashboard() {
@@ -26,6 +27,8 @@ export default function PatientDashboard() {
     try { return new Set(JSON.parse(localStorage.getItem('kc-dismissed-alerts') || '[]')); }
     catch { return new Set(); }
   });
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [requestingEmergency, setRequestingEmergency] = useState(false);
 
   const isProfileIncomplete = Boolean(profile && (!profile.age || !profile.weight || !profile.sex));
   const nav = (page: string) => window.dispatchEvent(new CustomEvent('navigate', { detail: page }));
@@ -49,13 +52,14 @@ export default function PatientDashboard() {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [pRes, gRes, rRes, sRes, vRes, aRes] = await Promise.all([
+      const [pRes, gRes, rRes, sRes, vRes, aRes, apptRes] = await Promise.all([
         fetch('/api/patient/profile', { headers }),
         fetch('/api/patient/gfr-history', { headers }),
         fetch('/api/patient/risk-score', { headers }),
         fetch('/api/patient/streak', { headers }),
         fetch('/api/patient/vitals', { headers }),
         fetch('/api/patient/alerts', { headers }),
+        fetch('/api/appointments', { headers }),
       ]);
       setProfile(await pRes.json());
       setGfrHistory(await gRes.json());
@@ -70,6 +74,7 @@ export default function PatientDashboard() {
         }
       }
       if (aRes.ok) setAlerts(await aRes.json());
+      if (apptRes.ok) setAppointments(await apptRes.json());
     } finally {
       setLoading(false);
     }
@@ -128,6 +133,20 @@ export default function PatientDashboard() {
 
   const patientInitials = (user?.name || 'P')
     .split(' ').slice(0, 2).map((n: string) => n[0].toUpperCase()).join('');
+
+  const requestEmergency = async () => {
+    setRequestingEmergency(true);
+    try {
+      await fetch('/api/patient/appointment-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ type: 'emergency', reason: bn ? 'জরুরি কল প্রয়োজন' : 'Emergency consultation requested' }),
+      });
+      fetchData();
+    } finally {
+      setRequestingEmergency(false);
+    }
+  };
 
   return (
     <div className="space-y-3 pb-6">
@@ -462,6 +481,54 @@ export default function PatientDashboard() {
                 </span>
               ))}
             </div>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-black uppercase tracking-widest text-slate-500">
+                {bn ? 'ডাক্তার অ্যাপয়েন্টমেন্ট' : 'Appointments'}
+              </p>
+              <Video className="w-4 h-4 text-[#1A6B8A]" />
+            </div>
+
+            <button
+              onClick={requestEmergency}
+              disabled={requestingEmergency}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-xl font-bold text-sm transition-all shadow-sm active:scale-95 disabled:opacity-60"
+            >
+              {requestingEmergency ? <Loader2 className="w-4 h-4 animate-spin" /> : <PhoneCall className="w-4 h-4" />}
+              {bn ? 'জরুরি কল রিকোয়েস্ট' : 'Request Emergency Call'}
+            </button>
+
+            {appointments.length > 0 && (
+              <div className="mt-4 space-y-2 max-h-[220px] overflow-y-auto">
+                {appointments.map(appt => (
+                  <div key={appt.id} className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-left">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{appt.doctor_name || 'Assigned Doctor'}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                          <ClockIcon className="w-3 h-3" />
+                          {new Date(appt.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                        appt.status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                        appt.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-slate-200 text-slate-600'
+                      }`}>
+                        {appt.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

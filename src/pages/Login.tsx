@@ -5,9 +5,9 @@ import { motion } from 'motion/react';
 
 const DEMO_ACCOUNTS = [
   { label: 'Admin', email: 'admin@kidneycare.bd', role: 'admin' as const, id: -1, name: 'Admin Officer', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
-  { label: 'Doctor', email: 'doctor@kidneycare.bd', role: 'doctor' as const, id: -2, name: 'Dr. Ahmed Khan', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
-  { label: 'CHW', email: 'chw@kidneycare.bd', role: 'chw' as const, id: -3, name: 'CHW Fatema Begum', color: 'bg-[#EAFAF1] text-[#1a7a44] hover:bg-[#2ECC71]/10 border-[#2ECC71]/30' },
-  { label: 'Patient', email: 'patient_dhaka1@kidneycare.bd', role: 'patient' as const, id: -4, name: 'Abdul Karim', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'Doctor', email: 'doctor1@kidneycare.bd', role: 'doctor' as const, id: -2, name: 'Dr. Hasan', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
+  { label: 'CHW', email: 'chw_dhaka@kidneycare.bd', role: 'chw' as const, id: -3, name: 'CHW Dhaka', color: 'bg-[#EAFAF1] text-[#1a7a44] hover:bg-[#2ECC71]/10 border-[#2ECC71]/30' },
+  { label: 'Patient', email: 'patient_1@kidneycare.bd', role: 'patient' as const, id: -4, name: 'Patient 1 (Dist-1)', color: 'bg-[#EFF8FB] text-[#1A6B8A] hover:bg-[#1A6B8A]/10 border-[#1A6B8A]/30' },
 ];
 
 export default function Login({ onRegister, registeredSuccess, onClearSuccess }: { onRegister: () => void; registeredSuccess?: boolean; onClearSuccess?: () => void }) {

@@ -4,7 +4,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import {
   Users, Search, Bell, ChevronRight, AlertCircle,
   Activity, Clock, X, UserPlus, UserMinus, CheckCircle2, Loader2,
-  FlaskConical, ChevronDown, ChevronUp, Syringe, Video,
+  FlaskConical, ChevronDown, ChevronUp, Syringe, Video, PhoneCall,
   AlertTriangle, Check, Heart, MapPin,
   RefreshCw, Filter, BarChart3,
   FileText
@@ -525,6 +525,92 @@ function PendingLabsPanel({ labs, loading, onSelect, bn }: {
   );
 }
 
+// ── Appointments Panel ────────────────────────────────────────────────────────
+function AppointmentsPanel({ appointments, loading, onSelect, token, onUpdate, bn }: {
+  appointments: any[]; loading: boolean; onSelect: (p: any) => void; token: string; onUpdate: () => void; bn: boolean;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/doctor/appointments/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status })
+    });
+    onUpdate();
+  };
+
+  if (!loading && appointments.length === 0) return null;
+  return (
+    <div className="rounded-2xl overflow-hidden border shadow-sm mt-4" style={{ borderColor: '#3498DB', background: '#F5F9FC' }}>
+      <button onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3.5 border-b border-blue-100"
+        style={{ background: 'linear-gradient(135deg,#EBF5FB,#F5F9FC)' }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-sm shadow-blue-500/20">
+            <PhoneCall className="w-5 h-5" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-black text-slate-900">{bn ? 'পরামর্শ রিকোয়েস্ট' : 'Consultation Requests'}</p>
+            <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+              {loading ? (bn ? 'লোড হচ্ছে...' : 'Loading...')
+                : `${appointments.filter(a => a.status === 'pending').length} ${bn ? 'টি নতুন রিকোয়েস্ট' : 'pending requests'}`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {!loading && <span className="text-xs font-black px-2.5 py-1 rounded-full bg-blue-500 text-white">{appointments.filter(a => a.status === 'pending').length}</span>}
+          {expanded ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-blue-600" />}
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+            <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+              {loading && [1,2].map(i => <div key={i} className="h-16 bg-white/70 rounded-xl animate-pulse" />)}
+              {!loading && appointments.map((appt, i) => (
+                <motion.div key={appt.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                  className={`bg-white rounded-xl border p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm ${appt.status === 'pending' ? 'border-blue-200' : 'border-slate-100 opacity-60'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black text-white shrink-0 ${appt.type === 'emergency' ? 'bg-red-500' : 'bg-blue-500'}`}>
+                      {appt.patient_name?.charAt(0) || 'P'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-slate-900">{appt.patient_name}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${appt.type === 'emergency' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {appt.type.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">{appt.reason}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {appt.status === 'pending' ? (
+                      <>
+                        <button onClick={() => updateStatus(appt.id, 'completed')} className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-xl transition-all" title="Mark Resolved">
+                          <Check className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => onSelect({ id: appt.patient_id, name: appt.patient_name, routeToCall: true })} className="flex items-center gap-1.5 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold text-xs transition-all shadow-sm">
+                          <Video className="w-3.5 h-3.5" />
+                          {bn ? 'কল করুন' : 'Start Call'}
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-black text-slate-400 uppercase px-2">{appt.status}</span>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: (p: { id: number; name?: string }) => void }) {
   const { token, user } = useAuth();
@@ -534,6 +620,7 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
   const [patients, setPatients] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [pendingLabs, setPendingLabs] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [labsLoading, setLabsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -555,15 +642,17 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
     setLabsLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
     try {
-      const [pRes, aRes, lRes] = await Promise.all([
+      const [pRes, aRes, lRes, apptRes] = await Promise.all([
         fetch(`/api/doctor/patients?assignedOnly=${assignedOnly}`, { headers }),
         fetch('/api/doctor/alerts', { headers }),
         fetch(`/api/doctor/pending-labs?assignedOnly=${assignedOnly}`, { headers }),
+        fetch('/api/appointments', { headers }),
       ]);
       setPatients(await pRes.json());
       setAlerts(await aRes.json());
       const labData = await lRes.json();
       setPendingLabs(Array.isArray(labData) ? labData : []);
+      setAppointments(apptRes.ok ? await apptRes.json() : []);
       setLastRefresh(new Date());
     } catch {
       showToast('error', bn ? 'ডেটা লোড করতে ব্যর্থ' : 'Failed to load dashboard data');
@@ -742,6 +831,14 @@ export default function DoctorDashboard({ onSelectPatient }: { onSelectPatient: 
 
       {/* ── PENDING LABS ── */}
       <PendingLabsPanel labs={pendingLabs} loading={labsLoading} onSelect={onSelectPatient} bn={bn} />
+
+      {/* ── APPOINTMENTS ── */}
+      <AppointmentsPanel appointments={appointments} loading={labsLoading} onSelect={(p) => {
+        onSelectPatient({ id: p.id, name: p.name });
+        if (p.routeToCall) {
+           window.dispatchEvent(new CustomEvent('navigate', { detail: { page: 'teleconsult', teleconsultPatient: { id: p.id, name: p.name } } }));
+        }
+      }} token={token} onUpdate={fetchData} bn={bn} />
 
       {/* ── SEARCH + FILTERS ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">

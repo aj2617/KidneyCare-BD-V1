@@ -8,6 +8,41 @@ import { fileURLToPath } from 'url';
 import webpush from 'web-push';
 import { randomUUID } from 'crypto';
 
+// ─── Rate Limiter (in-memory) ────────────────────────────────────────────────
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+function rateLimit(key: string, windowMs: number, maxRequests: number): boolean {
+  const now = Date.now();
+  const entry = rateLimitStore.get(key);
+
+  if (!entry || now > entry.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+
+  if (entry.count >= maxRequests) {
+    return false;
+  }
+
+  entry.count++;
+  return true;
+}
+
+// Clean up expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -253,6 +288,18 @@ db.exec(`
     FOREIGN KEY(patient_id) REFERENCES patients(id)
   );
 
+  CREATE TABLE IF NOT EXISTS consultation_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER,
+    doctor_id INTEGER,
+    type TEXT DEFAULT 'emergency',
+    status TEXT DEFAULT 'pending',
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(patient_id) REFERENCES patients(id),
+    FOREIGN KEY(doctor_id) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS risk_feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     doctor_id INTEGER,
@@ -300,6 +347,22 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+`);
+
+// ─── Database Indexes for Performance ────────────────────────────────────────
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_patients_user_id ON patients(user_id);
+  CREATE INDEX IF NOT EXISTS idx_patients_assigned_doctor ON patients(assigned_doctor_id);
+  CREATE INDEX IF NOT EXISTS idx_vitals_log_patient_id ON vitals_log(patient_id);
+  CREATE INDEX IF NOT EXISTS idx_vitals_log_date ON vitals_log(date);
+  CREATE INDEX IF NOT EXISTS idx_gfr_records_patient_id ON gfr_records(patient_id);
+  CREATE INDEX IF NOT EXISTS idx_gfr_records_date ON gfr_records(date);
+  CREATE INDEX IF NOT EXISTS idx_alerts_patient_id ON alerts(patient_id);
+  CREATE INDEX IF NOT EXISTS idx_alerts_doctor_id ON alerts(doctor_id);
+  CREATE INDEX IF NOT EXISTS idx_alerts_is_read ON alerts(is_read);
+  CREATE INDEX IF NOT EXISTS idx_prescriptions_patient_id ON prescriptions(patient_id);
+  CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_medication_adherence_patient ON medication_adherence(patient_id);
 `);
 
 // ─── Add new columns to existing tables (safe, idempotent) ──────────────────
@@ -527,9 +590,130 @@ async function startServer() {
     if (!token) return res.sendStatus(401);
     jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
       if (err) return res.sendStatus(403);
-      req.user = user;
+      const activeUser = db.prepare(`
+        SELECT id, name, role, COALESCE(active, 1) as active
+        FROM users
+        WHERE id = ?
+      `).get(user.id) as any;
+      if (!activeUser || Number(activeUser.active ?? 1) === 0) {
+        return res.status(403).json({ error: 'Account disabled' });
+      }
+      req.user = { id: activeUser.id, name: activeUser.name, role: activeUser.role };
       next();
     });
+  };
+
+  const getPatientById = (patientId: number) => db.prepare(`
+    SELECT
+      p.id as patient_id,
+      p.user_id,
+      p.age,
+      p.sex,
+      p.weight,
+      p.diabetes,
+      p.hypertension,
+      p.family_history,
+      p.ckd_stage,
+      p.risk_score,
+      p.assigned_doctor_id,
+      p.arsenic_prone_area,
+      p.herbal_remedy_use,
+      p.nsaid_use,
+      p.uacr,
+      p.caregiver_phone,
+      p.survey_completed,
+      p.last_log_date,
+      p.streak_days,
+      u.name,
+      u.email,
+      u.role,
+      u.division,
+      u.district,
+      u.specialty,
+      u.bmdc_number,
+      u.hospital,
+      u.experience
+    FROM patients p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.id = ?
+  `).get(patientId) as any;
+
+  const getPatientByUserId = (userId: number) => db.prepare(`
+    SELECT
+      p.id as patient_id,
+      p.user_id,
+      p.age,
+      p.sex,
+      p.weight,
+      p.diabetes,
+      p.hypertension,
+      p.family_history,
+      p.ckd_stage,
+      p.risk_score,
+      p.assigned_doctor_id,
+      p.arsenic_prone_area,
+      p.herbal_remedy_use,
+      p.nsaid_use,
+      p.uacr,
+      p.caregiver_phone,
+      p.survey_completed,
+      p.last_log_date,
+      p.streak_days,
+      u.name,
+      u.email,
+      u.role,
+      u.division,
+      u.district,
+      u.specialty,
+      u.bmdc_number,
+      u.hospital,
+      u.experience
+    FROM patients p
+    JOIN users u ON p.user_id = u.id
+    WHERE p.user_id = ?
+  `).get(userId) as any;
+
+  const canAccessPatientRecord = (user: any, patient: any) => {
+    if (!user || !patient) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'patient') return patient.user_id === user.id;
+    if (user.role === 'doctor') return patient.assigned_doctor_id === user.id;
+    return false;
+  };
+
+  const requirePatientAccess = (req: any, res: any, patientId: number) => {
+    const patient = getPatientById(patientId);
+    if (!patient) {
+      res.status(404).json({ error: 'Not found' });
+      return null;
+    }
+    if (!canAccessPatientRecord(req.user, patient)) {
+      res.sendStatus(403);
+      return null;
+    }
+    return patient;
+  };
+
+  const sanitizePatientRow = (row: any) => {
+    if (!row) return row;
+    const { pin, ...safe } = row;
+    return safe;
+  };
+
+  const SMS_WEBHOOK_SECRET = process.env.SMS_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || '';
+  const IVR_WEBHOOK_SECRET = process.env.IVR_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || '';
+
+  const requireWebhookSecret = (req: any, res: any, expectedSecret: string, label: string) => {
+    if (!expectedSecret) {
+      res.status(503).json({ error: `${label} webhook secret is not configured` });
+      return false;
+    }
+    const provided = req.get('x-webhook-secret') || req.get('x-kc-webhook-secret') || '';
+    if (provided !== expectedSecret) {
+      res.sendStatus(401);
+      return false;
+    }
+    return true;
   };
 
   // ─── Heatmap & Reports ────────────────────────────────────────────────────
@@ -1076,6 +1260,12 @@ async function startServer() {
   // AUTH ROUTES
   // ════════════════════════════════════════════════════════════════════════════
   app.post('/api/auth/register', async (req, res) => {
+    // Rate limit: 5 registrations per 15 minutes per IP
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    if (!rateLimit(`register:${clientIp}`, 15 * 60 * 1000, 5)) {
+      return res.status(429).json({ error: 'Too many registration attempts. Please try again later.' });
+    }
+
     const {
       name, email, password, role, division, district,
       phone,
@@ -1087,6 +1277,18 @@ async function startServer() {
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     try {
       const result = db.prepare(
@@ -1128,12 +1330,31 @@ async function startServer() {
   });
 
   app.post('/api/auth/login', async (req, res) => {
+    // Rate limit: 10 login attempts per 15 minutes per IP
+    const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+    if (!rateLimit(`login:${clientIp}`, 15 * 60 * 1000, 10)) {
+      return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+    }
+
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email) as any;
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const token = jwt.sign({ id: user.id, role: user.role, name: user.name }, JWT_SECRET);
+    if (Number(user.active ?? 1) === 0) {
+      return res.status(403).json({ error: 'Account disabled' });
+    }
+
+    // JWT expires in 24 hours
+    const token = jwt.sign(
+      { id: user.id, role: user.role, name: user.name },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
     res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
   });
 
@@ -1141,11 +1362,8 @@ async function startServer() {
   // PATIENT ROUTES
   // ════════════════════════════════════════════════════════════════════════════
   app.get('/api/patient/profile', authenticateToken, (req: any, res) => {
-    const patient = db.prepare(`
-      SELECT u.*, p.*
-      FROM users u JOIN patients p ON u.id = p.user_id
-      WHERE u.id = ?
-    `).get(req.user.id);
+    const patient = getPatientByUserId(req.user.id);
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
     res.json(patient);
   });
 
@@ -1420,7 +1638,7 @@ async function startServer() {
       query += ' WHERE p.assigned_doctor_id = ?';
       params.push(req.user.id);
     }
-    res.json(db.prepare(query).all(...params));
+    res.json(db.prepare(query).all(...params).map(sanitizePatientRow));
   });
 
   app.get('/api/doctor/patient/:id', authenticateToken, (req: any, res) => {
@@ -1432,7 +1650,7 @@ async function startServer() {
     const vitals = db.prepare('SELECT * FROM vitals_log WHERE patient_id = ? ORDER BY date DESC').all(req.params.id);
     const gfr = db.prepare('SELECT * FROM gfr_records WHERE patient_id = ? ORDER BY date DESC').all(req.params.id);
     const prescriptions = db.prepare('SELECT * FROM prescriptions WHERE patient_id = ? ORDER BY date DESC LIMIT 5').all(req.params.id);
-    res.json({ patient, vitals, gfr, prescriptions });
+    res.json({ patient: sanitizePatientRow(patient), vitals, gfr, prescriptions });
   });
 
   app.get('/api/doctor/alerts', authenticateToken, (req: any, res) => {
@@ -1474,7 +1692,7 @@ async function startServer() {
       params.push(`%${q.toLowerCase()}%`, `%${q.toLowerCase()}%`);
     }
     query += ' ORDER BY u.name LIMIT 30';
-    res.json(db.prepare(query).all(...params));
+    res.json(db.prepare(query).all(...params).map(sanitizePatientRow));
   });
 
   app.post('/api/doctor/log-vitals', authenticateToken, (req: any, res) => {
@@ -1646,15 +1864,27 @@ async function startServer() {
   });
 
   app.get('/api/prescriptions/:id', authenticateToken, (req: any, res) => {
-    const rx = db.prepare('SELECT p.*, u.name as doctor_name, u2.name as patient_name FROM prescriptions p JOIN users u ON p.doctor_id = u.id JOIN patients pa ON p.patient_id = pa.id JOIN users u2 ON pa.user_id = u2.id WHERE p.id = ?').get(req.params.id) as any;
+    const rx = db.prepare('SELECT p.*, u.name as doctor_name, u2.name as patient_name, pa.user_id as patient_user_id, pa.assigned_doctor_id FROM prescriptions p JOIN users u ON p.doctor_id = u.id JOIN patients pa ON p.patient_id = pa.id JOIN users u2 ON pa.user_id = u2.id WHERE p.id = ?').get(req.params.id) as any;
     if (!rx) return res.status(404).json({ error: 'Not found' });
+    const isPatientOwner = req.user.role === 'patient' && rx.patient_user_id === req.user.id;
+    const isPrescribingDoctor = req.user.role === 'doctor' && rx.doctor_id === req.user.id;
+    const isAssignedDoctor = req.user.role === 'doctor' && rx.assigned_doctor_id === req.user.id;
+    if (!(req.user.role === 'admin' || isPatientOwner || isPrescribingDoctor || isAssignedDoctor)) {
+      return res.sendStatus(403);
+    }
     res.json({ ...rx, medicines: JSON.parse(rx.medicines || '[]') });
   });
 
   app.post('/api/prescriptions/:id/refill', authenticateToken, (req: any, res) => {
     const { source } = req.body;
-    const rx = db.prepare('SELECT * FROM prescriptions WHERE id = ?').get(req.params.id) as any;
+    const rx = db.prepare('SELECT p.*, pa.user_id as patient_user_id, pa.assigned_doctor_id FROM prescriptions p JOIN patients pa ON p.patient_id = pa.id WHERE p.id = ?').get(req.params.id) as any;
     if (!rx) return res.status(404).json({ error: 'Not found' });
+    const isPatientOwner = req.user.role === 'patient' && rx.patient_user_id === req.user.id;
+    const isPrescribingDoctor = req.user.role === 'doctor' && rx.doctor_id === req.user.id;
+    const isAssignedDoctor = req.user.role === 'doctor' && rx.assigned_doctor_id === req.user.id;
+    if (!(req.user.role === 'admin' || isPatientOwner || isPrescribingDoctor || isAssignedDoctor)) {
+      return res.sendStatus(403);
+    }
     db.prepare('INSERT INTO medication_refills (prescription_id, patient_id, source) VALUES (?, ?, ?)').run(rx.id, rx.patient_id, source || 'patient');
     res.json({ message: 'Refill logged' });
   });
@@ -1770,11 +2000,52 @@ async function startServer() {
     const result = db.prepare(
       'INSERT INTO teleconsultations (doctor_id, patient_id, status, join_token, room_id) VALUES (?, ?, ?, ?, ?)'
     ).run(doctorId, patient_id || null, 'active', joinToken, roomId);
+
+    // Notify the patient via Push Notification
+    if (patient_id) {
+      try {
+        const patient = db.prepare('SELECT user_id, language FROM patients WHERE id = ?').get(patient_id) as any;
+        if (patient) {
+          const doc = db.prepare('SELECT name FROM users WHERE id = ?').get(doctorId) as any;
+          const doctorName = doc ? (doc.name.replace(/^Dr\.?\s+/i, '')) : 'Doctor';
+          
+          const subscriptions = db.prepare('SELECT subscription FROM push_subscriptions WHERE user_id = ?').all(patient.user_id) as any[];
+          
+          const bn = patient.language === 'bn';
+          const payload = JSON.stringify({
+            title: bn ? '📞 টেলিমেডিসিন কল' : '📞 Incoming Teleconsultation',
+            body: bn 
+              ? `ডাঃ ${doctorName} আপনাকে ভিডিও কল করছেন। যোগ দিতে ট্যাপ করুন!`
+              : `Dr. ${doctorName} is video calling you. Tap to join!`,
+            url: `/?join=${joinToken}`,
+          });
+          
+          subscriptions.forEach(sub => {
+            try {
+              webpush.sendNotification(JSON.parse(sub.subscription), payload).catch((err: any) => {
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                   db.prepare('DELETE FROM push_subscriptions WHERE subscription = ?').run(sub.subscription);
+                }
+              });
+            } catch (e) {}
+          });
+        }
+      } catch (err) {
+        console.error('[Push] Failed to send teleconsult push:', err);
+      }
+    }
+
     res.json({ id: result.lastInsertRowid, joinToken, roomId });
   });
 
   app.post('/api/teleconsult/:id/end', authenticateToken, (req: any, res) => {
     const { notes } = req.body;
+    const consult = db.prepare('SELECT * FROM teleconsultations WHERE id = ?').get(req.params.id) as any;
+    if (!consult) return res.status(404).json({ error: 'Consultation not found' });
+    const isParticipant = req.user.role === 'admin'
+      || (req.user.role === 'doctor' && consult.doctor_id === req.user.id)
+      || (req.user.role === 'patient' && db.prepare('SELECT 1 FROM patients WHERE id = ? AND user_id = ?').get(consult.patient_id, req.user.id));
+    if (!isParticipant) return res.sendStatus(403);
     db.prepare('UPDATE teleconsultations SET end_time = CURRENT_TIMESTAMP, status = ?, notes = ? WHERE id = ?').run('ended', notes || '', req.params.id);
     res.json({ message: 'Consultation ended' });
   });
@@ -1782,6 +2053,12 @@ async function startServer() {
   // Save notes mid-call without ending the session
   app.patch('/api/teleconsult/:id/notes', authenticateToken, (req: any, res) => {
     const { notes } = req.body;
+    const consult = db.prepare('SELECT * FROM teleconsultations WHERE id = ?').get(req.params.id) as any;
+    if (!consult) return res.status(404).json({ error: 'Consultation not found' });
+    const isParticipant = req.user.role === 'admin'
+      || (req.user.role === 'doctor' && consult.doctor_id === req.user.id)
+      || (req.user.role === 'patient' && db.prepare('SELECT 1 FROM patients WHERE id = ? AND user_id = ?').get(consult.patient_id, req.user.id));
+    if (!isParticipant) return res.sendStatus(403);
     db.prepare('UPDATE teleconsultations SET notes = ? WHERE id = ?').run(notes || '', req.params.id);
     res.json({ ok: true });
   });
@@ -1795,6 +2072,60 @@ async function startServer() {
       rows = patient ? db.prepare('SELECT t.*, u.name as doctor_name FROM teleconsultations t JOIN users u ON t.doctor_id = u.id WHERE t.patient_id = ? ORDER BY t.start_time DESC').all(patient.id) : [];
     }
     res.json(rows);
+  });
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // APPOINTMENTS / CONSULTATION REQUESTS
+  // ════════════════════════════════════════════════════════════════════════════
+  app.post('/api/patient/appointment-request', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'patient') return res.sendStatus(403);
+    const { type, reason } = req.body;
+    const patient = db.prepare('SELECT id, assigned_doctor_id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+    if (!patient) return res.status(404).json({ error: 'Patient not found' });
+    
+    // Auto-assign doctor if needed
+    let doctorId = patient.assigned_doctor_id;
+    if (!doctorId) {
+      const defaultDoc = db.prepare("SELECT id FROM users WHERE role = 'doctor' LIMIT 1").get() as any;
+      if (defaultDoc) doctorId = defaultDoc.id;
+    }
+    if (!doctorId) return res.status(400).json({ error: 'No doctor available to receive request' });
+
+    const result = db.prepare(
+      'INSERT INTO consultation_requests (patient_id, doctor_id, type, reason) VALUES (?, ?, ?, ?)'
+    ).run(patient.id, doctorId, type || 'emergency', reason || '');
+    
+    // Create an alert for the doctor
+    db.prepare(
+      'INSERT INTO alerts (patient_id, type, message) VALUES (?, ?, ?)'
+    ).run(patient.id, type === 'emergency' ? 'CRITICAL' : 'WARNING', `Consultation Request: ${reason}`);
+
+    res.json({ id: result.lastInsertRowid, status: 'pending' });
+  });
+
+  app.get('/api/appointments', authenticateToken, (req: any, res) => {
+    let rows: any[];
+    if (req.user.role === 'doctor') {
+      rows = db.prepare(
+        'SELECT c.*, u.name as patient_name FROM consultation_requests c JOIN patients p ON c.patient_id = p.id JOIN users u ON p.user_id = u.id WHERE c.doctor_id = ? ORDER BY c.created_at DESC'
+      ).all(req.user.id);
+    } else {
+      const patient = db.prepare('SELECT id FROM patients WHERE user_id = ?').get(req.user.id) as any;
+      rows = patient ? db.prepare(
+        'SELECT c.*, u.name as doctor_name FROM consultation_requests c JOIN users u ON c.doctor_id = u.id WHERE c.patient_id = ? ORDER BY c.created_at DESC'
+      ).all(patient.id) : [];
+    }
+    res.json(rows);
+  });
+
+  app.patch('/api/doctor/appointments/:id', authenticateToken, (req: any, res) => {
+    if (req.user.role !== 'doctor') return res.sendStatus(403);
+    const { status } = req.body;
+    const appointment = db.prepare('SELECT doctor_id FROM consultation_requests WHERE id = ?').get(req.params.id) as any;
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+    if (appointment.doctor_id !== req.user.id) return res.sendStatus(403);
+    db.prepare('UPDATE consultation_requests SET status = ? WHERE id = ?').run(status, req.params.id);
+    res.json({ ok: true });
   });
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -1870,7 +2201,7 @@ async function startServer() {
       WHERE a.chw_id = ?
       ORDER BY p.risk_score DESC
     `).all(req.user.id);
-    res.json(patients);
+    res.json(patients.map(sanitizePatientRow));
   });
 
   app.post('/api/chw/assign-patient', authenticateToken, (req: any, res) => {
@@ -2499,11 +2830,11 @@ async function startServer() {
 
   // ─── FHIR R4 API ─────────────────────────────────────────────────────────
   app.get('/api/fhir/Patient/:id', authenticateToken, (req: any, res) => {
-    const user = db.prepare('SELECT u.*, p.* FROM users u JOIN patients p ON u.id = p.user_id WHERE p.id = ?').get(req.params.id) as any;
-    if (!user) return res.status(404).json({ error: 'Not found' });
+    const user = requirePatientAccess(req, res, Number(req.params.id));
+    if (!user) return;
     res.json({
       resourceType: 'Patient',
-      id: `patient-${user.id}`,
+      id: `patient-${user.patient_id ?? user.id}`,
       name: [{ use: 'official', text: user.name }],
       gender: user.sex === 'female' ? 'female' : 'male',
       birthDate: user.age ? `${new Date().getFullYear() - user.age}-01-01` : undefined,
@@ -2518,7 +2849,9 @@ async function startServer() {
   app.get('/api/fhir/Observation', authenticateToken, (req: any, res) => {
     const { patient } = req.query;
     if (!patient) return res.status(400).json({ error: 'patient param required' });
-    const vitals = db.prepare('SELECT * FROM vitals_log WHERE patient_id = ? ORDER BY date DESC LIMIT 10').all(patient) as any[];
+    const patientRow = requirePatientAccess(req, res, Number(patient));
+    if (!patientRow) return;
+    const vitals = db.prepare('SELECT * FROM vitals_log WHERE patient_id = ? ORDER BY date DESC LIMIT 10').all(Number(patient)) as any[];
     const bundle = {
       resourceType: 'Bundle',
       type: 'searchset',
@@ -2545,8 +2878,8 @@ async function startServer() {
   app.get('/api/fhir/Condition', authenticateToken, (req: any, res) => {
     const { patient } = req.query;
     if (!patient) return res.status(400).json({ error: 'patient param required' });
-    const p = db.prepare('SELECT * FROM patients WHERE id = ?').get(patient) as any;
-    if (!p) return res.status(404).json({ error: 'Not found' });
+    const p = requirePatientAccess(req, res, Number(patient));
+    if (!p) return;
     const conditions = [];
     if (p.ckd_stage) conditions.push({ resourceType: 'Condition', id: `cond-ckd-${p.id}`, clinicalStatus: { coding: [{ code: 'active' }] }, code: { coding: [{ system: 'http://snomed.info/sct', code: '709044004', display: `Chronic kidney disease stage ${p.ckd_stage}` }] }, subject: { reference: `Patient/${patient}` } });
     if (p.diabetes) conditions.push({ resourceType: 'Condition', id: `cond-dm-${p.id}`, code: { coding: [{ system: 'http://snomed.info/sct', code: '44054006', display: 'Type 2 diabetes mellitus' }] }, subject: { reference: `Patient/${patient}` } });
@@ -2611,6 +2944,7 @@ async function startServer() {
   app.post('/api/sms/inbound', (req, res) => {
     const { from, text, patientId } = req.body;
     if (!text) return res.status(400).json({ error: 'Missing text' });
+    if (!requireWebhookSecret(req, res, SMS_WEBHOOK_SECRET, 'SMS')) return;
     const parts = text.trim().toUpperCase().split(/\s+/);
     const cmd = parts[0];
     let reply = '';
@@ -2678,6 +3012,7 @@ async function startServer() {
   // Missed-call webhook → replies with latest GFR summary via SMS
   app.post('/api/ivr/missed-call', (req, res) => {
     const { from } = req.body;
+    if (!requireWebhookSecret(req, res, IVR_WEBHOOK_SECRET, 'IVR')) return;
     const gfr = db.prepare('SELECT * FROM gfr_records ORDER BY id DESC LIMIT 1').get() as any;
     const smsReply = gfr
       ? `KidneyCare BD: Your latest GFR is ${Math.round(gfr.ckd_epi)} mL/min, CKD Stage ${gfr.stage}. Visit app.kidneycare.bd for full report.`

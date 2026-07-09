@@ -237,19 +237,23 @@ self.addEventListener('push', (event) => {
   const body   = data.body   || 'Please log your vitals today.';
   const url    = data.url    || '/?page=vitals';
 
+  const actions = data.actions || [
+    { action: 'primary', title: url.includes('join') ? 'Join Call' : 'Log Now' },
+    { action: 'dismiss', title: 'Dismiss' },
+  ];
+  
+  const tag = url.includes('join') ? 'teleconsult' : 'vitals-reminder';
+
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
       icon:      '/favicon.svg',
       badge:     '/favicon.svg',
-      tag:       'vitals-reminder',
-      renotify:  false,
-      vibrate:   [200, 100, 200],
+      tag:       tag,
+      renotify:  true,
+      vibrate:   [200, 100, 200, 100, 200], // distinct vibration for calls
       data:      { url },
-      actions: [
-        { action: 'log',    title: 'Log Now' },
-        { action: 'dismiss', title: 'Dismiss' },
-      ],
+      actions:   actions,
     })
   );
 });
