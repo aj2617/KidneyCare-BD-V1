@@ -20,6 +20,7 @@ async function resetAndSeed() {
   db.exec('DELETE FROM chw_visit_summaries');
   db.exec('DELETE FROM patient_surveys');
   db.exec('DELETE FROM consultation_requests');
+  db.exec('DELETE FROM diet_suggestions');
   db.exec('PRAGMA foreign_keys = ON;');
 
   const hashedPassword = await bcrypt.hash('password123', 10);
@@ -124,15 +125,49 @@ async function resetAndSeed() {
       db.prepare('INSERT INTO chw_patient_assignments (chw_id, patient_id) VALUES (?, ?)').run(chwMatch.id, patientId);
     }
 
-    // Add some vitals
-    db.prepare('INSERT INTO vitals_log (patient_id, systolic, diastolic, blood_sugar, creatinine, urine_protein) VALUES (?, ?, ?, ?, ?, ?)').run(
-      patientId, 110 + i * 2, 70 + i, 5.0 + (i % 4), 0.8 + i * 0.15, 'Trace'
-    );
+    // Add multiple vitals logs over time (last 6 months)
+    for (let month = 5; month >= 0; month--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - month);
+      date.setDate(date.getDate() - (i % 5));
+      const dateStr = date.toISOString();
+      
+      const systolic = 110 + i * 2 + Math.floor(Math.random() * 20);
+      const diastolic = 70 + i + Math.floor(Math.random() * 10);
+      const bloodSugar = 5.0 + (i % 4) + Math.random() * 2;
+      const creatinine = 0.8 + i * 0.15 + (month * 0.05);
+      
+      db.prepare('INSERT INTO vitals_log (patient_id, date, systolic, diastolic, blood_sugar, creatinine, urine_protein) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+        patientId, dateStr, systolic, diastolic, bloodSugar, creatinine, 'Trace'
+      );
+      
+      // Add GFR records matching the vitals
+      const mdrd = 90 - i * 3 - (month * 2);
+      db.prepare('INSERT INTO gfr_records (patient_id, date, mdrd, cg, ckd_epi, stage, recommendation) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+        patientId, dateStr, mdrd, mdrd - 2, mdrd + 2, ckd_stage, 'Monitor regularly'
+      );
+    }
 
-    // Add GFR records
-    db.prepare('INSERT INTO gfr_records (patient_id, mdrd, cg, ckd_epi, stage, recommendation) VALUES (?, ?, ?, ?, ?, ?)').run(
-      patientId, 90 - i * 3, 85 - i * 3, 88 - i * 3, ckd_stage, 'Monitor regularly'
-    );
+    // Add some Alerts
+    if (i % 3 === 0) {
+      db.prepare('INSERT INTO alerts (patient_id, doctor_id, type, message, is_read, triggered_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        patientId, doctorId, 'WARNING', 'Elevated blood pressure detected in recent log', 0, new Date().toISOString()
+      );
+    }
+    
+    // Add some consultation requests
+    if (i % 4 === 0) {
+      db.prepare('INSERT INTO consultation_requests (patient_id, doctor_id, type, status, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(
+        patientId, doctorId, 'routine', 'pending', 'Experiencing mild swelling in legs', new Date().toISOString()
+      );
+    }
+
+    // Add prescriptions
+    if (i % 2 === 0) {
+      db.prepare('INSERT INTO prescriptions (doctor_id, patient_id, date, medicines, notes) VALUES (?, ?, ?, ?, ?)').run(
+        doctorId, patientId, new Date().toISOString(), '[{"name":"Losartan","dosage":"50mg","frequency":"1-0-0"}]', 'Take after breakfast'
+      );
+    }
 
     // Add survey response
     const surveyIndex = i % 3;
@@ -145,6 +180,38 @@ async function resetAndSeed() {
     );
   }
   console.log('Created 20 patients and assigned them to doctors.');
+
+  // 5. Create CHW Demo Data
+  const chws = db.prepare('SELECT id FROM chw_workers').all() as any[];
+  for (const chw of chws) {
+    const assignments = db.prepare('SELECT patient_id FROM chw_patient_assignments WHERE chw_id = ?').all(chw.id) as any[];
+    
+    // Give CHW some points and a streak
+    db.prepare('UPDATE chw_workers SET points = ?, streak_days = ? WHERE id = ?').run(
+      Math.floor(Math.random() * 500) + 100, Math.floor(Math.random() * 10) + 2, chw.id
+    );
+
+    for (const assign of assignments) {
+      // Past Visits (CHW visit summaries)
+      for (let v = 1; v <= 3; v++) {
+        const pastDate = new Date();
+        pastDate.setDate(pastDate.getDate() - (v * 15) - Math.floor(Math.random() * 5)); // 15, 30, 45 days ago
+        db.prepare('INSERT INTO chw_visit_summaries (chw_id, patient_id, visit_type, notes, timestamp) VALUES (?, ?, ?, ?, ?)').run(
+          chw.id, assign.patient_id, v % 2 === 0 ? 'routine' : 'follow-up', 'Checked vitals and discussed diet. Everything looks stable.', pastDate.toISOString()
+        );
+      }
+
+      // Scheduled Visits (Upcoming)
+      if (Math.random() > 0.3) { // 70% chance of an upcoming visit
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 7) + 1); // 1-7 days in future
+        db.prepare('INSERT INTO chw_scheduled_visits (chw_id, patient_id, visit_date, visit_type, reason, status) VALUES (?, ?, ?, ?, ?, ?)').run(
+          chw.id, assign.patient_id, futureDate.toISOString(), 'routine', 'Monthly follow up check', 'scheduled'
+        );
+      }
+    }
+  }
+  console.log('Created CHW demo data (visits, schedules, points).');
 
   // Create Articles
   const articles = [
@@ -167,6 +234,42 @@ async function resetAndSeed() {
   const insertArticle = db.prepare('INSERT INTO articles (title_en, title_bn, content_en, content_bn, category) VALUES (?, ?, ?, ?, ?)');
   articles.forEach(a => insertArticle.run(a.title_en, a.title_bn, a.content_en, a.content_bn, a.category));
   console.log('Created knowledge base articles.');
+
+  // Create Diet Suggestions
+  const diets = [
+    {
+      food_name_en: 'Apple', food_name_bn: 'আপেল', category: 'Fruits', potassium: 195, sodium: 1, phosphorus: 11, allowed_stages: '1,2,3,4,5',
+      advice_en: 'Safe for all stages. High in fiber and anti-inflammatory.', advice_bn: 'সব পর্যায়ে নিরাপদ। উচ্চ ফাইবারযুক্ত।'
+    },
+    {
+      food_name_en: 'Banana', food_name_bn: 'কলা', category: 'Fruits', potassium: 422, sodium: 1, phosphorus: 22, allowed_stages: '1,2,3',
+      advice_en: 'High potassium. Avoid in late stages (4-5).', advice_bn: 'উচ্চ পটাশিয়াম। শেষ পর্যায়ে (৪-৫) এড়িয়ে চলুন।'
+    },
+    {
+      food_name_en: 'Cauliflower', food_name_bn: 'ফুলকপি', category: 'Vegetables', potassium: 176, sodium: 19, phosphorus: 26, allowed_stages: '1,2,3,4,5',
+      advice_en: 'Excellent alternative to potatoes. Low in potassium.', advice_bn: 'আলুর চমৎকার বিকল্প। পটাশিয়াম কম।'
+    },
+    {
+      food_name_en: 'Potato', food_name_bn: 'আলু', category: 'Vegetables', potassium: 620, sodium: 5, phosphorus: 50, allowed_stages: '1,2',
+      advice_en: 'Very high potassium. Can be eaten if double boiled.', advice_bn: 'খুব উচ্চ পটাশিয়াম। ডাবল সেদ্ধ করে খাওয়া যেতে পারে।'
+    },
+    {
+      food_name_en: 'White Rice', food_name_bn: 'সাদা ভাত', category: 'Grains', potassium: 54, sodium: 1, phosphorus: 68, allowed_stages: '1,2,3,4,5',
+      advice_en: 'Safe staple food. Low in minerals.', advice_bn: 'নিরাপদ প্রধান খাদ্য। খনিজ কম।'
+    },
+    {
+      food_name_en: 'Processed Meat', food_name_bn: 'প্রক্রিয়াজাত মাংস', category: 'Proteins', potassium: 300, sodium: 800, phosphorus: 200, allowed_stages: '',
+      advice_en: 'Avoid completely. High sodium and phosphorus.', advice_bn: 'সম্পূর্ণরূপে এড়িয়ে চলুন। উচ্চ সোডিয়াম এবং ফসফরাস।'
+    },
+    {
+      food_name_en: 'Chicken Breast', food_name_bn: 'মুরগির বুকের মাংস', category: 'Proteins', potassium: 250, sodium: 70, phosphorus: 180, allowed_stages: '1,2,3,4',
+      advice_en: 'Good source of high-quality protein, but monitor portions.', advice_bn: 'উচ্চ মানের প্রোটিনের ভালো উৎস, তবে পরিমাণের দিকে খেয়াল রাখুন।'
+    }
+  ];
+
+  const insertDiet = db.prepare('INSERT INTO diet_suggestions (food_name_en, food_name_bn, category, potassium, sodium, phosphorus, allowed_stages, advice_en, advice_bn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  diets.forEach(d => insertDiet.run(d.food_name_en, d.food_name_bn, d.category, d.potassium, d.sodium, d.phosphorus, d.allowed_stages, d.advice_en, d.advice_bn));
+  console.log('Created diet suggestions.');
 
   console.log('Seeding complete! Database has been reset with 5 doctors and 20 patients.');
 }

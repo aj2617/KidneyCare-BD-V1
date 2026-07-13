@@ -132,7 +132,7 @@ export default function DietAssistant() {
                       {language === 'bn' ? r.food_bn : r.food_en}
                       <span className="text-xs sm:text-sm ml-2" style={{ color: '#2ECC71' }}>({language === 'bn' ? r.food_en : r.food_bn})</span>
                     </p>
-                    <p className="text-xs sm:text-sm mt-1" style={{ color: '#1a7a44' }}>{r.advice_bn}</p>
+                    <p className="text-xs sm:text-sm mt-1" style={{ color: '#1a7a44' }}>{language === 'bn' ? r.advice_bn : r.advice_en}</p>
                   </div>
                 </div>
               </motion.div>

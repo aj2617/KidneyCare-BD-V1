@@ -136,7 +136,7 @@ export default function Login({ onRegister, registeredSuccess, onClearSuccess }:
               {error}
             </div>
           )}
-          
+
           <div className="space-y-2">
             <label className="text-sm font-semibold text-slate-700 ml-1">Email Address</label>
             <div className="relative">

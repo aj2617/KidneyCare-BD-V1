@@ -2152,7 +2152,7 @@ async function startServer() {
     const patient = db.prepare(`SELECT p.*, u.district FROM patients p JOIN users u ON p.user_id = u.id WHERE p.user_id = ?`).get(req.user.id) as any;
     if (!patient) return res.json({ warnings: [], recommendations: [] });
 
-    const stage = patient.ckd_stage || 1;
+    const stage = Number(patient.ckd_stage) || 1;
     const foods = db.prepare('SELECT * FROM diet_suggestions').all() as any[];
 
     const warnings = foods.filter(f => {
@@ -2163,7 +2163,7 @@ async function startServer() {
     const safe = foods.filter(f => {
       if (!f.allowed_stages) return false;
       return f.allowed_stages.split(',').map(Number).includes(stage);
-    }).map(f => ({ food_en: f.food_name_en, food_bn: f.food_name_bn, advice_bn: f.advice_bn }));
+    }).map(f => ({ food_en: f.food_name_en, food_bn: f.food_name_bn, advice_en: f.advice_en, advice_bn: f.advice_bn }));
 
     res.json({ stage, warnings: warnings.slice(0, 8), recommendations: safe.slice(0, 8) });
   });
